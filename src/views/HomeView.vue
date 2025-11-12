@@ -67,7 +67,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
@@ -87,9 +86,7 @@ const {
   hasMore,
   totalCount,
   loadData,
-  loadMore,
-  applyFilters,
-  applySearch
+  loadMore
 } = useData()
 
 const searchQuery = ref('')
@@ -124,25 +121,50 @@ const availableColumns = computed<Column[]>(() => [
   { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
 ])
 
-// Apply filters to data
+// Note: Filters are now applied at the DATABASE level in useData.ts
+// These client-side filters are kept for backwards compatibility but are mostly redundant
+// since filtering happens server-side. They serve as a safety net for edge cases.
 const filteredItems = computed(() => {
-  return applyFilters(dataItems.value, activeConfig.value)
+  // Since filters are applied server-side, this mostly just passes through
+  return dataItems.value
 })
 
-// Apply search to filtered data
+// Search is also applied server-side, so this is redundant
 const filteredAndSearchedItems = computed(() => {
-  return applySearch(filteredItems.value, searchQuery.value)
+  return filteredItems.value
 })
 
 // Load initial data when component mounts or config changes
-watch([activeConfig], async () => {
-  if (activeConfig.value) {
-    await loadData(
-      activeConfig.value.showTasks,
-      activeConfig.value.showEmails,
-      searchQuery.value
-    )
+// Watch for changes that should trigger a server-side reload
+const dataFetchConfig = computed(() => {
+  if (!activeConfig.value) return null
+  return {
+    id: activeConfig.value.id,
+    showTasks: activeConfig.value.showTasks,
+    showEmails: activeConfig.value.showEmails,
+    // Include filters so changes trigger reload
+    alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
+    dynamicFilters: activeConfig.value.dynamicFilters
   }
+})
+
+// Debounce filter changes to avoid too many API calls
+let filterTimeout: number | null = null
+watch(dataFetchConfig, () => {
+  if (filterTimeout) {
+    clearTimeout(filterTimeout)
+  }
+  
+  filterTimeout = window.setTimeout(async () => {
+    if (activeConfig.value) {
+      await loadData(
+        activeConfig.value.showTasks,
+        activeConfig.value.showEmails,
+        searchQuery.value,
+        activeConfig.value // Pass filter config to apply at database level
+      )
+    }
+  }, 300) // 300ms debounce for filter changes
 }, { immediate: true, deep: true })
 
 // Watch search query changes with debouncing
@@ -157,7 +179,8 @@ watch(searchQuery, () => {
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
-        searchQuery.value
+        searchQuery.value,
+        activeConfig.value // Pass filter config to apply at database level
       )
     }
   }, 500)
@@ -182,7 +205,8 @@ const handleLoadMore = async () => {
     await loadMore(
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
-      searchQuery.value
+      searchQuery.value,
+      activeConfig.value // Pass filter config to apply at database level
     )
   }
 }

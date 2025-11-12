@@ -87,8 +87,6 @@
       @column-reorder="handleColumnReorder"
       @column-resize-end="handleColumnResize"
       class="data-table"
-      scrollable
-      scroll-height="flex"
       :resizable-columns="true"
       column-resize-mode="fit"
     >
@@ -381,7 +379,6 @@ onUnmounted(() => {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -390,14 +387,20 @@ onUnmounted(() => {
 }
 
 .table-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 101;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-primary);
   gap: 1.5rem;
   flex-wrap: wrap;
   flex-shrink: 0;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
 }
 
 .toolbar-left {
@@ -483,14 +486,17 @@ onUnmounted(() => {
 .data-table {
   width: 100%;
   flex: 1;
-  overflow: auto;
   min-width: 0;
 }
 
 .data-table :deep(.p-datatable-wrapper) {
-  overflow-x: auto;
   max-width: 100%;
   width: 100%;
+  overflow: visible !important;
+}
+
+.data-table :deep(.p-datatable) {
+  overflow: visible !important;
 }
 
 .data-table :deep(.p-datatable-table) {
@@ -511,10 +517,20 @@ onUnmounted(() => {
   word-wrap: break-word;
 }
 
+.data-table :deep(.p-datatable-thead) {
+  position: sticky !important;
+  top: 98px !important;
+  z-index: 100 !important;
+}
+
 .data-table :deep(.p-datatable-thead > tr > th) {
+  position: sticky !important;
+  top: 98px !important;
+  z-index: 100 !important;
   padding: 1.25rem 1rem !important;
   background: var(--bg-tertiary) !important;
   border-color: var(--border-primary) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
 .data-table :deep(.p-datatable-tbody > tr > td) {

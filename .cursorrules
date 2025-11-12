@@ -1,2 +1,3 @@
 - for everything styling related, ALWAYS look at src/styles directory. Many issues are probably caused by not using the defined styles there or not importing them....
 - prefer a solutin to a bug that removes code over one that adds code.
+- when it makes sense to create a new db view or change the existing one, tell me. Clean architecture is key.

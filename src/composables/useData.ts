@@ -13,7 +13,14 @@ export function useData() {
   const totalCount = ref<number | null>(null)
 
   // Fetch unified items from the database view
-  const fetchUnifiedItems = async (page = 0, search = '', showTasks = true, showEmails = true, includeCount = false) => {
+  const fetchUnifiedItems = async (
+    page = 0,
+    search = '',
+    showTasks = true,
+    showEmails = true,
+    includeCount = false,
+    filterConfig: FilterConfiguration | null = null
+  ) => {
     try {
       let query = supabase
         .from('unified_items')
@@ -34,6 +41,53 @@ export function useData() {
         query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
       }
 
+      // Apply always-visible filters at database level
+      if (filterConfig?.alwaysVisibleFilters) {
+        Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
+          if (value) {
+            query = query.ilike(key, `%${value}%`)
+          }
+        })
+      }
+
+      // Apply dynamic filters at database level
+      if (filterConfig?.dynamicFilters) {
+        filterConfig.dynamicFilters.forEach(filter => {
+          if (!filter.column || !filter.operator) return
+
+          switch (filter.operator) {
+            case 'eq':
+              query = query.eq(filter.column, filter.value)
+              break
+            case 'neq':
+              query = query.neq(filter.column, filter.value)
+              break
+            case 'contains':
+              query = query.ilike(filter.column, `%${filter.value}%`)
+              break
+            case 'not_contains':
+              query = query.not(filter.column, 'ilike', `%${filter.value}%`)
+              break
+            case 'is_empty':
+              query = query.or(`${filter.column}.is.null,${filter.column}.eq.`)
+              break
+            case 'is_not_empty':
+              query = query.not(filter.column, 'is', null).neq(filter.column, '')
+              break
+            case 'before':
+              if (filter.value) {
+                query = query.lt(filter.column, filter.value)
+              }
+              break
+            case 'after':
+              if (filter.value) {
+                query = query.gt(filter.column, filter.value)
+              }
+              break
+          }
+        })
+      }
+
       const { data, error, count } = await query
 
       if (error) throw error
@@ -48,7 +102,7 @@ export function useData() {
   const dataItems = computed<DataItem[]>(() => items.value)
 
   // Load initial data
-  const loadData = async (showTasks = true, showEmails = true, search = '') => {
+  const loadData = async (showTasks = true, showEmails = true, search = '', filterConfig: FilterConfiguration | null = null) => {
     loading.value = true
     currentPage.value = 0
     items.value = []
@@ -56,7 +110,7 @@ export function useData() {
 
     try {
       // Include count on initial load to show total
-      const result = await fetchUnifiedItems(0, search, showTasks, showEmails, true)
+      const result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig)
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
@@ -68,7 +122,7 @@ export function useData() {
   }
 
   // Load more data (for infinite scroll)
-  const loadMore = async (showTasks = true, showEmails = true, search = '') => {
+  const loadMore = async (showTasks = true, showEmails = true, search = '', filterConfig: FilterConfiguration | null = null) => {
     if (loading.value || !hasMore.value) return
 
     loading.value = true
@@ -76,7 +130,7 @@ export function useData() {
 
     try {
       // Don't include count on subsequent loads for better performance
-      const result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false)
+      const result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig)
       items.value.push(...result.data)
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (error) {

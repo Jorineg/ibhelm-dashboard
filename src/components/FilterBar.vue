@@ -46,7 +46,7 @@
       </div>
 
       <!-- Dynamic filters -->
-      <div class="dynamic-filters">
+      <div v-if="activeConfig?.dynamicFilters?.length" class="dynamic-filters">
         <div v-for="filter in activeConfig?.dynamicFilters" :key="filter.id" class="dynamic-filter">
           <Dropdown
             v-model="filter.column"
