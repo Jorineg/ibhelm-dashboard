@@ -3,19 +3,44 @@
     <div class="filter-section">
       <h3>Filters</h3>
       
-      <!-- Always-visible filters -->
-      <div class="always-visible-filters">
-        <div 
-          v-for="filterName in alwaysVisibleFilterNames" 
-          :key="filterName"
-          class="filter-item"
-        >
-          <label :for="filterName">{{ formatFilterName(filterName) }}</label>
-          <InputText
-            :id="filterName"
-            :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
-            @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
-            :placeholder="`Filter by ${formatFilterName(filterName)}`"
+      <!-- Always-visible filters with action buttons in same row -->
+      <div class="filters-with-actions">
+        <div class="filters-grid">
+          <div 
+            v-for="filterName in alwaysVisibleFilterNames" 
+            :key="filterName"
+            class="filter-item"
+          >
+            <label :for="filterName">{{ formatFilterName(filterName) }}</label>
+            <InputText
+              :id="filterName"
+              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+              :placeholder="`Filter by ${formatFilterName(filterName)}`"
+              size="large"
+            />
+          </div>
+        </div>
+        
+        <!-- Filter action buttons in same grid row -->
+        <div class="filter-actions-inline">
+          <Button
+            label="Add Filter"
+            icon="pi pi-plus"
+            outlined
+            size="small"
+            @click="addNewFilter"
+            class="filter-action-btn"
+          />
+
+          <Button
+            label="Clear All"
+            icon="pi pi-filter-slash"
+            outlined
+            severity="secondary"
+            size="small"
+            @click="clearAllFilters"
+            class="filter-action-btn"
           />
         </div>
       </div>
@@ -56,25 +81,6 @@
           />
         </div>
       </div>
-
-      <Button
-        label="Add Filter"
-        icon="pi pi-plus"
-        outlined
-        size="small"
-        @click="addNewFilter"
-        class="add-filter-btn"
-      />
-
-      <Button
-        label="Clear All Filters"
-        icon="pi pi-filter-slash"
-        outlined
-        severity="secondary"
-        size="small"
-        @click="clearAllFilters"
-        class="clear-filters-btn"
-      />
     </div>
   </div>
 </template>
@@ -133,55 +139,77 @@ const addNewFilter = () => {
 
 <style scoped>
 .filter-bar {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.filter-section {
+  flex: 1;
 }
 
 .filter-section h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 1rem;
-  color: #333;
+  margin-bottom: 1.5rem;
+  color: #e0e0e0;
 }
 
-.always-visible-filters {
+.filters-with-actions {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+}
+
+.filters-grid {
   display: grid;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  flex: 1;
 }
 
 .filter-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .filter-item label {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: #555;
+  color: #b0b0b0;
+}
+
+.filter-actions-inline {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding-bottom: 0.25rem;
 }
 
 .dynamic-filters {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .dynamic-filter {
   display: grid;
   grid-template-columns: 1fr 1fr 1.5fr auto;
-  gap: 0.5rem;
+  gap: 1rem;
   align-items: center;
+  padding: 1.25rem;
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #404040;
 }
 
-.add-filter-btn,
-.clear-filters-btn {
-  width: 100%;
-  margin-top: 0.5rem;
+.filter-action-btn {
+  font-size: 0.875rem !important;
+  white-space: nowrap;
+  min-width: 140px;
 }
 </style>
 

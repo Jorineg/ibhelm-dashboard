@@ -105,6 +105,8 @@ export function useData() {
       type: 'email',
       name: email.subject || 'No Subject',
       description: email.preview || email.body || '',
+      body: email.body || '',
+      preview: email.preview || '',
       status: '', // Emails don't have status
       project: '', // TODO: Link emails to projects if available
       customer: '', // TODO: Link emails to customers if available

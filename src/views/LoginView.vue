@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
-        <h1>dbhelm Dashboard</h1>
+        <h1>ibhelm Dashboard</h1>
         <p>Sign in to continue</p>
       </div>
       
@@ -56,53 +56,56 @@ const handleSignIn = async () => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
 }
 
 .login-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: #2a2a2a;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   padding: 3rem;
-  max-width: 400px;
+  max-width: 450px;
   width: 100%;
+  border: 1px solid #404040;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .login-header h1 {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: #333;
-  margin-bottom: 0.5rem;
+  color: #e0e0e0;
+  margin-bottom: 0.75rem;
 }
 
 .login-header p {
-  color: #666;
-  font-size: 1rem;
+  color: #b0b0b0;
+  font-size: 1.1rem;
 }
 
 .login-content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .google-button {
   width: 100%;
   justify-content: center;
+  padding: 1rem;
 }
 
 .error-message {
-  padding: 0.75rem;
-  background: #fee;
-  color: #c33;
-  border-radius: 6px;
-  font-size: 0.875rem;
+  padding: 1rem;
+  background: #4a2020;
+  color: #ff8888;
+  border-radius: 8px;
+  font-size: 0.9rem;
   text-align: center;
+  border: 1px solid #662020;
 }
 </style>
 

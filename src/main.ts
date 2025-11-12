@@ -4,8 +4,8 @@ import App from './App.vue'
 import router from './router'
 import PrimeVue from 'primevue/config'
 
-// PrimeVue CSS
-import 'primevue/resources/themes/lara-light-blue/theme.css'
+// PrimeVue CSS - Dark Theme
+import 'primevue/resources/themes/lara-dark-blue/theme.css'
 import 'primevue/resources/primevue.min.css'
 import 'primeicons/primeicons.css'
 

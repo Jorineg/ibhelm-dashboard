@@ -1,4 +1,4 @@
-# Setup Instructions for dbhelm Dashboard
+# Setup Instructions for ibhelm Dashboard
 
 ## Quick Start
 

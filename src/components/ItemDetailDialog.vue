@@ -5,6 +5,11 @@
     :header="item?.name || 'Item Details'"
     :style="{ width: '90vw', maxWidth: '1200px' }"
     :dismissable-mask="true"
+    :pt="{
+      content: { style: 'padding: 2rem' },
+      header: { style: 'padding: 1.5rem 2rem' },
+      footer: { style: 'padding: 1.5rem 2rem' }
+    }"
   >
     <div v-if="item" class="detail-content">
       <!-- Toggle for empty fields -->
@@ -63,7 +68,9 @@
     </div>
 
     <template #footer>
-      <Button label="Close" @click="isVisible = false" />
+      <div class="dialog-footer">
+        <Button label="Close" @click="isVisible = false" />
+      </div>
     </template>
   </Dialog>
 </template>
@@ -179,66 +186,90 @@ watch(isVisible, (visible) => {
   overflow-y: auto;
 }
 
+.detail-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.detail-content::-webkit-scrollbar-track {
+  background: #333;
+  border-radius: 4px;
+}
+
+.detail-content::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
 .detail-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #404040;
 }
 
 .checkbox-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #333;
+  border-radius: 8px;
+  display: inline-flex;
 }
 
 .checkbox-wrapper label {
-  font-size: 0.875rem;
-  color: #555;
+  font-size: 0.9rem;
+  color: #b0b0b0;
   cursor: pointer;
 }
 
 .detail-section {
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 .detail-fields {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .field-row {
   display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: #f9f9f9;
-  border-radius: 6px;
+  grid-template-columns: 220px 1fr;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: #333;
+  border-radius: 8px;
 }
 
 .field-label {
   font-weight: 600;
-  color: #333;
-  font-size: 0.875rem;
+  color: #e0e0e0;
+  font-size: 0.9rem;
 }
 
 .field-value {
-  color: #555;
-  font-size: 0.875rem;
+  color: #b0b0b0;
+  font-size: 0.9rem;
   word-break: break-word;
 }
 
 .empty-value {
-  color: #999;
+  color: #777;
   font-style: italic;
 }
 
 .array-item {
-  padding: 0.25rem 0;
+  padding: 0.5rem 0;
 }
 
 .array-item:not(:last-child) {
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #404040;
 }
 
 .raw-data-accordion {
@@ -246,12 +277,13 @@ watch(isVisible, (visible) => {
 }
 
 .raw-data {
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  background: #2a2a2a;
+  padding: 1.25rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
   overflow-x: auto;
   max-height: 400px;
+  color: #b0b0b0;
 }
 </style>
 

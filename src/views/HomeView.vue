@@ -2,7 +2,7 @@
   <div class="home-view">
     <!-- Header -->
     <div class="page-header">
-      <h1>dbhelm Dashboard</h1>
+      <h1>ibhelm Dashboard</h1>
       <div class="header-actions">
         <span class="user-email">{{ user?.email }}</span>
         <Button
@@ -10,7 +10,7 @@
           icon="pi pi-sign-out"
           @click="handleSignOut"
           outlined
-          size="small"
+          class="sign-out-btn"
         />
       </div>
     </div>
@@ -22,56 +22,30 @@
         <ConfigurationPanel />
       </aside>
 
-      <!-- Center: Search, Filters, and Table -->
+      <!-- Center: Filters and Table -->
       <main class="center-content">
-        <!-- Search Bar -->
-        <div class="search-section">
-          <span class="p-input-icon-left search-bar">
-            <i class="pi pi-search" />
-            <InputText
-              v-model="searchQuery"
-              placeholder="Search across all columns..."
-              class="search-input"
-              @input="handleSearch"
-            />
-            <Button
-              v-if="searchQuery"
-              icon="pi pi-times"
-              text
-              rounded
-              class="clear-search"
-              @click="clearSearch"
-            />
-          </span>
-        </div>
-
         <!-- Filters -->
         <div class="filters-section">
           <FilterBar :available-columns="availableColumns" />
         </div>
 
-        <!-- Results count -->
-        <div class="results-info">
-          <span class="results-count">
-            {{ filteredAndSearchedItems.length }} items
-            <template v-if="searchQuery">
-              matching "{{ searchQuery }}"
-            </template>
-          </span>
-        </div>
-
         <!-- Data Table -->
         <DataTable
+          :search-query="searchQuery"
+          @update:search-query="searchQuery = $event"
+          @clear-search="clearSearch"
           :items="filteredAndSearchedItems"
           :columns="availableColumns"
           :loading="loading"
           :visible-columns="activeConfig?.visibleColumns || []"
           :column-order="activeConfig?.columnOrder || []"
+          :column-widths="activeConfig?.columnWidths || {}"
           :show-tasks="activeConfig?.showTasks || true"
           :show-emails="activeConfig?.showEmails || true"
           :view-mode="activeConfig?.viewMode || 'list'"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
+          @update:column-widths="handleUpdateColumnWidths"
           @update:show-tasks="handleUpdateShowTasks"
           @update:show-emails="handleUpdateShowEmails"
           @update:view-mode="handleUpdateViewMode"
@@ -125,6 +99,8 @@ const availableColumns = computed<Column[]>(() => [
   { field: 'type', header: 'Type', sortable: true, width: '100px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
+  { field: 'body', header: 'Email Content', sortable: false, width: '400px' },
+  { field: 'preview', header: 'Email Preview', sortable: false, width: '300px' },
   { field: 'status', header: 'Status', sortable: true, width: '120px' },
   { field: 'project', header: 'Project', sortable: true, width: '200px' },
   { field: 'customer', header: 'Customer', sortable: true, width: '200px' },
@@ -167,9 +143,9 @@ watch([activeConfig], async () => {
   }
 }, { immediate: true, deep: true })
 
-// Debounced search
+// Watch search query changes with debouncing
 let searchTimeout: number | null = null
-const handleSearch = () => {
+watch(searchQuery, () => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
@@ -183,11 +159,10 @@ const handleSearch = () => {
       )
     }
   }, 500)
-}
+})
 
 const clearSearch = () => {
   searchQuery.value = ''
-  handleSearch()
 }
 
 const handleSignOut = async () => {
@@ -222,6 +197,12 @@ const handleUpdateColumnOrder = (order: string[]) => {
   }
 }
 
+const handleUpdateColumnWidths = (widths: Record<string, string>) => {
+  if (activeConfig.value) {
+    updateConfiguration(activeConfig.value.id, { columnWidths: widths })
+  }
+}
+
 const handleUpdateShowTasks = (show: boolean) => {
   if (activeConfig.value) {
     updateConfiguration(activeConfig.value.id, { showTasks: show })
@@ -248,8 +229,8 @@ onMounted(() => {
 <style scoped>
 .home-view {
   min-height: 100vh;
-  background: #f5f5f5;
-  padding: 1.5rem;
+  background: #1e1e1e;
+  padding: 2rem;
 }
 
 .page-header {
@@ -257,90 +238,54 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  padding: 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1rem 2rem;
+  background: #2a2a2a;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .page-header h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #333;
+  color: #e0e0e0;
   margin: 0;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .user-email {
-  font-size: 0.875rem;
-  color: #666;
+  font-size: 0.9rem;
+  color: #b0b0b0;
 }
+
 
 .main-content {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 1.5rem;
+  grid-template-columns: 320px 1fr;
+  gap: 2rem;
   align-items: start;
+  height: calc(100vh - 100px);
+  overflow: visible;
 }
 
 .left-sidebar {
   position: sticky;
-  top: 1.5rem;
+  top: 2rem;
 }
 
 .center-content {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-}
-
-.search-section {
-  display: flex;
-  justify-content: center;
-}
-
-.search-bar {
-  position: relative;
-  width: 100%;
-  max-width: 600px;
-}
-
-.search-input {
-  width: 100%;
-  font-size: 1rem;
-  padding: 0.75rem 2.5rem;
-}
-
-.clear-search {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
+  min-height: 0;
 }
 
 .filters-section {
-  /* Filters component has its own styling */
-}
-
-.results-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.results-count {
-  font-size: 0.875rem;
-  color: #666;
-  font-weight: 500;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1200px) {

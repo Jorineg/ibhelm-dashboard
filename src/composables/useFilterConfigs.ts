@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import type { FilterConfiguration, ColumnFilter } from '@/types'
 
-const STORAGE_KEY = 'dbhelm_filter_configurations'
+const STORAGE_KEY = 'ibhelm_filter_configurations'
 
 // Default always-visible filters (can be easily changed here)
 const DEFAULT_ALWAYS_VISIBLE_FILTERS = [
@@ -39,6 +39,7 @@ const defaultConfig = (): FilterConfiguration => ({
     'due_date',
     'created_at'
   ],
+  columnWidths: {},
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 })
@@ -55,7 +56,7 @@ function loadConfigurations() {
       configurations.value = parsed.configs || []
       activeConfigId.value = parsed.activeConfigId || ''
     }
-    
+
     // If no configurations exist, create default
     if (configurations.value.length === 0) {
       const config = defaultConfig()
@@ -63,7 +64,7 @@ function loadConfigurations() {
       activeConfigId.value = config.id
       saveConfigurations()
     }
-    
+
     // If active config doesn't exist, set to first
     if (!configurations.value.find(c => c.id === activeConfigId.value)) {
       activeConfigId.value = configurations.value[0].id
@@ -129,7 +130,7 @@ export function useFilterConfigs() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-    
+
     configurations.value.push(duplicate)
     activeConfigId.value = duplicate.id
     return duplicate

@@ -1,6 +1,6 @@
 # 🚀 Quick Start Guide
 
-Get up and running with the dbhelm Dashboard in 5 minutes!
+Get up and running with the ibhelm Dashboard in 5 minutes!
 
 ## Prerequisites
 

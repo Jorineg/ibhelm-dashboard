@@ -184,6 +184,7 @@ export interface FilterConfiguration {
   dynamicFilters: ColumnFilter[]
   visibleColumns: string[]
   columnOrder: string[]
+  columnWidths?: Record<string, string>
   createdAt: string
   updatedAt: string
 }

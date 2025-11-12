@@ -36,6 +36,7 @@
           :model-value="activeConfig.name"
           @update:model-value="handleUpdateName"
           placeholder="Configuration name"
+          class="config-name-input"
         />
       </div>
 
@@ -111,103 +112,120 @@ const handleUpdateName = (name: string) => {
 
 <style scoped>
 .configuration-panel {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   height: fit-content;
-  min-width: 280px;
+  min-width: 300px;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .panel-header h3 {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #333;
+  color: #e0e0e0;
 }
+
 
 .configurations-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   max-height: 400px;
   overflow-y: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding-right: 0.5rem;
+}
+
+.configurations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.configurations-list::-webkit-scrollbar-track {
+  background: #333;
+  border-radius: 3px;
+}
+
+.configurations-list::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
 }
 
 .config-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 6px;
+  padding: 1rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   border: 2px solid transparent;
+  background: #333;
 }
 
 .config-item:hover {
-  background: #f8f9fa;
+  background: #3a3a3a;
 }
 
 .config-item.active {
-  background: #e3f2fd;
-  border-color: #2196f3;
+  background: #1e3a5f;
+  border-color: #4a9eff;
 }
 
 .config-icon {
-  color: #666;
+  color: #888;
   font-size: 1rem;
 }
 
 .config-item.active .config-icon {
-  color: #2196f3;
+  color: #4a9eff;
 }
 
 .config-name {
   flex: 1;
   font-weight: 500;
-  font-size: 0.875rem;
-  color: #333;
+  font-size: 0.9rem;
+  color: #e0e0e0;
 }
 
 .config-date {
   font-size: 0.75rem;
-  color: #999;
+  color: #888;
 }
 
 .active-config-controls {
-  padding-top: 1rem;
+  padding-top: 1.5rem;
 }
 
 .active-config-controls h4 {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 1rem;
-  color: #333;
+  margin-bottom: 1.25rem;
+  color: #e0e0e0;
 }
 
 .control-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .control-group label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: #555;
+  margin-bottom: 0.75rem;
+  color: #b0b0b0;
 }
 
 .control-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .control-buttons button {

@@ -3,6 +3,50 @@
     <!-- Column visibility selector -->
     <div class="table-toolbar">
       <div class="toolbar-left">
+        <!-- Search Bar -->
+        <div class="search-wrapper">
+          <i class="pi pi-search search-icon" />
+          <InputText
+            :model-value="props.searchQuery"
+            @update:model-value="emit('update:searchQuery', $event)"
+            placeholder="Search..."
+            class="search-input"
+          />
+          <Button
+            v-if="props.searchQuery"
+            icon="pi pi-times"
+            text
+            rounded
+            class="clear-search"
+            @click="emit('clearSearch')"
+          />
+        </div>
+        
+        <div class="item-type-toggles">
+          <span class="toggle-label">Show:</span>
+          <div class="checkbox-group">
+            <Checkbox
+              v-model="localShowTasks"
+              input-id="show-tasks"
+              :binary="true"
+            />
+            <label for="show-tasks" class="toggle-item-label">Tasks</label>
+          </div>
+          
+          <div class="checkbox-group">
+            <Checkbox
+              v-model="localShowEmails"
+              input-id="show-emails"
+              :binary="true"
+            />
+            <label for="show-emails" class="toggle-item-label">Emails</label>
+          </div>
+          
+          <span class="results-count">
+            {{ displayedItems.length }} items
+          </span>
+        </div>
+        
         <MultiSelect
           v-model="localVisibleColumns"
           :options="allColumns"
@@ -12,23 +56,6 @@
           :max-selected-labels="3"
           class="column-selector"
         />
-        
-        <div class="item-type-toggles">
-          <span class="toggle-label">Show:</span>
-          <Checkbox
-            v-model="localShowTasks"
-            input-id="show-tasks"
-            :binary="true"
-          />
-          <label for="show-tasks" class="toggle-item-label">Tasks</label>
-          
-          <Checkbox
-            v-model="localShowEmails"
-            input-id="show-emails"
-            :binary="true"
-          />
-          <label for="show-emails" class="toggle-item-label">Emails</label>
-        </div>
       </div>
 
       <div class="toolbar-right">
@@ -37,6 +64,7 @@
           :options="viewModeOptions"
           option-label="label"
           option-value="value"
+          class="view-mode-toggle"
         >
           <template #option="slotProps">
             <i :class="slotProps.option.icon"></i>
@@ -56,9 +84,12 @@
       :reorderable-columns="true"
       @row-click="handleRowClick"
       @column-reorder="handleColumnReorder"
+      @column-resize-end="handleColumnResize"
       class="data-table"
       scrollable
-      scroll-height="calc(100vh - 320px)"
+      :scroll-height="`calc(100vh - 160px)`"
+      :resizable-columns="true"
+      column-resize-mode="expand"
     >
       <template #empty>
         <div class="empty-state">
@@ -80,7 +111,7 @@
         :field="col.field"
         :header="col.header"
         :sortable="col.sortable !== false"
-        :style="{ width: col.width || 'auto' }"
+        :style="{ width: props.columnWidths[col.field] || col.width || 'auto' }"
       >
         <template #body="{ data }">
           <component
@@ -148,6 +179,8 @@ import Column from 'primevue/column'
 import MultiSelect from 'primevue/multiselect'
 import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
+import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import type { DataItem, Column as ColumnType } from '@/types'
 
@@ -157,17 +190,22 @@ interface Props {
   loading: boolean
   visibleColumns: string[]
   columnOrder: string[]
+  columnWidths: Record<string, string>
   showTasks: boolean
   showEmails: boolean
   viewMode: 'list' | 'gallery'
+  searchQuery: string
 }
 
 interface Emits {
   (e: 'update:visibleColumns', value: string[]): void
   (e: 'update:columnOrder', value: string[]): void
+  (e: 'update:columnWidths', value: Record<string, string>): void
   (e: 'update:showTasks', value: boolean): void
   (e: 'update:showEmails', value: boolean): void
   (e: 'update:viewMode', value: 'list' | 'gallery'): void
+  (e: 'update:searchQuery', value: string): void
+  (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
 }
@@ -182,14 +220,23 @@ const localVisibleColumns = computed({
   set: (value) => emit('update:visibleColumns', value)
 })
 
-const localShowTasks = computed({
-  get: () => props.showTasks,
-  set: (value) => emit('update:showTasks', value)
+const localShowTasks = ref(props.showTasks)
+const localShowEmails = ref(props.showEmails)
+
+watch(() => props.showTasks, (newVal) => {
+  localShowTasks.value = newVal
 })
 
-const localShowEmails = computed({
-  get: () => props.showEmails,
-  set: (value) => emit('update:showEmails', value)
+watch(() => props.showEmails, (newVal) => {
+  localShowEmails.value = newVal
+})
+
+watch(localShowTasks, (newVal) => {
+  emit('update:showTasks', newVal)
+})
+
+watch(localShowEmails, (newVal) => {
+  emit('update:showEmails', newVal)
 })
 
 const localViewMode = computed({
@@ -247,6 +294,16 @@ const handleColumnReorder = (event: any) => {
   emit('update:columnOrder', newOrder)
 }
 
+const handleColumnResize = (event: any) => {
+  const field = event.element.getAttribute('data-p-field') || event.element.querySelector('[data-p-field]')?.getAttribute('data-p-field')
+  
+  if (field) {
+    const newWidths = { ...props.columnWidths }
+    newWidths[field] = event.element.style.width
+    emit('update:columnWidths', newWidths)
+  }
+}
+
 const getCellComponent = (field: string, data: DataItem) => {
   const value = data[field]
 
@@ -254,7 +311,8 @@ const getCellComponent = (field: string, data: DataItem) => {
   if (field === 'type') {
     return h(Tag, {
       value: value?.toUpperCase(),
-      severity: value === 'task' ? 'info' : 'success'
+      severity: value === 'task' ? 'info' : 'success',
+      style: { padding: '0.35rem 0.6rem', fontSize: '0.8rem' }
     })
   }
 
@@ -318,58 +376,134 @@ onUnmounted(() => {
 
 <style scoped>
 .data-table-wrapper {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #2a2a2a;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh);
 }
 
 .table-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #e0e0e0;
-  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #404040;
+  gap: 1.5rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.toolbar-left,
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
 .toolbar-right {
   display: flex;
   align-items: center;
   gap: 1rem;
-  flex-wrap: wrap;
 }
 
 .column-selector {
-  min-width: 250px;
+  min-width: 280px;
 }
 
 .item-type-toggles {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f5f5f5;
-  border-radius: 6px;
+  gap: 1rem;
+  padding: 0.875rem 1.5rem;
+  background: #333;
+  border-radius: 8px;
 }
 
 .toggle-label {
   font-weight: 500;
-  font-size: 0.875rem;
-  color: #555;
+  font-size: 0.9rem;
+  color: #b0b0b0;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .toggle-item-label {
-  font-size: 0.875rem;
-  color: #555;
+  font-size: 0.9rem;
+  color: #e0e0e0;
   cursor: pointer;
-  margin-right: 0.75rem;
+}
+
+.results-count {
+  font-size: 0.875rem;
+  color: #888;
+  margin-left: 1rem;
+  padding-left: 1rem;
+  border-left: 1px solid #555;
+}
+
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 350px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #888;
+  font-size: 1rem;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  font-size: 0.95rem !important;
+  padding-left: 2.5rem !important;
+  padding-right: 2.75rem !important;
+}
+
+.clear-search {
+  position: absolute;
+  right: 0.25rem;
 }
 
 .data-table {
   width: 100%;
+  flex: 1;
+  overflow: auto;
+}
+
+.data-table :deep(.p-datatable-thead > tr > th) {
+  padding: 1.25rem 1rem !important;
+  background: #333 !important;
+  border-color: #404040 !important;
+}
+
+.data-table :deep(.p-datatable-tbody > tr > td) {
+  padding: 1rem !important;
+  border-color: #404040 !important;
+  max-height: 4.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.data-table :deep(.p-datatable-tbody > tr > td > *) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .data-table :deep(tbody tr) {
@@ -377,7 +511,7 @@ onUnmounted(() => {
 }
 
 .data-table :deep(tbody tr:hover) {
-  background: #f5f5f5 !important;
+  background: #3a3a3a !important;
 }
 
 .empty-state,
@@ -387,18 +521,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: #999;
+  color: #777;
 }
 
 .empty-icon,
 .loading-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
-  color: #ccc;
+  color: #555;
 }
 
 .loading-icon {
-  color: #2196f3;
+  color: #4a9eff;
 }
 
 .array-item:not(:last-child) {
@@ -407,28 +541,30 @@ onUnmounted(() => {
 
 /* Gallery View */
 .gallery-view {
-  padding: 1.5rem;
-  min-height: calc(100vh - 320px);
+  padding: 2rem;
+  flex: 1;
+  overflow: auto;
 }
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
 }
 
 .gallery-item {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 1rem;
+  background: #333;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 1.5rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .gallery-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  transform: translateY(-4px);
+  border-color: #555;
 }
 
 .gallery-item-header {
@@ -441,22 +577,22 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 150px;
-  background: #f5f5f5;
-  border-radius: 6px;
-  margin-bottom: 1rem;
+  height: 160px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
 }
 
 .gallery-icon {
   font-size: 4rem;
-  color: #ccc;
+  color: #666;
 }
 
 .gallery-item-content h4 {
   font-size: 1.125rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #333;
+  margin-bottom: 0.75rem;
+  color: #e0e0e0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -464,9 +600,9 @@ onUnmounted(() => {
 
 .gallery-description {
   font-size: 0.875rem;
-  color: #666;
-  margin-bottom: 0.75rem;
-  line-height: 1.4;
+  color: #b0b0b0;
+  margin-bottom: 1rem;
+  line-height: 1.5;
 }
 
 .gallery-meta {
@@ -478,16 +614,16 @@ onUnmounted(() => {
 .meta-item {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: #888;
-  padding: 0.25rem 0.5rem;
-  background: #f5f5f5;
-  border-radius: 4px;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #b0b0b0;
+  padding: 0.4rem 0.75rem;
+  background: #2a2a2a;
+  border-radius: 6px;
 }
 
 .meta-item i {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
 }
 
 .scroll-trigger {

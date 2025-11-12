@@ -1,4 +1,4 @@
-# dbhelm Dashboard
+# ibhelm Dashboard
 
 A sophisticated Vue 3 + Vite frontend for managing tasks, emails, and project data with advanced filtering, search, and configuration management.
 
