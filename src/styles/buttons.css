@@ -1,0 +1,30 @@
+/**
+ * Button Styles
+ * Unified PrimeVue button overrides
+ */
+
+.p-button {
+  padding: 0.75rem 1.25rem !important;
+}
+
+.p-button.p-button-sm {
+  padding: 0.5rem 1rem !important;
+}
+
+.p-button.p-button-icon-only {
+  padding: 0.75rem !important;
+}
+
+/* Consistent icon spacing in buttons */
+.p-button .p-button-icon {
+  margin-right: 0.5rem !important;
+}
+
+.p-button .p-button-icon:last-child {
+  margin-right: 0 !important;
+  margin-left: 0.5rem !important;
+}
+
+.p-button.p-button-icon-only .p-button-icon {
+  margin: 0 !important;
+}

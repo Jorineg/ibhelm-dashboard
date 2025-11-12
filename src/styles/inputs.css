@@ -1,0 +1,140 @@
+/**
+ * Input Styles
+ * Unified PrimeVue input/dropdown overrides
+ */
+
+.p-inputtext,
+.p-dropdown,
+.p-multiselect {
+  height: 3rem !important;
+  padding: 0.875rem 1rem !important;
+  font-size: 1rem !important;
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+  box-sizing: border-box !important;
+}
+
+.p-inputtext:focus,
+.p-dropdown:not(.p-disabled):hover,
+.p-multiselect:not(.p-disabled):hover {
+  border-color: var(--border-secondary) !important;
+}
+
+.p-inputtext.p-inputtext-sm,
+.p-dropdown.p-inputtext-sm,
+.p-multiselect.p-inputtext-sm {
+  height: 2.75rem !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.95rem !important;
+}
+
+.p-dropdown .p-dropdown-label,
+.p-multiselect .p-multiselect-label {
+  padding: 0 !important;
+  color: var(--text-primary) !important;
+  line-height: 1.25rem !important;
+}
+
+/* Remove any inner borders on dropdown labels and trigger */
+.p-dropdown .p-dropdown-label {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.p-dropdown .p-dropdown-trigger {
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Ensure dropdown and multiselect internal elements fill properly */
+.p-dropdown .p-inputtext,
+.p-multiselect .p-inputtext {
+  height: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.p-dropdown-item,
+.p-multiselect-item {
+  padding: 0.75rem 1rem !important;
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+.p-dropdown-item:hover,
+.p-multiselect-item:hover {
+  background: var(--bg-hover) !important;
+}
+
+/* Dropdown panels */
+.p-dropdown-panel,
+.p-multiselect-panel {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+/* MultiSelect panel - increase height */
+.p-multiselect-panel .p-multiselect-items-wrapper {
+  max-height: 400px !important;
+}
+
+/* MultiSelect header - "Select All" checkbox styling */
+.p-multiselect-header {
+  padding: 1rem !important;
+  background: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+.p-multiselect-header .p-checkbox {
+  margin: 0 !important;
+}
+
+/* Hide the close button in header, it's confusing */
+.p-multiselect-header .p-multiselect-close {
+  display: none !important;
+}
+
+/* Add "Select All" label after checkbox */
+.p-multiselect-header .p-checkbox+* {
+  display: none !important;
+}
+
+.p-multiselect-header::before {
+  content: 'Select All';
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  order: 2;
+}
+
+/* MultiSelect item - spacing between checkbox and label */
+.p-multiselect-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+/* Checkbox */
+.p-checkbox .p-checkbox-box {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.p-checkbox:not(.p-disabled):has(.p-checkbox-box:hover) .p-checkbox-box {
+  border-color: var(--border-secondary) !important;
+}
+
+.p-checkbox .p-checkbox-box.p-highlight {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Checkmark icon - make it visible on blue background */
+.p-checkbox .p-checkbox-box .p-checkbox-icon {
+  color: #ffffff !important;
+  font-weight: bold !important;
+}

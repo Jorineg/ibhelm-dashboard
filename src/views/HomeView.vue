@@ -40,8 +40,8 @@
           :visible-columns="activeConfig?.visibleColumns || []"
           :column-order="activeConfig?.columnOrder || []"
           :column-widths="activeConfig?.columnWidths || {}"
-          :show-tasks="activeConfig?.showTasks || true"
-          :show-emails="activeConfig?.showEmails || true"
+          :show-tasks="activeConfig?.showTasks ?? true"
+          :show-emails="activeConfig?.showEmails ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
@@ -229,7 +229,7 @@ onMounted(() => {
 <style scoped>
 .home-view {
   min-height: 100vh;
-  background: #1e1e1e;
+  background: var(--bg-primary);
   padding: 2rem;
 }
 
@@ -239,15 +239,15 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 2rem;
   padding: 1rem 2rem;
-  background: #2a2a2a;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .page-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -259,33 +259,33 @@ onMounted(() => {
 
 .user-email {
   font-size: 0.9rem;
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
-
 
 .main-content {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 2rem;
   align-items: start;
-  height: calc(100vh - 100px);
-  overflow: visible;
+  max-width: 100%;
 }
 
 .left-sidebar {
   position: sticky;
   top: 2rem;
+  min-width: 0;
 }
 
 .center-content {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  min-height: 0;
+  min-width: 0;
 }
 
 .filters-section {
   flex-shrink: 0;
+  min-width: 0;
 }
 
 @media (max-width: 1200px) {

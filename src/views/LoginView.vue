@@ -60,13 +60,13 @@ const handleSignIn = async () => {
 }
 
 .login-card {
-  background: #2a2a2a;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   padding: 3rem;
   max-width: 450px;
   width: 100%;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-primary);
 }
 
 .login-header {
@@ -77,12 +77,12 @@ const handleSignIn = async () => {
 .login-header h1 {
   font-size: 2.25rem;
   font-weight: 700;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin-bottom: 0.75rem;
 }
 
 .login-header p {
-  color: #b0b0b0;
+  color: var(--text-secondary);
   font-size: 1.1rem;
 }
 
@@ -100,12 +100,12 @@ const handleSignIn = async () => {
 
 .error-message {
   padding: 1rem;
-  background: #4a2020;
-  color: #ff8888;
-  border-radius: 8px;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
   text-align: center;
-  border: 1px solid #662020;
+  border: 1px solid var(--error-border);
 }
 </style>
 

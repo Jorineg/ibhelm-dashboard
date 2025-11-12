@@ -11,7 +11,7 @@
       footer: { style: 'padding: 1.5rem 2rem' }
     }"
   >
-    <div v-if="item" class="detail-content">
+    <div v-if="item" class="detail-content scrollable-list">
       <!-- Toggle for empty fields -->
       <div class="detail-header">
         <div class="checkbox-wrapper">
@@ -29,6 +29,7 @@
         <Tag
           :value="item.type.toUpperCase()"
           :severity="item.type === 'task' ? 'info' : 'success'"
+          class="tag-style"
         />
       </div>
 
@@ -186,20 +187,6 @@ watch(isVisible, (visible) => {
   overflow-y: auto;
 }
 
-.detail-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.detail-content::-webkit-scrollbar-track {
-  background: #333;
-  border-radius: 4px;
-}
-
-.detail-content::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 4px;
-}
-
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
@@ -207,60 +194,67 @@ watch(isVisible, (visible) => {
 }
 
 .detail-header {
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #404040;
+  margin-bottom: 1.5rem;
 }
 
 .checkbox-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: #333;
-  border-radius: 8px;
   display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .checkbox-wrapper label {
   font-size: 0.9rem;
-  color: #b0b0b0;
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .detail-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .detail-fields {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .field-row {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 200px 1fr;
   gap: 1.5rem;
-  padding: 1.25rem 1.5rem;
-  background: #333;
-  border-radius: 8px;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.field-row:last-child {
+  border-bottom: none;
 }
 
 .field-label {
-  font-weight: 600;
-  color: #e0e0e0;
-  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .field-value {
-  color: #b0b0b0;
-  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
   word-break: break-word;
 }
 
+.field-value pre {
+  background: var(--bg-tertiary);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+
 .empty-value {
-  color: #777;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -269,21 +263,40 @@ watch(isVisible, (visible) => {
 }
 
 .array-item:not(:last-child) {
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .raw-data-accordion {
   margin-top: 2rem;
+  border-top: 1px solid var(--border-primary);
+  padding-top: 2rem;
+}
+
+.raw-data-accordion :deep(.p-accordion-header-link) {
+  padding: 1rem !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.raw-data-accordion :deep(.p-accordion-header-link) .p-accordion-toggle-icon {
+  margin-right: 0.5rem !important;
+}
+
+.raw-data-accordion :deep(.p-accordion-content) {
+  padding: 1rem !important;
+  background: transparent !important;
 }
 
 .raw-data {
-  background: #2a2a2a;
-  padding: 1.25rem;
-  border-radius: 8px;
+  background: var(--bg-tertiary);
+  padding: 1rem;
+  border-radius: var(--radius-md);
   font-size: 0.8rem;
   overflow-x: auto;
   max-height: 400px;
-  color: #b0b0b0;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
 }
 </style>
 

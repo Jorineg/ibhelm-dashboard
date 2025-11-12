@@ -10,7 +10,7 @@
       />
     </div>
 
-    <div class="configurations-list">
+    <div class="configurations-list thin-scrollbar">
       <div
         v-for="config in configurations"
         :key="config.id"
@@ -112,10 +112,10 @@ const handleUpdateName = (name: string) => {
 
 <style scoped>
 .configuration-panel {
-  background: #2a2a2a;
+  background: var(--bg-secondary);
   padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   height: fit-content;
   min-width: 300px;
 }
@@ -130,9 +130,8 @@ const handleUpdateName = (name: string) => {
 .panel-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
-
 
 .configurations-list {
   display: flex;
@@ -144,60 +143,46 @@ const handleUpdateName = (name: string) => {
   padding-right: 0.5rem;
 }
 
-.configurations-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.configurations-list::-webkit-scrollbar-track {
-  background: #333;
-  border-radius: 3px;
-}
-
-.configurations-list::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 3px;
-}
-
 .config-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 2px solid transparent;
-  background: #333;
+  background: var(--bg-tertiary);
 }
 
 .config-item:hover {
-  background: #3a3a3a;
+  background: var(--bg-hover);
 }
 
 .config-item.active {
-  background: #1e3a5f;
-  border-color: #4a9eff;
+  background: var(--accent-primary-dark);
+  border-color: var(--accent-primary);
 }
 
 .config-icon {
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 1rem;
 }
 
 .config-item.active .config-icon {
-  color: #4a9eff;
+  color: var(--accent-primary);
 }
 
 .config-name {
   flex: 1;
   font-weight: 500;
   font-size: 0.9rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .config-date {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-tertiary);
 }
 
 .active-config-controls {
@@ -208,19 +193,11 @@ const handleUpdateName = (name: string) => {
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 1.25rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .control-group {
   margin-bottom: 1.25rem;
-}
-
-.control-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  margin-bottom: 0.75rem;
-  color: #b0b0b0;
 }
 
 .control-buttons {

@@ -54,6 +54,7 @@
           option-value="field"
           placeholder="Select Columns"
           :max-selected-labels="3"
+          selected-items-label="{0} columns selected"
           class="column-selector"
         />
       </div>
@@ -87,9 +88,9 @@
       @column-resize-end="handleColumnResize"
       class="data-table"
       scrollable
-      :scroll-height="`calc(100vh - 160px)`"
+      scroll-height="flex"
       :resizable-columns="true"
-      column-resize-mode="expand"
+      column-resize-mode="fit"
     >
       <template #empty>
         <div class="empty-state">
@@ -136,6 +137,7 @@
             <Tag
               :value="item.type"
               :severity="item.type === 'task' ? 'info' : 'success'"
+              class="tag-style"
             />
           </div>
           <div class="gallery-item-thumbnail">
@@ -220,23 +222,14 @@ const localVisibleColumns = computed({
   set: (value) => emit('update:visibleColumns', value)
 })
 
-const localShowTasks = ref(props.showTasks)
-const localShowEmails = ref(props.showEmails)
-
-watch(() => props.showTasks, (newVal) => {
-  localShowTasks.value = newVal
+const localShowTasks = computed({
+  get: () => props.showTasks,
+  set: (value) => emit('update:showTasks', value)
 })
 
-watch(() => props.showEmails, (newVal) => {
-  localShowEmails.value = newVal
-})
-
-watch(localShowTasks, (newVal) => {
-  emit('update:showTasks', newVal)
-})
-
-watch(localShowEmails, (newVal) => {
-  emit('update:showEmails', newVal)
+const localShowEmails = computed({
+  get: () => props.showEmails,
+  set: (value) => emit('update:showEmails', value)
 })
 
 const localViewMode = computed({
@@ -312,7 +305,7 @@ const getCellComponent = (field: string, data: DataItem) => {
     return h(Tag, {
       value: value?.toUpperCase(),
       severity: value === 'task' ? 'info' : 'success',
-      style: { padding: '0.35rem 0.6rem', fontSize: '0.8rem' }
+      class: 'tag-style'
     })
   }
 
@@ -376,13 +369,15 @@ onUnmounted(() => {
 
 <style scoped>
 .data-table-wrapper {
-  background: #2a2a2a;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .table-toolbar {
@@ -390,7 +385,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-primary);
   gap: 1.5rem;
   flex-wrap: wrap;
   flex-shrink: 0;
@@ -419,14 +414,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 0.875rem 1.5rem;
-  background: #333;
-  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
 }
 
 .toggle-label {
   font-weight: 500;
   font-size: 0.9rem;
-  color: #b0b0b0;
+  color: var(--text-secondary);
 }
 
 .checkbox-group {
@@ -437,18 +432,17 @@ onUnmounted(() => {
 
 .toggle-item-label {
   font-size: 0.9rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .results-count {
   font-size: 0.875rem;
-  color: #888;
+  color: var(--text-tertiary);
   margin-left: 1rem;
   padding-left: 1rem;
-  border-left: 1px solid #555;
+  border-left: 1px solid var(--text-disabled);
 }
-
 
 .search-wrapper {
   position: relative;
@@ -460,7 +454,7 @@ onUnmounted(() => {
 .search-icon {
   position: absolute;
   left: 1rem;
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 1rem;
   z-index: 1;
 }
@@ -481,17 +475,42 @@ onUnmounted(() => {
   width: 100%;
   flex: 1;
   overflow: auto;
+  min-width: 0;
+}
+
+.data-table :deep(.p-datatable-wrapper) {
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+}
+
+.data-table :deep(.p-datatable-table) {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+}
+
+.data-table :deep(.p-datatable-thead > tr),
+.data-table :deep(.p-datatable-tbody > tr) {
+  width: 100%;
+}
+
+.data-table :deep(.p-datatable-thead > tr > th),
+.data-table :deep(.p-datatable-tbody > tr > td) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
 }
 
 .data-table :deep(.p-datatable-thead > tr > th) {
   padding: 1.25rem 1rem !important;
-  background: #333 !important;
-  border-color: #404040 !important;
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
 }
 
 .data-table :deep(.p-datatable-tbody > tr > td) {
   padding: 1rem !important;
-  border-color: #404040 !important;
+  border-color: var(--border-primary) !important;
   max-height: 4.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -511,7 +530,7 @@ onUnmounted(() => {
 }
 
 .data-table :deep(tbody tr:hover) {
-  background: #3a3a3a !important;
+  background: var(--bg-hover) !important;
 }
 
 .empty-state,
@@ -521,18 +540,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
-  color: #777;
+  color: var(--text-muted);
 }
 
 .empty-icon,
 .loading-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
-  color: #555;
+  color: var(--text-disabled);
 }
 
 .loading-icon {
-  color: #4a9eff;
+  color: var(--accent-primary);
 }
 
 .array-item:not(:last-child) {
@@ -553,18 +572,18 @@ onUnmounted(() => {
 }
 
 .gallery-item {
-  background: #333;
-  border: 1px solid #444;
-  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 
 .gallery-item:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-4px);
-  border-color: #555;
+  border-color: var(--text-disabled);
 }
 
 .gallery-item-header {
@@ -578,21 +597,21 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 160px;
-  background: #2a2a2a;
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
 }
 
 .gallery-icon {
   font-size: 4rem;
-  color: #666;
+  color: var(--text-disabled);
 }
 
 .gallery-item-content h4 {
   font-size: 1.125rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -600,7 +619,7 @@ onUnmounted(() => {
 
 .gallery-description {
   font-size: 0.875rem;
-  color: #b0b0b0;
+  color: var(--text-secondary);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
@@ -616,10 +635,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.3rem;
   font-size: 0.8rem;
-  color: #b0b0b0;
+  color: var(--text-secondary);
   padding: 0.4rem 0.75rem;
-  background: #2a2a2a;
-  border-radius: 6px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
 }
 
 .meta-item i {

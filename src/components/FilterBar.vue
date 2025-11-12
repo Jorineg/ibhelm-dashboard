@@ -139,10 +139,10 @@ const addNewFilter = () => {
 
 <style scoped>
 .filter-bar {
-  background: #2a2a2a;
+  background: var(--bg-secondary);
   padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .filter-section {
@@ -153,7 +153,7 @@ const addNewFilter = () => {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .filters-with-actions {
@@ -175,12 +175,6 @@ const addNewFilter = () => {
   gap: 0.75rem;
 }
 
-.filter-item label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #b0b0b0;
-}
-
 .filter-actions-inline {
   display: flex;
   gap: 1rem;
@@ -191,19 +185,17 @@ const addNewFilter = () => {
 .dynamic-filters {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-primary);
 }
 
 .dynamic-filter {
   display: grid;
   grid-template-columns: 1fr 1fr 1.5fr auto;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
-  padding: 1.25rem;
-  background: #2a2a2a;
-  border-radius: 8px;
-  border: 1px solid #404040;
 }
 
 .filter-action-btn {

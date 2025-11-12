@@ -1,0 +1,40 @@
+/**
+ * Card/Panel Styles
+ * Common card patterns extracted from components
+ */
+
+/* Panel header pattern (from ConfigurationPanel, FilterBar) */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.panel-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* List item pattern (from ConfigurationPanel) */
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  border: 2px solid transparent;
+  background: var(--bg-tertiary);
+}
+
+.list-item:hover {
+  background: var(--bg-hover);
+}
+
+.list-item.active {
+  background: var(--accent-primary-dark);
+  border-color: var(--accent-primary);
+}
