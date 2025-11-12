@@ -24,8 +24,16 @@
 - there is always one configuration "active". if a any filter is changed, the active configuration is changed and saved automatically.
 - on the right configuration selectin panel, at the very top there is a button to create a new configuration. it will create a new configuration with empty filters and set it as active.
 - no pagination, but when scrolling to the bottom of the table, the table will load more data.
+- if clicked on a row (or gallery item), an almost page filling popup will appear with details of the item. (there is a checkbox at top to of popup to toggle empty values to be shown. if not, only non-empty values (and their labels) are shown)
 
 
+- no data entry for now, only to view data
 - ignore files for now. not yet in db...
 - no inforamtion items yet. all tasks are to dos..., but will be added later.
 - database schema not yet great. will be improved later. make it work for current schema for now.
+-  do not bother these things for now.... i only want the table layout and functionality as described above.
+
+│  ├── File Browser                                   │
+│  ├── Metadata Editor                                │
+│  ├── Access Control Panel (Admin only)             │
+│  └── External Share View  
