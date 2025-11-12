@@ -37,6 +37,7 @@
           :items="filteredAndSearchedItems"
           :columns="availableColumns"
           :loading="loading"
+          :total-count="totalCount"
           :visible-columns="activeConfig?.visibleColumns || []"
           :column-order="activeConfig?.columnOrder || []"
           :column-widths="activeConfig?.columnWidths || {}"
@@ -84,6 +85,7 @@ const {
   dataItems,
   loading,
   hasMore,
+  totalCount,
   loadData,
   loadMore,
   applyFilters,

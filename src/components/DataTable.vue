@@ -8,7 +8,7 @@
           <i class="pi pi-search search-icon" />
           <InputText
             :model-value="props.searchQuery"
-            @update:model-value="emit('update:searchQuery', $event)"
+            @update:model-value="(value) => emit('update:searchQuery', value as string)"
             placeholder="Search..."
             class="search-input"
           />
@@ -43,7 +43,7 @@
           </div>
           
           <span class="results-count">
-            {{ displayedItems.length }} items
+            {{ itemCountDisplay }}
           </span>
         </div>
         
@@ -175,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, h } from 'vue'
 import DataTablePrime from 'primevue/datatable'
 import Column from 'primevue/column'
 import MultiSelect from 'primevue/multiselect'
@@ -197,6 +197,7 @@ interface Props {
   showEmails: boolean
   viewMode: 'list' | 'gallery'
   searchQuery: string
+  totalCount?: number | null
 }
 
 interface Emits {
@@ -277,6 +278,14 @@ const shouldShowColumn = (field: string): boolean => {
 }
 
 const displayedItems = computed(() => props.items)
+
+const itemCountDisplay = computed(() => {
+  const loaded = displayedItems.value.length
+  if (props.totalCount !== null && props.totalCount !== undefined) {
+    return `${loaded.toLocaleString()} of ${props.totalCount.toLocaleString()} items`
+  }
+  return `${loaded.toLocaleString()} items`
+})
 
 const handleRowClick = (event: { data: DataItem }) => {
   emit('rowClick', event.data)
