@@ -190,6 +190,30 @@ const clearSearch = () => {
   searchQuery.value = ''
 }
 
+// Watch for visible columns changes (e.g., when switching configs) and clean up widths
+watch(() => activeConfig.value?.visibleColumns, (newColumns, oldColumns) => {
+  if (!activeConfig.value || !newColumns || !oldColumns) return
+  
+  // Only clean up if columns actually changed
+  const columnsChanged = JSON.stringify(newColumns) !== JSON.stringify(oldColumns)
+  if (!columnsChanged) return
+  
+  // Clean up column widths for columns that are no longer visible
+  const currentWidths = activeConfig.value.columnWidths || {}
+  const newWidths: Record<string, string> = {}
+  
+  Object.keys(currentWidths).forEach(field => {
+    if (newColumns.includes(field)) {
+      newWidths[field] = currentWidths[field]
+    }
+  })
+  
+  // Only update if widths actually changed
+  if (JSON.stringify(newWidths) !== JSON.stringify(currentWidths)) {
+    updateConfiguration(activeConfig.value.id, { columnWidths: newWidths })
+  }
+}, { deep: true })
+
 const handleSignOut = async () => {
   await signOut()
   router.push('/login')
@@ -213,7 +237,18 @@ const handleLoadMore = async () => {
 
 const handleUpdateVisibleColumns = (columns: string[]) => {
   if (activeConfig.value) {
-    updateConfiguration(activeConfig.value.id, { visibleColumns: columns })
+    // Clean up column widths for columns that are no longer visible
+    const newWidths: Record<string, string> = {}
+    Object.keys(activeConfig.value.columnWidths || {}).forEach(field => {
+      if (columns.includes(field)) {
+        newWidths[field] = activeConfig.value!.columnWidths![field]
+      }
+    })
+    
+    updateConfiguration(activeConfig.value.id, { 
+      visibleColumns: columns,
+      columnWidths: newWidths
+    })
   }
 }
 

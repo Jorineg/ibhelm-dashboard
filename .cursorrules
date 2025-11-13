@@ -1,3 +1,8 @@
 - for everything styling related, ALWAYS look at src/styles directory. Many issues are probably caused by not using the defined styles there or not importing them....
 - prefer a solutin to a bug that removes code over one that adds code.
+- if you want to see current database schema and views, use browser tool and query: https://raw.githubusercontent.com/Jorineg/ibhelmDB/main/supabase/migrations/001_initial_schema_tables.sql
+- or https://raw.githubusercontent.com/Jorineg/ibhelmDB/main/supabase/migrations/002_initial_schema_views.sql
 - when it makes sense to create a new db view or change the existing one, tell me. Clean architecture is key.
+- with github tool, you can also see code of TeamworkMissiveConnector and MissiveAttachmentDownloader if you think it would be helpful.
+- if you cannot fix a styling issue without knowing computed browser styles, give me some js code that i can copy and paste to the browser that prints the computed styles to the console. I am happy to try it and give you the result.
+- update existing documentation files but do not create new documentation files unless explicitly asked
