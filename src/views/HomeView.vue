@@ -3,6 +3,56 @@
     <!-- Header -->
     <div class="page-header">
       <h1>ibhelm Dashboard</h1>
+      
+      <!-- Sync Status - Centered -->
+      <div class="sync-status-panel">
+        <div class="sync-status-item">
+          <div class="sync-source">
+            <span class="sync-icon">📋</span>
+            <span class="sync-label">Teamwork</span>
+          </div>
+          <div class="sync-details">
+            <div class="sync-time-row">
+              <span class="sync-time-label">Last sync:</span>
+              <span class="sync-time-value" :title="formatFullDate(syncStatus.teamwork.lastScanned)">
+                {{ formatTime(syncStatus.teamwork.lastScanned) }}
+              </span>
+            </div>
+            <div v-if="syncStatus.teamwork.pendingCount > 0" class="sync-queue-row">
+              <span class="sync-queue-label">Queue:</span>
+              <span class="sync-queue-value pending">{{ syncStatus.teamwork.pendingCount }} pending</span>
+            </div>
+            <div v-else class="sync-queue-row">
+              <span class="sync-queue-ok">✓ synced</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="sync-divider"></div>
+        
+        <div class="sync-status-item">
+          <div class="sync-source">
+            <span class="sync-icon">✉️</span>
+            <span class="sync-label">Missive</span>
+          </div>
+          <div class="sync-details">
+            <div class="sync-time-row">
+              <span class="sync-time-label">Last sync:</span>
+              <span class="sync-time-value" :title="formatFullDate(syncStatus.missive.lastScanned)">
+                {{ formatTime(syncStatus.missive.lastScanned) }}
+              </span>
+            </div>
+            <div v-if="syncStatus.missive.pendingCount > 0" class="sync-queue-row">
+              <span class="sync-queue-label">Queue:</span>
+              <span class="sync-queue-value pending">{{ syncStatus.missive.pendingCount }} pending</span>
+            </div>
+            <div v-else class="sync-queue-row">
+              <span class="sync-queue-ok">✓ synced</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="header-actions">
         <span class="user-email">{{ user?.email }}</span>
         <Button
@@ -75,11 +125,36 @@ import ItemDetailDialog from '@/components/ItemDetailDialog.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
+import { useSyncStatus } from '@/composables/useSyncStatus'
 import type { DataItem, Column } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, updateConfiguration } = useFilterConfigs()
+const { syncStatus } = useSyncStatus()
+
+// Format time with seconds
+const formatTime = (date: Date | null): string => {
+  if (!date) return '--:--:--'
+  return date.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+// Format full date for tooltip
+const formatFullDate = (date: Date | null): string => {
+  if (!date) return 'No data available'
+  return date.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
 const {
   dataItems,
   loading,
@@ -310,12 +385,96 @@ onMounted(() => {
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  flex-shrink: 0;
+}
+
+/* Sync Status Panel */
+.sync-status-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sync-status-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sync-source {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sync-icon {
+  font-size: 1.25rem;
+}
+
+.sync-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sync-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sync-time-row,
+.sync-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.sync-time-label,
+.sync-queue-label {
+  color: var(--text-secondary);
+}
+
+.sync-time-value {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.sync-queue-value {
+  font-weight: 600;
+}
+
+.sync-queue-value.pending {
+  color: #f5a623;
+  background: rgba(245, 166, 35, 0.15);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+}
+
+.sync-queue-ok {
+  color: #4ade80;
+  font-weight: 500;
+}
+
+.sync-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  align-self: stretch;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 1.5rem;
+  flex-shrink: 0;
 }
 
 .user-email {
