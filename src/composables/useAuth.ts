@@ -6,16 +6,16 @@ const user = ref<User | null>(null)
 const loading = ref(true)
 
 export function useAuth() {
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+  const signInWithMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
       options: {
-        redirectTo: window.location.origin
+        emailRedirectTo: window.location.origin
       }
     })
     
     if (error) {
-      console.error('Error signing in:', error)
+      console.error('Error sending magic link:', error)
       throw error
     }
   }
@@ -53,9 +53,8 @@ export function useAuth() {
   return {
     user,
     loading,
-    signInWithGoogle,
+    signInWithMagicLink,
     signOut,
     checkAuth
   }
 }
-

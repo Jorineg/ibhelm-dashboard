@@ -3,18 +3,47 @@
     <div class="login-card">
       <div class="login-header">
         <h1>ibhelm Dashboard</h1>
-        <p>Sign in to continue</p>
+        <p>Sign in with your email</p>
       </div>
       
       <div class="login-content">
-        <Button 
-          label="Sign in with Google" 
-          icon="pi pi-google" 
-          @click="handleSignIn"
-          :loading="loading"
-          class="google-button"
-          size="large"
-        />
+        <div v-if="!magicLinkSent">
+          <div class="input-group">
+            <label for="email">Email address</label>
+            <InputText 
+              id="email"
+              v-model="email" 
+              type="email" 
+              placeholder="you@example.com"
+              class="email-input"
+              :disabled="loading"
+              @keyup.enter="handleSignIn"
+            />
+          </div>
+          
+          <Button 
+            label="Send Magic Link" 
+            icon="pi pi-envelope" 
+            @click="handleSignIn"
+            :loading="loading"
+            :disabled="!email || loading"
+            class="magic-link-button"
+            size="large"
+          />
+        </div>
+
+        <div v-else class="success-message">
+          <i class="pi pi-check-circle"></i>
+          <h3>Check your email</h3>
+          <p>We've sent a magic link to <strong>{{ email }}</strong></p>
+          <p class="hint">Click the link in the email to sign in.</p>
+          <Button 
+            label="Send another link" 
+            link 
+            @click="resetForm"
+            class="resend-button"
+          />
+        </div>
         
         <div v-if="error" class="error-message">
           {{ error }}
@@ -26,27 +55,36 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
 import { useAuth } from '@/composables/useAuth'
 
-const router = useRouter()
-const { signInWithGoogle } = useAuth()
+const { signInWithMagicLink } = useAuth()
 
+const email = ref('')
 const loading = ref(false)
 const error = ref('')
+const magicLinkSent = ref(false)
 
 const handleSignIn = async () => {
+  if (!email.value) return
+  
   loading.value = true
   error.value = ''
   
   try {
-    await signInWithGoogle()
-    // Supabase OAuth will redirect, so we don't need to manually navigate
+    await signInWithMagicLink(email.value)
+    magicLinkSent.value = true
   } catch (err: any) {
-    error.value = err.message || 'Failed to sign in'
+    error.value = err.message || 'Failed to send magic link'
+  } finally {
     loading.value = false
   }
+}
+
+const resetForm = () => {
+  magicLinkSent.value = false
+  error.value = ''
 }
 </script>
 
@@ -92,10 +130,61 @@ const handleSignIn = async () => {
   gap: 1.5rem;
 }
 
-.google-button {
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.email-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+}
+
+.magic-link-button {
   width: 100%;
   justify-content: center;
   padding: 1rem;
+}
+
+.success-message {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.success-message i {
+  font-size: 3rem;
+  color: var(--success-text, #22c55e);
+  margin-bottom: 1rem;
+}
+
+.success-message h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.success-message p {
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.success-message .hint {
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+}
+
+.resend-button {
+  margin-top: 1rem;
 }
 
 .error-message {
@@ -108,4 +197,3 @@ const handleSignIn = async () => {
   border: 1px solid var(--error-border);
 }
 </style>
-
