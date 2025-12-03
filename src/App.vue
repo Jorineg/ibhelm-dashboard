@@ -90,7 +90,7 @@ const formatFullDate = (date: Date | null): string => {
 }
 
 .version-tag {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgb(148, 148, 148);
   pointer-events: none;
 }
 
