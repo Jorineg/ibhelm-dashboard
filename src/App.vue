@@ -1,9 +1,21 @@
 <template>
   <router-view />
-  <div class="version-tag">v0.1.0</div>
+  <div class="version-tag">{{ buildTime }}</div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
+const buildTime = computed(() => {
+  const date = new Date(__BUILD_TIMESTAMP__)
+  return date.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+})
 </script>
 
 <style scoped>
