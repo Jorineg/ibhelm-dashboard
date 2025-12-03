@@ -7,16 +7,27 @@ const loading = ref(true)
 
 export function useAuth() {
   const signInWithMagicLink = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin
+    try {
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      })
+      
+      if (error) {
+        console.error('Error sending magic link:', error)
+        throw new Error(error.message || 'Failed to send magic link')
       }
-    })
-    
-    if (error) {
-      console.error('Error sending magic link:', error)
-      throw error
+      
+      return data
+    } catch (err: any) {
+      console.error('Exception sending magic link:', err)
+      // Check if it's a network or configuration error
+      if (err.message?.includes('JSON') || err.name === 'SyntaxError') {
+        throw new Error('Unable to connect to authentication service. Please check your configuration.')
+      }
+      throw new Error(err.message || 'An unexpected error occurred')
     }
   }
 

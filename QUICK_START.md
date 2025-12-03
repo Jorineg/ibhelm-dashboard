@@ -6,7 +6,7 @@ Get up and running with the ibhelm Dashboard in 5 minutes!
 
 - Node.js 18+ installed
 - Supabase account (cloud or self-hosted)
-- Google account for OAuth
+- Email address for magic link authentication
 
 ## Step-by-Step Setup
 
@@ -21,8 +21,8 @@ npm install
 Create a `.env` file:
 
 ```bash
-# Copy the example file
-cp .env.example .env
+# Copy the example file (or create manually)
+cp env.example .env
 ```
 
 Edit `.env` and add your Supabase credentials:
@@ -38,11 +38,16 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - Settings → API
 - Copy "Project URL" and "anon public" key
 
-### 3️⃣ Enable Google OAuth (2 minutes)
+### 3️⃣ Configure Authentication (2 minutes)
 
 1. In Supabase Dashboard: **Authentication** → **Providers**
-2. Enable **Google**
-3. Add Google Client ID and Secret (see [SETUP_INSTRUCTIONS.md](./SETUP_INSTRUCTIONS.md) for details)
+2. Make sure **Email** provider is enabled
+3. Create a test user: **Authentication** → **Users** → **Add User**
+   - Add your email address
+   - Set a password (required but won't be used)
+   - Enable "Auto Confirm User"
+
+**Note:** The app does NOT allow signups. Users must be created via Supabase dashboard.
 
 ### 4️⃣ Run the App
 
@@ -54,8 +59,9 @@ Open [http://localhost:5173](http://localhost:5173) 🎉
 
 ## First Time Using the Dashboard
 
-1. **Login**: Click "Sign in with Google"
-2. **Explore**: The dashboard will load with a default filter configuration
+1. **Login**: Enter your email and click "Send Magic Link"
+2. **Check Email**: Open the magic link email and click the link
+3. **Explore**: The dashboard will load with a default filter configuration
 3. **Filter**: Use the always-visible filters on the left (project, customer, etc.)
 4. **Search**: Type in the search bar to find items across all columns
 5. **Click Items**: Click any row to see full details
@@ -98,9 +104,11 @@ Just scroll down - more data loads automatically!
 - Make sure your Supabase database has data in `tasks` or `m_messages` tables
 - Check browser console for errors
 
-### Google login not working
-- Verify Google OAuth is enabled in Supabase
-- Check redirect URL is correct: `http://localhost:5173`
+### Magic link not arriving
+- Check your spam/junk folder
+- Verify Email provider is enabled in Supabase
+- Make sure you created the user in Supabase dashboard first
+- See [TROUBLESHOOTING_AUTH.md](./TROUBLESHOOTING_AUTH.md) for detailed help
 
 ## What's Next?
 
@@ -121,7 +129,7 @@ src/
 │   ├── ConfigurationPanel.vue ← Saved configs
 │   └── ItemDetailDialog.vue   ← Item popup
 ├── composables/
-│   ├── useAuth.ts             ← Google login
+│   ├── useAuth.ts             ← Magic link authentication
 │   ├── useData.ts             ← Fetch data
 │   └── useFilterConfigs.ts    ← Save filters
 └── lib/

@@ -42,32 +42,27 @@ VITE_SUPABASE_URL=https://abcdefghijk.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjE1NzE2MDAsImV4cCI6MTkzNzE0NzYwMH0.xxxxxxxxxxxxxxxxxxxxx
 ```
 
-### 4. Configure Google OAuth in Supabase
+### 4. Configure Email Magic Link Authentication in Supabase
 
 1. Go to your Supabase dashboard
 2. Navigate to **Authentication** → **Providers**
-3. Find **Google** in the list and enable it
-4. You'll need to create a Google OAuth app:
+3. Find **Email** in the list and make sure it's enabled
+4. Configure the email settings:
+   - **Enable email provider**: ON
+   - **Confirm email**: Optional (can be OFF for easier setup)
+   - **Secure email change**: Optional
 
-#### Creating Google OAuth Credentials
+#### Configure Email Templates (Optional)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project (or select existing)
-3. Go to **APIs & Services** → **Credentials**
-4. Click **Create Credentials** → **OAuth 2.0 Client ID**
-5. Configure the consent screen if prompted
-6. For Application type, select **Web application**
-7. Add authorized redirect URIs:
-   - For development: `http://localhost:5173`
-   - For Supabase: `https://your-project-id.supabase.co/auth/v1/callback`
-8. Copy the **Client ID** and **Client Secret**
+1. Go to **Authentication** → **Email Templates**
+2. Customize the "Magic Link" email template if desired
+3. Make sure the magic link URL is correct
 
-#### Add Credentials to Supabase
+#### Important Notes
 
-1. Back in Supabase dashboard under **Authentication** → **Providers** → **Google**
-2. Paste your **Client ID** and **Client Secret**
-3. Enable the provider
-4. Save
+- Users must be created in the Supabase dashboard first (Authentication → Users → Add User)
+- The app does not allow self-signup - only login for existing users
+- Magic links are valid for a limited time (default: 1 hour)
 
 ### 5. Verify Database Schema
 
@@ -92,12 +87,23 @@ npm run dev
 
 Open your browser to `http://localhost:5173`
 
-### 7. Test Login
+### 7. Create a Test User
 
-1. Click "Sign in with Google"
-2. You should be redirected to Google's OAuth consent screen
-3. Authorize the app
-4. You should be redirected back to the dashboard
+Before you can log in, you need to create a user in Supabase:
+
+1. Go to your Supabase dashboard
+2. Navigate to **Authentication** → **Users**
+3. Click **Add User**
+4. Enter an email address and create a password
+5. Click **Create User**
+
+### 8. Test Login
+
+1. Enter your email address on the login page
+2. Click "Send Magic Link"
+3. Check your email inbox for the magic link
+4. Click the link in the email
+5. You should be redirected to the dashboard
 
 ## Troubleshooting
 
@@ -107,12 +113,20 @@ Open your browser to `http://localhost:5173`
 - Make sure the variable names are exactly `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 - Restart the dev server after creating/modifying the `.env` file
 
-### Google OAuth Not Working
+### Magic Link Email Not Arriving
 
-- Verify your redirect URI is correct in Google Cloud Console
-- Make sure you added both development and production URLs
-- Check that Google OAuth is enabled in Supabase dashboard
-- Make sure your Client ID and Secret are correctly entered in Supabase
+- Check your spam/junk folder
+- Verify the Email provider is enabled in Supabase (Authentication → Providers → Email)
+- Check Supabase logs for email sending errors
+- If using SMTP, verify your SMTP settings in Supabase
+- For development, check if you need to configure a custom SMTP (default uses Supabase's email service)
+
+### "Unable to connect to authentication service" Error
+
+- Verify your `.env` file has the correct Supabase URL and anon key
+- Check that your Supabase project is running and accessible
+- Test the connection by visiting your Supabase URL in a browser
+- Restart the dev server after changing environment variables
 
 ### "Relation does not exist" Database Errors
 
@@ -140,15 +154,13 @@ When deploying to production (e.g., Vercel, Netlify), add these environment vari
 - `VITE_SUPABASE_URL` - Your production Supabase URL
 - `VITE_SUPABASE_ANON_KEY` - Your production Supabase anon key
 
-### Google OAuth Redirect
+### Site URL Configuration
 
-Don't forget to add your production domain to:
-1. Google Cloud Console authorized redirect URIs
-2. Supabase OAuth settings (if applicable)
+Make sure to configure your site URL in Supabase:
 
-Example:
-- `https://your-app.vercel.app`
-- `https://your-project-id.supabase.co/auth/v1/callback`
+1. Go to **Authentication** → **URL Configuration**
+2. Set **Site URL** to your production domain (e.g., `https://your-app.vercel.app`)
+3. Add any additional redirect URLs if needed
 
 ## Next Steps
 
