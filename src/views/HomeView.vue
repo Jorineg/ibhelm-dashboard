@@ -172,7 +172,7 @@ const availableColumns = computed<Column[]>(() => [
   { field: 'type', header: 'Type', sortable: true, width: '100px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
-  { field: 'body', header: 'Extracted Email Text', sortable: false, width: '400px' },
+  { field: 'body', header: 'Email Content', sortable: false, width: '400px' },
   { field: 'preview', header: 'Email Preview', sortable: false, width: '300px' },
   { field: 'status', header: 'Status', sortable: true, width: '120px' },
   { field: 'project', header: 'Project', sortable: true, width: '200px' },
