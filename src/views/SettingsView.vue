@@ -646,9 +646,9 @@ onUnmounted(() => {
 }
 
 .sidebar-menu li.active {
-  background: var(--bg-tertiary);
+  background: var(--accent-primary-dark);
   color: var(--text-primary);
-  border-left-color: var(--accent-primary, #6366f1);
+  border-left-color: var(--accent-primary);
   font-weight: 500;
 }
 
@@ -690,14 +690,14 @@ onUnmounted(() => {
   display: flex;
   gap: 0.75rem;
   padding: 1rem;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(74, 158, 255, 0.1);
+  border: 1px solid rgba(74, 158, 255, 0.2);
   border-radius: var(--radius-md);
   font-size: 0.85rem;
 }
 
 .info-box i {
-  color: #818cf8;
+  color: var(--accent-primary);
   font-size: 1.1rem;
   margin-top: 2px;
 }
@@ -790,8 +790,8 @@ onUnmounted(() => {
 }
 
 .task-type-card.is-default {
-  border-color: rgba(99, 102, 241, 0.3);
-  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(74, 158, 255, 0.3);
+  background: rgba(74, 158, 255, 0.05);
 }
 
 .task-type-header {
@@ -834,8 +834,8 @@ onUnmounted(() => {
 
 .default-badge {
   padding: 0.15rem 0.5rem;
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
+  background: rgba(74, 158, 255, 0.2);
+  color: var(--accent-primary);
   font-size: 0.7rem;
   font-weight: 500;
   border-radius: 3px;
@@ -974,14 +974,14 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin-top: 1rem;
   padding: 0.75rem;
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(74, 158, 255, 0.1);
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
 .default-type-info i {
-  color: #818cf8;
+  color: var(--accent-primary);
 }
 
 /* Add New Task Type */
@@ -1130,7 +1130,7 @@ onUnmounted(() => {
   
   .sidebar-menu li.active {
     border-left-color: transparent;
-    border-bottom-color: var(--accent-primary, #6366f1);
+    border-bottom-color: var(--accent-primary);
   }
 }
 </style>

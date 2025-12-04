@@ -702,19 +702,16 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  padding: 0;
   border: none;
-  background: var(--bg-tertiary);
+  background: transparent;
   color: var(--text-secondary);
-  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
 }
 
 .settings-btn:hover {
-  background: var(--bg-hover);
   color: var(--text-primary);
   transform: rotate(45deg);
 }

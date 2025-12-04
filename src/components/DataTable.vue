@@ -129,7 +129,7 @@
       <Column
         v-if="props.viewType === 'items' || !props.viewType"
         frozen
-        :style="{ width: '60px', minWidth: '60px', maxWidth: '60px' }"
+        :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
         header=""
         class="source-links-column"
       >
@@ -991,12 +991,12 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   text-decoration: none;
   transition: all 0.15s ease;
-  font-size: 0.85rem;
+  font-size: 1rem;
   border: 1px solid;
 }
 
