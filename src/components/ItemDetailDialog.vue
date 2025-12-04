@@ -28,7 +28,7 @@
       <div class="detail-section detail-header-row">
         <Tag
           :value="item.type.toUpperCase()"
-          :severity="item.type === 'task' ? 'info' : 'success'"
+          :severity="item.type === 'task' ? 'success' : 'info'"
           class="tag-style"
         />
         <div class="source-links">

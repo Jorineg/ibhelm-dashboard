@@ -167,7 +167,7 @@
           <div class="gallery-item-header">
             <Tag
               :value="item.type"
-              :severity="item.type === 'task' ? 'info' : 'success'"
+              :severity="item.type === 'task' ? 'success' : 'info'"
               class="tag-style"
             />
             <div class="gallery-item-links" @click.stop>
@@ -366,7 +366,7 @@ const getCellComponent = (field: string, data: DataItem) => {
   if (field === 'type') {
     return h(Tag, {
       value: value?.toUpperCase(),
-      severity: value === 'task' ? 'info' : 'success',
+      severity: value === 'task' ? 'success' : 'info',
       class: 'tag-style'
     })
   }
