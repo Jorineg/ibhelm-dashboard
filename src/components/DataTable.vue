@@ -83,9 +83,13 @@
       :paginator="false"
       :rows="displayedItems.length"
       :reorderable-columns="true"
+      :sort-field="props.sortConfig?.field"
+      :sort-order="props.sortConfig?.order === 'asc' ? 1 : -1"
+      removable-sort
       @row-click="handleRowClick"
       @column-reorder="handleColumnReorder"
       @column-resize-end="handleColumnResize"
+      @sort="handleSort"
       class="data-table"
       :resizable-columns="true"
       column-resize-mode="fit"
@@ -237,7 +241,7 @@ import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
-import type { DataItem, Column as ColumnType } from '@/types'
+import type { DataItem, Column as ColumnType, SortConfig } from '@/types'
 
 interface Props {
   items: DataItem[]
@@ -251,6 +255,7 @@ interface Props {
   viewMode: 'list' | 'gallery'
   searchQuery: string
   totalCount?: number | null
+  sortConfig?: SortConfig
 }
 
 interface Emits {
@@ -264,6 +269,7 @@ interface Emits {
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
+  (e: 'sort', sortConfig: SortConfig): void
 }
 
 const props = defineProps<Props>()
@@ -356,6 +362,19 @@ const handleColumnResize = (event: any) => {
     const newWidths = { ...props.columnWidths }
     newWidths[field] = event.element.style.width
     emit('update:columnWidths', newWidths)
+  }
+}
+
+const handleSort = (event: any) => {
+  // PrimeVue sort event: { sortField: string, sortOrder: 1 | -1 | 0 }
+  const field = event.sortField
+  const order = event.sortOrder === 1 ? 'asc' : 'desc'
+  
+  // If sortOrder is 0 (removed), default to sort_date desc
+  if (event.sortOrder === 0 || !field) {
+    emit('sort', { field: 'sort_date', order: 'desc' })
+  } else {
+    emit('sort', { field, order })
   }
 }
 

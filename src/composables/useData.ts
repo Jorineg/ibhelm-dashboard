@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { DataItem, FilterConfiguration } from '@/types'
+import type { DataItem, FilterConfiguration, SortConfig } from '@/types'
 
 const PAGE_SIZE = 50
 
@@ -11,6 +11,7 @@ export function useData() {
   const currentPage = ref(0)
   const searchQuery = ref('')
   const totalCount = ref<number | null>(null)
+  const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
 
   // Fetch unified items from the database view
   const fetchUnifiedItems = async (
@@ -19,13 +20,15 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     includeCount = false,
-    filterConfig: FilterConfiguration | null = null
+    filterConfig: FilterConfiguration | null = null,
+    sortConfig: SortConfig | null = null
   ) => {
     try {
+      const sort = sortConfig || currentSort.value
       let query = supabase
         .from('unified_items')
         .select('*', { count: includeCount ? 'exact' : undefined })
-        .order('sort_date', { ascending: false })
+        .order(sort.field, { ascending: sort.order === 'asc' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
       // Filter by item type
@@ -102,15 +105,26 @@ export function useData() {
   const dataItems = computed<DataItem[]>(() => items.value)
 
   // Load initial data
-  const loadData = async (showTasks = true, showEmails = true, search = '', filterConfig: FilterConfiguration | null = null) => {
+  const loadData = async (
+    showTasks = true,
+    showEmails = true,
+    search = '',
+    filterConfig: FilterConfiguration | null = null,
+    sortConfig: SortConfig | null = null
+  ) => {
     loading.value = true
     currentPage.value = 0
     items.value = []
     hasMore.value = true
 
+    // Update current sort if provided
+    if (sortConfig) {
+      currentSort.value = sortConfig
+    }
+
     try {
       // Include count on initial load to show total
-      const result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig)
+      const result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value)
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
@@ -122,7 +136,12 @@ export function useData() {
   }
 
   // Load more data (for infinite scroll)
-  const loadMore = async (showTasks = true, showEmails = true, search = '', filterConfig: FilterConfiguration | null = null) => {
+  const loadMore = async (
+    showTasks = true,
+    showEmails = true,
+    search = '',
+    filterConfig: FilterConfiguration | null = null
+  ) => {
     if (loading.value || !hasMore.value) return
 
     loading.value = true
@@ -130,7 +149,8 @@ export function useData() {
 
     try {
       // Don't include count on subsequent loads for better performance
-      const result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig)
+      // Use current sort config for consistency
+      const result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value)
       items.value.push(...result.data)
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (error) {
@@ -249,6 +269,7 @@ export function useData() {
     hasMore,
     searchQuery,
     totalCount,
+    currentSort,
     loadData,
     loadMore,
     applyFilters,

@@ -198,3 +198,8 @@ export interface Column {
   width?: string
 }
 
+export interface SortConfig {
+  field: string
+  order: 'asc' | 'desc'
+}
+

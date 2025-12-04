@@ -94,6 +94,7 @@
           :show-tasks="activeConfig?.showTasks ?? true"
           :show-emails="activeConfig?.showEmails ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
+          :sort-config="currentSort"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -102,6 +103,7 @@
           @update:view-mode="handleUpdateViewMode"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
+          @sort="handleSort"
         />
       </main>
     </div>
@@ -126,7 +128,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
-import type { DataItem, Column } from '@/types'
+import type { DataItem, Column, SortConfig } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
@@ -159,6 +161,7 @@ const {
   loading,
   hasMore,
   totalCount,
+  currentSort,
   loadData,
   loadMore
 } = useData()
@@ -353,6 +356,18 @@ const handleUpdateShowEmails = (show: boolean) => {
 const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
   if (activeConfig.value) {
     updateConfiguration(activeConfig.value.id, { viewMode: mode })
+  }
+}
+
+const handleSort = async (sortConfig: SortConfig) => {
+  if (activeConfig.value) {
+    await loadData(
+      activeConfig.value.showTasks,
+      activeConfig.value.showEmails,
+      searchQuery.value,
+      activeConfig.value,
+      sortConfig
+    )
   }
 }
 
