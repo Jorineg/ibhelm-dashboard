@@ -23,26 +23,28 @@
         </div>
         
         <div class="item-type-toggles">
-          <span class="toggle-label">Show:</span>
-          <div class="checkbox-group">
-            <Checkbox
-              v-model="localShowTasks"
-              input-id="show-tasks"
-              :binary="true"
-            />
-            <label for="show-tasks" class="toggle-item-label">Tasks</label>
-          </div>
+          <template v-if="props.viewType === 'items' || !props.viewType">
+            <span class="toggle-label">Show:</span>
+            <div class="checkbox-group">
+              <Checkbox
+                v-model="localShowTasks"
+                input-id="show-tasks"
+                :binary="true"
+              />
+              <label for="show-tasks" class="toggle-item-label">Tasks</label>
+            </div>
+            
+            <div class="checkbox-group">
+              <Checkbox
+                v-model="localShowEmails"
+                input-id="show-emails"
+                :binary="true"
+              />
+              <label for="show-emails" class="toggle-item-label">Emails</label>
+            </div>
+          </template>
           
-          <div class="checkbox-group">
-            <Checkbox
-              v-model="localShowEmails"
-              input-id="show-emails"
-              :binary="true"
-            />
-            <label for="show-emails" class="toggle-item-label">Emails</label>
-          </div>
-          
-          <span class="results-count">
+          <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
             {{ itemCountDisplay }}
           </span>
         </div>
@@ -108,8 +110,9 @@
         </div>
       </template>
 
-      <!-- Source Link Buttons Column (frozen on left) -->
+      <!-- Source Link Buttons Column (frozen on left, only for items view) -->
       <Column
+        v-if="props.viewType === 'items' || !props.viewType"
         frozen
         :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
         header=""
@@ -170,11 +173,24 @@
         >
           <div class="gallery-item-header">
             <Tag
+              v-if="props.viewType === 'items' || !props.viewType"
               :value="item.type"
               :severity="item.type === 'task' ? 'success' : 'info'"
               class="tag-style"
             />
-            <div class="gallery-item-links" @click.stop>
+            <Tag
+              v-else-if="props.viewType === 'projects'"
+              :value="item.status || 'active'"
+              severity="success"
+              class="tag-style"
+            />
+            <Tag
+              v-else-if="props.viewType === 'people'"
+              :value="item.is_company ? 'Company' : 'Person'"
+              :severity="item.is_internal ? 'warning' : 'info'"
+              class="tag-style"
+            />
+            <div v-if="props.viewType === 'items' || !props.viewType" class="gallery-item-links" @click.stop>
               <a
                 v-if="item.teamwork_url"
                 :href="item.teamwork_url"
@@ -199,22 +215,40 @@
           </div>
           <div class="gallery-item-thumbnail">
             <i
-              :class="item.type === 'task' ? 'pi pi-check-square' : 'pi pi-envelope'"
+              :class="getGalleryIcon(item)"
               class="gallery-icon"
             ></i>
           </div>
           <div class="gallery-item-content">
-            <h4>{{ item.name }}</h4>
-            <p v-if="item.description" class="gallery-description">
-              {{ truncateText(item.description, 100) }}
+            <h4>{{ getGalleryTitle(item) }}</h4>
+            <p v-if="getGalleryDescription(item)" class="gallery-description">
+              {{ truncateText(getGalleryDescription(item), 100) }}
             </p>
             <div class="gallery-meta">
-              <span v-if="item.project" class="meta-item">
-                <i class="pi pi-folder"></i> {{ item.project }}
-              </span>
-              <span v-if="item.status" class="meta-item">
-                <i class="pi pi-tag"></i> {{ item.status }}
-              </span>
+              <template v-if="props.viewType === 'items' || !props.viewType">
+                <span v-if="item.project" class="meta-item">
+                  <i class="pi pi-folder"></i> {{ item.project }}
+                </span>
+                <span v-if="item.status" class="meta-item">
+                  <i class="pi pi-tag"></i> {{ item.status }}
+                </span>
+              </template>
+              <template v-else-if="props.viewType === 'projects'">
+                <span v-if="item.company_name" class="meta-item">
+                  <i class="pi pi-building"></i> {{ item.company_name }}
+                </span>
+                <span v-if="item.task_count" class="meta-item">
+                  <i class="pi pi-list"></i> {{ item.task_count }} tasks
+                </span>
+              </template>
+              <template v-else-if="props.viewType === 'people'">
+                <span v-if="item.primary_email" class="meta-item">
+                  <i class="pi pi-envelope"></i> {{ item.primary_email }}
+                </span>
+                <span v-if="item.is_internal" class="meta-item internal">
+                  <i class="pi pi-home"></i> Internal
+                </span>
+              </template>
             </div>
           </div>
         </div>
@@ -222,7 +256,7 @@
 
       <div v-if="displayedItems.length === 0" class="empty-state">
         <i class="pi pi-inbox empty-icon"></i>
-        <p>No items found</p>
+        <p>No {{ props.viewType || 'items' }} found</p>
       </div>
     </div>
 
@@ -241,10 +275,10 @@ import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
-import type { DataItem, Column as ColumnType, SortConfig } from '@/types'
+import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType } from '@/types'
 
 interface Props {
-  items: DataItem[]
+  items: ViewDataItem[]
   columns: ColumnType[]
   loading: boolean
   visibleColumns: string[]
@@ -256,6 +290,7 @@ interface Props {
   searchQuery: string
   totalCount?: number | null
   sortConfig?: SortConfig
+  viewType?: ViewType
 }
 
 interface Emits {
@@ -340,10 +375,13 @@ const displayedItems = computed(() => props.items)
 
 const itemCountDisplay = computed(() => {
   const loaded = displayedItems.value.length
+  const viewLabel = props.viewType === 'projects' ? 'projects' 
+    : props.viewType === 'people' ? 'people' 
+    : 'items'
   if (props.totalCount !== null && props.totalCount !== undefined) {
-    return `${loaded.toLocaleString()} of ${props.totalCount.toLocaleString()} items`
+    return `${loaded.toLocaleString()} of ${props.totalCount.toLocaleString()} ${viewLabel}`
   }
-  return `${loaded.toLocaleString()} items`
+  return `${loaded.toLocaleString()} ${viewLabel}`
 })
 
 const handleRowClick = (event: { data: DataItem }) => {
@@ -422,6 +460,32 @@ const getCellComponent = (field: string, data: DataItem) => {
 const truncateText = (text: string, maxLength: number): string => {
   if (!text || text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
+}
+
+// Gallery view helpers
+const getGalleryIcon = (item: ViewDataItem): string => {
+  if (props.viewType === 'projects') {
+    return 'pi pi-folder'
+  }
+  if (props.viewType === 'people') {
+    return item.is_company ? 'pi pi-building' : 'pi pi-user'
+  }
+  // Items view
+  return item.type === 'task' ? 'pi pi-check-square' : 'pi pi-envelope'
+}
+
+const getGalleryTitle = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') {
+    return item.display_name || 'Unknown'
+  }
+  return item.name || 'Untitled'
+}
+
+const getGalleryDescription = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') {
+    return item.notes || item.primary_email || ''
+  }
+  return item.description || ''
 }
 
 // Infinite scroll
@@ -528,6 +592,12 @@ onUnmounted(() => {
   margin-left: 1rem;
   padding-left: 1rem;
   border-left: 1px solid var(--text-disabled);
+}
+
+.results-count.no-border {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
 }
 
 .search-wrapper {
@@ -742,6 +812,11 @@ onUnmounted(() => {
 
 .meta-item i {
   font-size: 0.9rem;
+}
+
+.meta-item.internal {
+  background: rgba(245, 166, 35, 0.2);
+  color: #f5a623;
 }
 
 .scroll-trigger {

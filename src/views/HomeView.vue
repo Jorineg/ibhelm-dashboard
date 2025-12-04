@@ -4,7 +4,32 @@
     <div class="page-header">
       <h1>ibhelm Dashboard</h1>
       
-      <!-- Sync Status - Centered -->
+      <!-- View Tabs -->
+      <nav class="view-tabs">
+        <button 
+          class="view-tab" 
+          :class="{ active: activeView === 'items' }"
+          @click="switchView('items')"
+        >
+          Items
+        </button>
+        <button 
+          class="view-tab" 
+          :class="{ active: activeView === 'projects' }"
+          @click="switchView('projects')"
+        >
+          Projects
+        </button>
+        <button 
+          class="view-tab" 
+          :class="{ active: activeView === 'people' }"
+          @click="switchView('people')"
+        >
+          People
+        </button>
+      </nav>
+      
+      <!-- Sync Status - Right side -->
       <div class="sync-status-panel">
         <div class="sync-status-item">
           <div class="sync-source">
@@ -95,6 +120,7 @@
           :show-emails="activeConfig?.showEmails ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
           :sort-config="currentSort"
+          :view-type="activeView"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -128,12 +154,15 @@ import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
-import type { DataItem, Column, SortConfig } from '@/types'
+import type { DataItem, ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, updateConfiguration } = useFilterConfigs()
 const { syncStatus } = useSyncStatus()
+
+// Active view state
+const activeView = ref<ViewType>('items')
 
 // Format time with seconds
 const formatTime = (date: Date | null): string => {
@@ -168,10 +197,10 @@ const {
 
 const searchQuery = ref('')
 const detailDialogVisible = ref(false)
-const selectedItem = ref<DataItem | null>(null)
+const selectedItem = ref<ViewDataItem | null>(null)
 
-// Available columns for the table
-const availableColumns = computed<Column[]>(() => [
+// Items view columns
+const itemColumns: Column[] = [
   { field: 'type', header: 'Type', sortable: true, width: '100px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
@@ -180,23 +209,103 @@ const availableColumns = computed<Column[]>(() => [
   { field: 'status', header: 'Status', sortable: true, width: '120px' },
   { field: 'project', header: 'Project', sortable: true, width: '200px' },
   { field: 'customer', header: 'Customer', sortable: true, width: '200px' },
-  { field: 'building', header: 'Building', sortable: true, width: '150px' },
-  { field: 'floor', header: 'Floor', sortable: true, width: '100px' },
-  { field: 'room', header: 'Room', sortable: true, width: '100px' },
-  { field: 'kostengruppe', header: 'Kostengruppe', sortable: true, width: '150px' },
+  { field: 'location', header: 'Location', sortable: true, width: '150px' },
+  { field: 'location_path', header: 'Location Path', sortable: true, width: '250px' },
+  { field: 'cost_group', header: 'Cost Group', sortable: true, width: '150px' },
+  { field: 'cost_group_code', header: 'Cost Code', sortable: true, width: '100px' },
   { field: 'due_date', header: 'Due Date', sortable: true, width: '150px' },
   { field: 'priority', header: 'Priority', sortable: true, width: '120px' },
   { field: 'progress', header: 'Progress', sortable: true, width: '100px' },
   { field: 'tasklist', header: 'Tasklist', sortable: true, width: '150px' },
   { field: 'assignees', header: 'Assignees', sortable: false, width: '200px' },
   { field: 'tags', header: 'Tags', sortable: false, width: '200px' },
-  { field: 'from', header: 'From', sortable: true, width: '200px' },
+  { field: 'from_name', header: 'From', sortable: true, width: '200px' },
   { field: 'from_email', header: 'From Email', sortable: true, width: '200px' },
   { field: 'conversation_subject', header: 'Conversation', sortable: true, width: '250px' },
   { field: 'attachment_count', header: 'Attachments', sortable: true, width: '120px' },
   { field: 'created_at', header: 'Created', sortable: true, width: '150px' },
   { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
-])
+]
+
+// Projects view columns
+const projectColumns: Column[] = [
+  { field: 'name', header: 'Project Name', sortable: true, width: '250px' },
+  { field: 'description', header: 'Description', sortable: false, width: '300px' },
+  { field: 'status', header: 'Status', sortable: true, width: '120px' },
+  { field: 'company_name', header: 'Company', sortable: true, width: '200px' },
+  { field: 'client_name', header: 'Client', sortable: true, width: '200px' },
+  { field: 'client_email', header: 'Client Email', sortable: true, width: '200px' },
+  { field: 'default_location_name', header: 'Default Location', sortable: true, width: '150px' },
+  { field: 'default_location_path', header: 'Location Path', sortable: true, width: '250px' },
+  { field: 'default_cost_group_name', header: 'Cost Group', sortable: true, width: '150px' },
+  { field: 'default_cost_group_code', header: 'Cost Code', sortable: true, width: '100px' },
+  { field: 'nas_folder_path', header: 'NAS Path', sortable: true, width: '250px' },
+  { field: 'internal_notes', header: 'Notes', sortable: false, width: '300px' },
+  { field: 'task_count', header: 'Tasks', sortable: true, width: '80px' },
+  { field: 'completed_task_count', header: 'Completed', sortable: true, width: '100px' },
+  { field: 'file_count', header: 'Files', sortable: true, width: '80px' },
+  { field: 'conversation_count', header: 'Conversations', sortable: true, width: '120px' },
+  { field: 'contractor_count', header: 'Contractors', sortable: true, width: '100px' },
+  { field: 'start_date', header: 'Start Date', sortable: true, width: '150px' },
+  { field: 'end_date', header: 'End Date', sortable: true, width: '150px' },
+  { field: 'created_at', header: 'Created', sortable: true, width: '150px' },
+  { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
+]
+
+// People view columns
+const peopleColumns: Column[] = [
+  { field: 'display_name', header: 'Name', sortable: true, width: '200px' },
+  { field: 'primary_email', header: 'Email', sortable: true, width: '250px' },
+  { field: 'is_internal', header: 'Internal', sortable: true, width: '100px' },
+  { field: 'is_company', header: 'Company', sortable: true, width: '100px' },
+  { field: 'preferred_contact_method', header: 'Contact Method', sortable: true, width: '150px' },
+  { field: 'notes', header: 'Notes', sortable: false, width: '300px' },
+  { field: 'tw_company_name', header: 'TW Company', sortable: true, width: '200px' },
+  { field: 'tw_company_website', header: 'Website', sortable: true, width: '200px' },
+  { field: 'tw_user_first_name', header: 'TW First Name', sortable: true, width: '150px' },
+  { field: 'tw_user_last_name', header: 'TW Last Name', sortable: true, width: '150px' },
+  { field: 'tw_user_email', header: 'TW Email', sortable: true, width: '200px' },
+  { field: 'm_contact_name', header: 'Missive Name', sortable: true, width: '200px' },
+  { field: 'm_contact_email', header: 'Missive Email', sortable: true, width: '200px' },
+  { field: 'db_created_at', header: 'Created', sortable: true, width: '150px' },
+  { field: 'db_updated_at', header: 'Updated', sortable: true, width: '150px' }
+]
+
+// Available columns based on active view
+const availableColumns = computed<Column[]>(() => {
+  switch (activeView.value) {
+    case 'projects':
+      return projectColumns
+    case 'people':
+      return peopleColumns
+    case 'items':
+    default:
+      return itemColumns
+  }
+})
+
+// Switch view handler
+const switchView = async (view: ViewType) => {
+  if (activeView.value === view) return
+  activeView.value = view
+  searchQuery.value = ''
+  
+  // Set default sort for the view
+  const defaultSort: SortConfig = view === 'items' 
+    ? { field: 'sort_date', order: 'desc' }
+    : view === 'projects'
+      ? { field: 'name', order: 'asc' }
+      : { field: 'display_name', order: 'asc' }
+  
+  await loadData(
+    activeConfig.value?.showTasks ?? true,
+    activeConfig.value?.showEmails ?? true,
+    '',
+    activeConfig.value || null,
+    defaultSort,
+    view
+  )
+}
 
 // Note: Filters are now applied at the DATABASE level in useData.ts
 // These client-side filters are kept for backwards compatibility but are mostly redundant
@@ -238,7 +347,9 @@ watch(dataFetchConfig, () => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         searchQuery.value,
-        activeConfig.value // Pass filter config to apply at database level
+        activeConfig.value, // Pass filter config to apply at database level
+        undefined,
+        activeView.value
       )
     }
   }, 300) // 300ms debounce for filter changes
@@ -257,7 +368,9 @@ watch(searchQuery, () => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         searchQuery.value,
-        activeConfig.value // Pass filter config to apply at database level
+        activeConfig.value, // Pass filter config to apply at database level
+        undefined,
+        activeView.value
       )
     }
   }, 500)
@@ -296,7 +409,7 @@ const handleSignOut = async () => {
   router.push('/login')
 }
 
-const handleRowClick = (item: DataItem) => {
+const handleRowClick = (item: ViewDataItem) => {
   selectedItem.value = item
   detailDialogVisible.value = true
 }
@@ -307,7 +420,8 @@ const handleLoadMore = async () => {
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
       searchQuery.value,
-      activeConfig.value // Pass filter config to apply at database level
+      activeConfig.value, // Pass filter config to apply at database level
+      activeView.value
     )
   }
 }
@@ -366,7 +480,8 @@ const handleSort = async (sortConfig: SortConfig) => {
       activeConfig.value.showEmails,
       searchQuery.value,
       activeConfig.value,
-      sortConfig
+      sortConfig,
+      activeView.value
     )
   }
 }
@@ -402,11 +517,47 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-/* Sync Status Panel - Inline in header */
+/* View Tabs */
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg-tertiary);
+  padding: 0.35rem;
+  border-radius: var(--radius-md);
+}
+
+.view-tab {
+  padding: 0.6rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+.view-tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.view-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Sync Status Panel - Right side of header */
 .sync-status-panel {
   display: flex;
   align-items: center;
   gap: 1.25rem;
+  margin-left: auto;
+  margin-right: 1.5rem;
 }
 
 .sync-status-item {

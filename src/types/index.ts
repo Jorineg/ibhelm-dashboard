@@ -130,6 +130,7 @@ export interface Attachment {
 
 // UI types
 export type ItemType = 'task' | 'email'
+export type ViewType = 'items' | 'projects' | 'people'
 
 export interface DataItem {
   id: string
@@ -149,6 +150,59 @@ export interface DataItem {
   // Any other fields for display
   [key: string]: any
 }
+
+export interface ProjectItem {
+  id: number
+  name: string
+  description?: string
+  status?: string
+  start_date?: string
+  end_date?: string
+  company_name?: string
+  client_name?: string
+  client_email?: string
+  nas_folder_path?: string
+  internal_notes?: string
+  default_location_name?: string
+  default_location_path?: string
+  default_cost_group_name?: string
+  default_cost_group_code?: string
+  file_count?: number
+  contractor_count?: number
+  conversation_count?: number
+  task_count?: number
+  completed_task_count?: number
+  created_at?: string
+  updated_at?: string
+  extension_created_at?: string
+  extension_updated_at?: string
+  [key: string]: any
+}
+
+export interface PersonItem {
+  id: string
+  display_name: string
+  primary_email?: string
+  preferred_contact_method?: string
+  is_internal?: boolean
+  is_company?: boolean
+  notes?: string
+  tw_company_id?: number
+  tw_company_name?: string
+  tw_company_website?: string
+  tw_user_id?: number
+  tw_user_first_name?: string
+  tw_user_last_name?: string
+  tw_user_email?: string
+  m_contact_id?: number
+  m_contact_email?: string
+  m_contact_name?: string
+  db_created_at?: string
+  db_updated_at?: string
+  [key: string]: any
+}
+
+export type ViewDataItem = DataItem | ProjectItem | PersonItem
 
 export type FilterOperator = 
   | 'eq' 

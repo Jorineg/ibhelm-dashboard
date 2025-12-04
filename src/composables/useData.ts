@@ -1,17 +1,69 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { DataItem, FilterConfiguration, SortConfig } from '@/types'
+import type { DataItem, ProjectItem, PersonItem, ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
 
 const PAGE_SIZE = 50
 
 export function useData() {
-  const items = ref<DataItem[]>([])
+  const items = ref<ViewDataItem[]>([])
   const loading = ref(false)
   const hasMore = ref(true)
   const currentPage = ref(0)
   const searchQuery = ref('')
   const totalCount = ref<number | null>(null)
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
+  const currentViewType = ref<ViewType>('items')
+
+  // Helper to apply dynamic filters to a query
+  const applyDynamicFiltersToQuery = (query: any, filterConfig: FilterConfiguration | null) => {
+    // Apply always-visible filters at database level
+    if (filterConfig?.alwaysVisibleFilters) {
+      Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
+        if (value) {
+          query = query.ilike(key, `%${value}%`)
+        }
+      })
+    }
+
+    // Apply dynamic filters at database level
+    if (filterConfig?.dynamicFilters) {
+      filterConfig.dynamicFilters.forEach(filter => {
+        if (!filter.column || !filter.operator) return
+
+        switch (filter.operator) {
+          case 'eq':
+            query = query.eq(filter.column, filter.value)
+            break
+          case 'neq':
+            query = query.neq(filter.column, filter.value)
+            break
+          case 'contains':
+            query = query.ilike(filter.column, `%${filter.value}%`)
+            break
+          case 'not_contains':
+            query = query.not(filter.column, 'ilike', `%${filter.value}%`)
+            break
+          case 'is_empty':
+            query = query.or(`${filter.column}.is.null,${filter.column}.eq.`)
+            break
+          case 'is_not_empty':
+            query = query.not(filter.column, 'is', null).neq(filter.column, '')
+            break
+          case 'before':
+            if (filter.value) {
+              query = query.lt(filter.column, filter.value)
+            }
+            break
+          case 'after':
+            if (filter.value) {
+              query = query.gt(filter.column, filter.value)
+            }
+            break
+        }
+      })
+    }
+    return query
+  }
 
   // Fetch unified items from the database view
   const fetchUnifiedItems = async (
@@ -44,52 +96,7 @@ export function useData() {
         query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
       }
 
-      // Apply always-visible filters at database level
-      if (filterConfig?.alwaysVisibleFilters) {
-        Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
-          if (value) {
-            query = query.ilike(key, `%${value}%`)
-          }
-        })
-      }
-
-      // Apply dynamic filters at database level
-      if (filterConfig?.dynamicFilters) {
-        filterConfig.dynamicFilters.forEach(filter => {
-          if (!filter.column || !filter.operator) return
-
-          switch (filter.operator) {
-            case 'eq':
-              query = query.eq(filter.column, filter.value)
-              break
-            case 'neq':
-              query = query.neq(filter.column, filter.value)
-              break
-            case 'contains':
-              query = query.ilike(filter.column, `%${filter.value}%`)
-              break
-            case 'not_contains':
-              query = query.not(filter.column, 'ilike', `%${filter.value}%`)
-              break
-            case 'is_empty':
-              query = query.or(`${filter.column}.is.null,${filter.column}.eq.`)
-              break
-            case 'is_not_empty':
-              query = query.not(filter.column, 'is', null).neq(filter.column, '')
-              break
-            case 'before':
-              if (filter.value) {
-                query = query.lt(filter.column, filter.value)
-              }
-              break
-            case 'after':
-              if (filter.value) {
-                query = query.gt(filter.column, filter.value)
-              }
-              break
-          }
-        })
-      }
+      query = applyDynamicFiltersToQuery(query, filterConfig)
 
       const { data, error, count } = await query
 
@@ -101,8 +108,74 @@ export function useData() {
     }
   }
 
+  // Fetch projects from project_overview view
+  const fetchProjects = async (
+    page = 0,
+    search = '',
+    includeCount = false,
+    filterConfig: FilterConfiguration | null = null,
+    sortConfig: SortConfig | null = null
+  ) => {
+    try {
+      const sort = sortConfig || { field: 'name', order: 'asc' }
+      let query = supabase
+        .from('project_overview')
+        .select('*', { count: includeCount ? 'exact' : undefined })
+        .order(sort.field, { ascending: sort.order === 'asc' })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+      // Apply search if provided
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
+      }
+
+      query = applyDynamicFiltersToQuery(query, filterConfig)
+
+      const { data, error, count } = await query
+
+      if (error) throw error
+      return { data: data || [], count }
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      return { data: [], count: null }
+    }
+  }
+
+  // Fetch people from unified_person_details view
+  const fetchPeople = async (
+    page = 0,
+    search = '',
+    includeCount = false,
+    filterConfig: FilterConfiguration | null = null,
+    sortConfig: SortConfig | null = null
+  ) => {
+    try {
+      const sort = sortConfig || { field: 'display_name', order: 'asc' }
+      let query = supabase
+        .from('unified_person_details')
+        .select('*', { count: includeCount ? 'exact' : undefined })
+        .order(sort.field, { ascending: sort.order === 'asc' })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+      // Apply search if provided
+      if (search) {
+        query = query.or(`display_name.ilike.%${search}%,primary_email.ilike.%${search}%,tw_company_name.ilike.%${search}%`)
+      }
+
+      query = applyDynamicFiltersToQuery(query, filterConfig)
+
+      const { data, error, count } = await query
+
+      if (error) throw error
+      return { data: data || [], count }
+    } catch (error) {
+      console.error('Error fetching people:', error)
+      return { data: [], count: null }
+    }
+  }
+
   // Data items are now directly from the view
-  const dataItems = computed<DataItem[]>(() => items.value)
+  const dataItems = computed<ViewDataItem[]>(() => items.value)
 
   // Load initial data
   const loadData = async (
@@ -110,12 +183,14 @@ export function useData() {
     showEmails = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
-    sortConfig: SortConfig | null = null
+    sortConfig: SortConfig | null = null,
+    viewType: ViewType = 'items'
   ) => {
     loading.value = true
     currentPage.value = 0
     items.value = []
     hasMore.value = true
+    currentViewType.value = viewType
 
     // Update current sort if provided
     if (sortConfig) {
@@ -123,8 +198,21 @@ export function useData() {
     }
 
     try {
-      // Include count on initial load to show total
-      const result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value)
+      let result: { data: any[]; count: number | null }
+      
+      switch (viewType) {
+        case 'projects':
+          result = await fetchProjects(0, search, true, filterConfig, currentSort.value)
+          break
+        case 'people':
+          result = await fetchPeople(0, search, true, filterConfig, currentSort.value)
+          break
+        case 'items':
+        default:
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value)
+          break
+      }
+      
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
@@ -140,7 +228,8 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     search = '',
-    filterConfig: FilterConfiguration | null = null
+    filterConfig: FilterConfiguration | null = null,
+    viewType: ViewType = 'items'
   ) => {
     if (loading.value || !hasMore.value) return
 
@@ -148,9 +237,21 @@ export function useData() {
     currentPage.value++
 
     try {
-      // Don't include count on subsequent loads for better performance
-      // Use current sort config for consistency
-      const result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value)
+      let result: { data: any[]; count: number | null }
+      
+      switch (viewType) {
+        case 'projects':
+          result = await fetchProjects(currentPage.value, search, false, filterConfig, currentSort.value)
+          break
+        case 'people':
+          result = await fetchPeople(currentPage.value, search, false, filterConfig, currentSort.value)
+          break
+        case 'items':
+        default:
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value)
+          break
+      }
+      
       items.value.push(...result.data)
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (error) {
@@ -270,6 +371,7 @@ export function useData() {
     searchQuery,
     totalCount,
     currentSort,
+    currentViewType,
     loadData,
     loadMore,
     applyFilters,
