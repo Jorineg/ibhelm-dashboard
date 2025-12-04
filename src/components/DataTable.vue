@@ -187,12 +187,13 @@
           @click="handleRowClick({ data: item })"
         >
           <div class="gallery-item-header">
-            <Tag
+            <span
               v-if="props.viewType === 'items' || !props.viewType"
-              :value="item.type"
-              :severity="item.type === 'task' ? 'success' : 'info'"
-              class="tag-style"
-            />
+              class="gallery-type-badge"
+              :style="getGalleryTypeBadgeStyle(item)"
+            >
+              {{ getGalleryTypeBadgeText(item) }}
+            </span>
             <Tag
               v-else-if="props.viewType === 'projects'"
               :value="item.status || 'active'"
@@ -473,16 +474,23 @@ const handleSort = (event: any) => {
 const getCellComponent = (field: string, data: DataItem) => {
   const value = data[field]
 
-  // Special rendering for certain fields
+  // Special rendering for type field - shows task_type_name if available
   if (field === 'type') {
-    return h(Tag, {
-      value: value?.toUpperCase(),
-      severity: value === 'task' ? 'success' : 'info',
-      class: 'tag-style'
-    })
+    const isEmail = value?.toLowerCase() === 'email'
+    const displayValue = isEmail ? 'EMAIL' : (data.task_type_name?.toUpperCase() || 'TASK')
+    const color = isEmail ? '#3b82f6' : (data.task_type_color || '#4ade80')
+    
+    return h('span', {
+      class: 'type-badge',
+      style: { 
+        background: `${color}20`,
+        color: color,
+        borderColor: `${color}40`
+      }
+    }, displayValue)
   }
 
-  // Task type with color indicator
+  // Task type column (separate from type)
   if (field === 'task_type_name' && value) {
     const color = data.task_type_color || '#6366f1'
     return h('div', { class: 'task-type-cell' }, [
@@ -537,7 +545,23 @@ const getGalleryIcon = (item: ViewDataItem): string => {
     return item.is_company ? 'pi pi-building' : 'pi pi-user'
   }
   // Items view
-  return item.type === 'task' ? 'pi pi-check-square' : 'pi pi-envelope'
+  const isEmail = item.type?.toLowerCase() === 'email'
+  return isEmail ? 'pi pi-envelope' : 'pi pi-check-square'
+}
+
+const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
+  const isEmail = item.type?.toLowerCase() === 'email'
+  const color = isEmail ? '#3b82f6' : (item.task_type_color || '#4ade80')
+  return {
+    background: `${color}20`,
+    color: color,
+    borderColor: `${color}40`
+  }
+}
+
+const getGalleryTypeBadgeText = (item: ViewDataItem): string => {
+  const isEmail = item.type?.toLowerCase() === 'email'
+  return isEmail ? 'EMAIL' : (item.task_type_name?.toUpperCase() || 'TASK')
 }
 
 const getGalleryTitle = (item: ViewDataItem): string => {
@@ -804,6 +828,17 @@ onUnmounted(() => {
   margin-bottom: 0.25rem;
 }
 
+/* Type Badge */
+.type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+}
+
 /* Task Type Cell */
 .task-type-cell {
   display: flex;
@@ -850,6 +885,16 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.gallery-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
 }
 
 .gallery-item-thumbnail {

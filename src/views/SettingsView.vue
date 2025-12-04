@@ -21,190 +21,282 @@
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="settings-content">
-      <!-- Task Types Section -->
-      <section class="settings-section">
-        <div class="section-header">
-          <h2>Task Types</h2>
-          <p class="section-description">
-            Configure how Teamwork tasks are categorized based on their tags.
-            When a task has a matching tag, it will be assigned to that task type.
-          </p>
-        </div>
-
-        <!-- Extraction Status & Re-run Button -->
-        <div class="extraction-controls">
-          <div class="extraction-status" v-if="extractionRun">
-            <span class="status-label">Last extraction:</span>
-            <span :class="['status-badge', extractionRun.status]">
-              {{ extractionRun.status }}
-            </span>
-            <span v-if="extractionRun.status === 'running'" class="progress-info">
-              {{ extractionRun.processed_count }} / {{ extractionRun.total_count }}
-              ({{ extractionRun.progress_percent }}%)
-            </span>
-            <span v-else-if="extractionRun.completed_at" class="time-info">
-              {{ formatDate(extractionRun.completed_at) }}
-            </span>
-          </div>
-          
-          <Button
-            label="Re-run All Extractions"
-            icon="pi pi-refresh"
-            :loading="extractionRun?.status === 'running'"
-            @click="handleRerunExtraction"
-            severity="secondary"
-            class="rerun-btn"
-          />
-        </div>
-
-        <!-- Task Types List -->
-        <div class="task-types-list">
-          <div 
-            v-for="taskType in taskTypes" 
-            :key="taskType.id"
-            class="task-type-card"
-            :class="{ 'is-default': taskType.is_default }"
+    <!-- Main Content with Sidebar -->
+    <div class="settings-layout">
+      <!-- Sidebar Navigation -->
+      <nav class="settings-sidebar">
+        <ul class="sidebar-menu">
+          <li 
+            v-for="section in settingsSections" 
+            :key="section.id"
+            :class="{ active: activeSection === section.id }"
+            @click="activeSection = section.id"
           >
-            <div class="task-type-header">
-              <div class="task-type-info">
-                <div 
-                  class="task-type-color"
-                  :style="{ background: taskType.color || '#6366f1' }"
-                ></div>
-                <div class="task-type-details">
+            <i :class="section.icon"></i>
+            <span>{{ section.label }}</span>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Settings Content -->
+      <div class="settings-content">
+        <!-- Task Types Section -->
+        <section v-if="activeSection === 'task-types'" class="settings-section">
+          <div class="section-header">
+            <h2>Task Types</h2>
+            <p class="section-description">
+              Configure how Teamwork tasks are categorized based on their tags.
+              Tasks with a matching tag will be assigned to that task type.
+            </p>
+            <div class="info-box">
+              <i class="pi pi-info-circle"></i>
+              <div>
+                <strong>How rules are applied:</strong>
+                <p>These rules are automatically applied to newly created tasks and tasks that are updated in Teamwork. 
+                   To apply rules to all existing tasks in the database, use the "Re-run All Extractions" button below.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Extraction Status & Re-run Button -->
+          <div class="extraction-controls">
+            <div class="extraction-info">
+              <div class="extraction-status" v-if="extractionRun">
+                <span class="status-label">Last extraction:</span>
+                <span :class="['status-badge', extractionRun.status]">
+                  {{ extractionRun.status }}
+                </span>
+                <span v-if="extractionRun.status === 'running'" class="progress-info">
+                  {{ extractionRun.processed_count }} / {{ extractionRun.total_count }}
+                  ({{ extractionRun.progress_percent }}%)
+                </span>
+                <span v-else-if="extractionRun.completed_at" class="time-info">
+                  {{ formatDate(extractionRun.completed_at) }}
+                </span>
+              </div>
+              <div v-else class="extraction-status">
+                <span class="status-label">No extraction runs yet</span>
+              </div>
+            </div>
+            
+            <Button
+              label="Re-run All Extractions"
+              icon="pi pi-refresh"
+              :loading="isExtracting"
+              @click="handleRerunExtraction"
+              severity="secondary"
+              class="rerun-btn"
+            />
+          </div>
+
+          <!-- Task Types List -->
+          <div class="task-types-list">
+            <div 
+              v-for="taskType in taskTypes" 
+              :key="taskType.id"
+              class="task-type-card"
+              :class="{ 'is-default': taskType.is_default }"
+            >
+              <div class="task-type-header">
+                <div class="task-type-info">
+                  <!-- Clickable color picker for existing types -->
+                  <div 
+                    class="task-type-color-btn"
+                    :style="{ background: taskType.color || '#6366f1' }"
+                    @click="openColorPicker(taskType)"
+                    title="Click to change color"
+                  >
+                    <OverlayPanel ref="colorPickerOverlay" appendTo="body">
+                      <div class="color-picker-panel">
+                        <label>Choose color:</label>
+                        <ColorPicker 
+                          v-model="editingColor" 
+                          inline 
+                          @update:model-value="onColorChange"
+                        />
+                        <div class="color-picker-actions">
+                          <Button label="Apply" size="small" @click="applyColorChange" />
+                        </div>
+                      </div>
+                    </OverlayPanel>
+                  </div>
+                  <div class="task-type-details">
+                    <template v-if="editingTypeId === taskType.id">
+                      <InputText
+                        v-model="editingTypeName"
+                        class="edit-name-input"
+                        @keyup.enter="saveTypeName(taskType.id)"
+                        @keyup.escape="cancelEditType"
+                        autofocus
+                      />
+                    </template>
+                    <template v-else>
+                      <h3>
+                        {{ taskType.name }}
+                        <span v-if="taskType.is_default" class="default-badge">Default</span>
+                      </h3>
+                      <p v-if="taskType.description" class="type-description">
+                        {{ taskType.description }}
+                      </p>
+                    </template>
+                  </div>
+                </div>
+                
+                <div class="task-type-actions">
                   <template v-if="editingTypeId === taskType.id">
-                    <InputText
-                      v-model="editingTypeName"
-                      class="edit-name-input"
-                      @keyup.enter="saveTypeName(taskType.id)"
-                      @keyup.escape="cancelEditType"
+                    <Button
+                      icon="pi pi-check"
+                      text
+                      rounded
+                      severity="success"
+                      @click="saveTypeName(taskType.id)"
+                    />
+                    <Button
+                      icon="pi pi-times"
+                      text
+                      rounded
+                      severity="secondary"
+                      @click="cancelEditType"
                     />
                   </template>
                   <template v-else>
-                    <h3>
-                      {{ taskType.name }}
-                      <span v-if="taskType.is_default" class="default-badge">Default</span>
-                    </h3>
-                    <p v-if="taskType.description" class="type-description">
-                      {{ taskType.description }}
-                    </p>
+                    <Button
+                      icon="pi pi-pencil"
+                      text
+                      rounded
+                      severity="secondary"
+                      @click="startEditType(taskType)"
+                      title="Edit name"
+                    />
+                    <Button
+                      v-if="!taskType.is_default"
+                      icon="pi pi-trash"
+                      text
+                      rounded
+                      severity="danger"
+                      @click="confirmDeleteType(taskType)"
+                      title="Delete type"
+                    />
                   </template>
                 </div>
               </div>
-              
-              <div class="task-type-actions">
-                <template v-if="editingTypeId === taskType.id">
-                  <Button
-                    icon="pi pi-check"
-                    text
-                    rounded
-                    severity="success"
-                    @click="saveTypeName(taskType.id)"
-                  />
-                  <Button
-                    icon="pi pi-times"
-                    text
-                    rounded
-                    severity="secondary"
-                    @click="cancelEditType"
-                  />
-                </template>
-                <template v-else>
-                  <Button
-                    icon="pi pi-pencil"
-                    text
-                    rounded
-                    severity="secondary"
-                    @click="startEditType(taskType)"
-                    title="Edit name"
-                  />
-                  <Button
-                    v-if="!taskType.is_default"
-                    icon="pi pi-trash"
-                    text
-                    rounded
-                    severity="danger"
-                    @click="confirmDeleteType(taskType)"
-                    title="Delete type"
-                  />
-                </template>
-              </div>
-            </div>
 
-            <!-- Rules for this type (not for default) -->
-            <div v-if="!taskType.is_default" class="task-type-rules">
-              <div class="rules-header">
-                <span class="rules-label">Matching Tags:</span>
-                <span class="rules-hint">Tasks with any of these tags will be categorized as "{{ taskType.name }}"</span>
-              </div>
-              
-              <div class="rules-list">
-                <div 
-                  v-for="rule in getRulesForType(taskType.id)" 
-                  :key="rule.id"
-                  class="rule-tag"
-                >
-                  <span>{{ rule.teamwork_tag_name }}</span>
-                  <button class="remove-rule-btn" @click="handleRemoveRule(rule.id)">
-                    <i class="pi pi-times"></i>
-                  </button>
+              <!-- Rules for this type (not for default) -->
+              <div v-if="!taskType.is_default" class="task-type-rules">
+                <div class="rules-header">
+                  <span class="rules-label">Matching Tags:</span>
+                  <span class="rules-hint">Tasks with any of these tags will be categorized as "{{ taskType.name }}"</span>
                 </div>
                 
-                <!-- Add new rule input -->
-                <div class="add-rule-wrapper">
-                  <InputText
-                    v-model="newRuleTags[taskType.id]"
-                    placeholder="Add tag..."
-                    class="add-rule-input"
-                    @keyup.enter="handleAddRule(taskType.id)"
-                  />
-                  <Button
-                    icon="pi pi-plus"
-                    text
-                    rounded
-                    size="small"
-                    @click="handleAddRule(taskType.id)"
-                    :disabled="!newRuleTags[taskType.id]?.trim()"
-                  />
+                <div class="rules-list">
+                  <div 
+                    v-for="rule in getRulesForType(taskType.id)" 
+                    :key="rule.id"
+                    class="rule-tag"
+                  >
+                    <span>{{ rule.teamwork_tag_name }}</span>
+                    <button class="remove-rule-btn" @click="handleRemoveRule(rule.id)">
+                      <i class="pi pi-times"></i>
+                    </button>
+                  </div>
+                  
+                  <!-- Add new rule input -->
+                  <div class="add-rule-wrapper">
+                    <InputText
+                      v-model="newRuleTags[taskType.id]"
+                      placeholder="Add tag..."
+                      class="add-rule-input"
+                      @keyup.enter="handleAddRule(taskType.id)"
+                    />
+                    <Button
+                      icon="pi pi-plus"
+                      text
+                      rounded
+                      size="small"
+                      @click="handleAddRule(taskType.id)"
+                      :disabled="!newRuleTags[taskType.id]?.trim()"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Default type info -->
-            <div v-else class="default-type-info">
-              <i class="pi pi-info-circle"></i>
-              <span>This is the default type. Tasks that don't match any tag rules will be assigned here.</span>
+              <!-- Default type info -->
+              <div v-else class="default-type-info">
+                <i class="pi pi-info-circle"></i>
+                <span>This is the default type. Tasks that don't match any tag rules will be assigned here.</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Add New Task Type -->
-        <div class="add-task-type">
-          <h4>Add New Task Type</h4>
-          <div class="add-type-form">
-            <InputText
-              v-model="newTypeName"
-              placeholder="Type name (e.g., 'Urgent', 'Maintenance')"
-              class="new-type-input"
-            />
-            <InputText
-              v-model="newTypeDescription"
-              placeholder="Description (optional)"
-              class="new-type-description"
-            />
-            <ColorPicker v-model="newTypeColor" class="new-type-color" />
-            <Button
-              label="Add Type"
-              icon="pi pi-plus"
-              @click="handleAddType"
-              :disabled="!newTypeName.trim()"
-              :loading="saving"
-            />
+          <!-- Add New Task Type -->
+          <div class="add-task-type">
+            <h4>Add New Task Type</h4>
+            <div class="add-type-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Name</label>
+                  <InputText
+                    v-model="newTypeName"
+                    placeholder="e.g., 'Urgent', 'Maintenance'"
+                    class="new-type-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Description (optional)</label>
+                  <InputText
+                    v-model="newTypeDescription"
+                    placeholder="Brief description..."
+                    class="new-type-description"
+                  />
+                </div>
+                <div class="form-group color-group">
+                  <label>Color</label>
+                  <div class="color-input-wrapper">
+                    <div 
+                      class="color-preview" 
+                      :style="{ background: `#${newTypeColor}` }"
+                      @click="toggleNewColorPicker"
+                    ></div>
+                    <div v-if="showNewColorPicker" class="color-picker-dropdown">
+                      <ColorPicker v-model="newTypeColor" inline />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Button
+                label="Add Type"
+                icon="pi pi-plus"
+                @click="handleAddType"
+                :disabled="!newTypeName.trim()"
+                :loading="saving"
+              />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- Placeholder for future sections -->
+        <section v-else-if="activeSection === 'general'" class="settings-section">
+          <div class="section-header">
+            <h2>General</h2>
+            <p class="section-description">General application settings.</p>
+          </div>
+          <div class="placeholder-content">
+            <i class="pi pi-cog"></i>
+            <p>General settings will be available soon.</p>
+          </div>
+        </section>
+
+        <section v-else-if="activeSection === 'appearance'" class="settings-section">
+          <div class="section-header">
+            <h2>Appearance</h2>
+            <p class="section-description">Customize the look and feel of the application.</p>
+          </div>
+          <div class="placeholder-content">
+            <i class="pi pi-palette"></i>
+            <p>Appearance settings will be available soon.</p>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- Confirm Delete Dialog -->
@@ -238,12 +330,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import ColorPicker from 'primevue/colorpicker'
 import Dialog from 'primevue/dialog'
+import OverlayPanel from 'primevue/overlaypanel'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import type { TaskType } from '@/types'
@@ -252,7 +345,6 @@ const router = useRouter()
 const { user, signOut } = useAuth()
 const {
   taskTypes,
-  taskTypeRules,
   saving,
   extractionRun,
   initialize,
@@ -266,15 +358,30 @@ const {
   fetchLatestExtractionRun
 } = useTaskTypes()
 
+// Settings navigation
+const settingsSections = [
+  { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
+  { id: 'general', label: 'General', icon: 'pi pi-cog' },
+  { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' }
+]
+const activeSection = ref('task-types')
+
 // State
 const newTypeName = ref('')
 const newTypeDescription = ref('')
 const newTypeColor = ref('6366f1')
+const showNewColorPicker = ref(false)
 const newRuleTags = ref<Record<string, string>>({})
 const editingTypeId = ref<string | null>(null)
 const editingTypeName = ref('')
 const deleteDialogVisible = ref(false)
 const typeToDelete = ref<TaskType | null>(null)
+const isExtracting = ref(false)
+
+// Color picker for existing types
+const colorPickerOverlay = ref()
+const editingColorTypeId = ref<string | null>(null)
+const editingColor = ref('6366f1')
 
 // Navigation
 const goBack = () => {
@@ -305,6 +412,7 @@ const handleAddType = async () => {
   newTypeName.value = ''
   newTypeDescription.value = ''
   newTypeColor.value = '6366f1'
+  showNewColorPicker.value = false
 }
 
 const startEditType = (taskType: TaskType) => {
@@ -340,6 +448,35 @@ const handleDeleteType = async () => {
   typeToDelete.value = null
 }
 
+// Color picker for existing types
+const openColorPicker = (taskType: TaskType, event?: Event) => {
+  editingColorTypeId.value = taskType.id
+  editingColor.value = taskType.color?.replace('#', '') || '6366f1'
+  colorPickerOverlay.value?.toggle(event)
+}
+
+const onColorChange = () => {
+  // Preview change immediately (optional)
+}
+
+const applyColorChange = async () => {
+  if (editingColorTypeId.value) {
+    await updateTaskType(editingColorTypeId.value, { color: `#${editingColor.value}` })
+    colorPickerOverlay.value?.hide()
+    editingColorTypeId.value = null
+  }
+}
+
+const toggleNewColorPicker = (event: Event) => {
+  event.stopPropagation()
+  showNewColorPicker.value = !showNewColorPicker.value
+}
+
+// Close color picker when clicking outside
+const closeColorPicker = () => {
+  showNewColorPicker.value = false
+}
+
 // Rule CRUD
 const handleAddRule = async (typeId: string) => {
   const tagName = newRuleTags.value[typeId]?.trim()
@@ -355,7 +492,16 @@ const handleRemoveRule = async (ruleId: string) => {
 
 // Extraction
 const handleRerunExtraction = async () => {
-  await rerunExtraction()
+  isExtracting.value = true
+  try {
+    const runId = await rerunExtraction()
+    console.log('Extraction started with run ID:', runId)
+    // The composable handles polling
+  } catch (error) {
+    console.error('Error starting extraction:', error)
+  } finally {
+    isExtracting.value = false
+  }
 }
 
 // Formatting
@@ -369,10 +515,23 @@ const formatDate = (dateStr: string) => {
   })
 }
 
+// Handle clicking outside color picker
+const handleDocumentClick = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.color-input-wrapper')) {
+    showNewColorPicker.value = false
+  }
+}
+
 // Initialize
 onMounted(async () => {
   await initialize()
   await fetchLatestExtractionRun()
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -437,9 +596,64 @@ onMounted(async () => {
   color: var(--text-secondary);
 }
 
-.settings-content {
-  max-width: 900px;
+/* Settings Layout */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 2rem;
+  max-width: 1200px;
   margin: 0 auto;
+}
+
+/* Sidebar */
+.settings-sidebar {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 1rem 0;
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 2rem;
+  height: fit-content;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-menu li:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.sidebar-menu li.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-left-color: var(--accent-primary, #6366f1);
+  font-weight: 500;
+}
+
+.sidebar-menu li i {
+  font-size: 1.1rem;
+  width: 20px;
+}
+
+/* Settings Content */
+.settings-content {
+  min-width: 0;
 }
 
 .settings-section {
@@ -463,7 +677,35 @@ onMounted(async () => {
 .section-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+}
+
+.info-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+}
+
+.info-box i {
+  color: #818cf8;
+  font-size: 1.1rem;
+  margin-top: 2px;
+}
+
+.info-box strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.info-box p {
+  color: var(--text-secondary);
   margin: 0;
+  line-height: 1.5;
 }
 
 /* Extraction Controls */
@@ -475,6 +717,10 @@ onMounted(async () => {
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
+}
+
+.extraction-info {
+  flex: 1;
 }
 
 .extraction-status {
@@ -554,12 +800,20 @@ onMounted(async () => {
   gap: 0.75rem;
 }
 
-.task-type-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  margin-top: 4px;
+.task-type-color-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  margin-top: 2px;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 2px solid transparent;
+}
+
+.task-type-color-btn:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .task-type-details h3 {
@@ -596,6 +850,24 @@ onMounted(async () => {
 
 .edit-name-input {
   width: 200px;
+}
+
+/* Color Picker Panel */
+.color-picker-panel {
+  padding: 0.5rem;
+}
+
+.color-picker-panel label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.color-picker-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* Rules */
@@ -705,9 +977,26 @@ onMounted(async () => {
 
 .add-type-form {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
   flex-wrap: wrap;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .new-type-input {
@@ -718,11 +1007,61 @@ onMounted(async () => {
   width: 250px;
 }
 
-/* Delete Dialog */
-.delete-dialog {
-  max-width: 400px;
+.color-group {
+  position: relative;
 }
 
+.color-input-wrapper {
+  position: relative;
+}
+
+.color-preview {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 2px solid var(--border-primary);
+  transition: all 0.15s ease;
+}
+
+.color-preview:hover {
+  transform: scale(1.05);
+  border-color: var(--border-secondary);
+}
+
+.color-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Placeholder Content */
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--text-tertiary);
+}
+
+.placeholder-content i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.placeholder-content p {
+  margin: 0;
+}
+
+/* Delete Dialog */
 .warning-text {
   display: flex;
   align-items: flex-start;
@@ -738,5 +1077,34 @@ onMounted(async () => {
 .warning-text i {
   margin-top: 2px;
 }
-</style>
 
+/* Responsive */
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .settings-sidebar {
+    position: relative;
+    top: 0;
+  }
+  
+  .sidebar-menu {
+    display: flex;
+    overflow-x: auto;
+    padding: 0 1rem;
+  }
+  
+  .sidebar-menu li {
+    padding: 0.75rem 1rem;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  
+  .sidebar-menu li.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent-primary, #6366f1);
+  }
+}
+</style>

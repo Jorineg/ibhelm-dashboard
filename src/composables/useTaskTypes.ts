@@ -195,15 +195,31 @@ export function useTaskTypes() {
   const rerunExtraction = async (): Promise<string | null> => {
     try {
       saving.value = true
+      console.log('Starting extraction...')
       
       const { data, error } = await supabase
         .rpc('rerun_all_task_type_extractions')
 
-      if (error) throw error
+      console.log('RPC response:', { data, error })
+
+      if (error) {
+        console.error('RPC error:', error)
+        throw error
+      }
       
       // Start polling for status
       if (data) {
+        console.log('Extraction started with run ID:', data)
+        // Set initial running state
+        extractionRun.value = {
+          id: data,
+          status: 'running',
+          processed_count: 0,
+          started_at: new Date().toISOString()
+        }
         pollExtractionStatus(data)
+      } else {
+        console.warn('No run ID returned from extraction')
       }
       
       return data

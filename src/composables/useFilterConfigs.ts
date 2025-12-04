@@ -22,9 +22,8 @@ const defaultConfig = (): FilterConfiguration => ({
   alwaysVisibleFilters: {},
   dynamicFilters: [],
   visibleColumns: [
-    'name',
     'type',
-    'task_type_name',
+    'name',
     'status',
     'project',
     'customer',
@@ -32,9 +31,8 @@ const defaultConfig = (): FilterConfiguration => ({
     'created_at'
   ],
   columnOrder: [
-    'name',
     'type',
-    'task_type_name',
+    'name',
     'status',
     'project',
     'customer',

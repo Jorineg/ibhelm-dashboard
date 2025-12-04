@@ -211,8 +211,7 @@ const selectedItem = ref<ViewDataItem | null>(null)
 
 // Items view columns
 const itemColumns: Column[] = [
-  { field: 'type', header: 'Type', sortable: true, width: '100px' },
-  { field: 'task_type_name', header: 'Task Type', sortable: true, width: '120px' },
+  { field: 'type', header: 'Type', sortable: true, width: '120px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
   { field: 'body', header: 'Email Content', sortable: false, width: '400px' },
