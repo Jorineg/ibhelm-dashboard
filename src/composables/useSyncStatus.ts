@@ -73,7 +73,7 @@ export function useSyncStatus() {
     })
   }
 
-  const startPolling = (intervalMs = 30000) => {
+  const startPolling = (intervalMs = 5000) => {
     fetchSyncStatus()
     pollInterval = window.setInterval(fetchSyncStatus, intervalMs)
   }

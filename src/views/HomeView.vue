@@ -388,64 +388,62 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-/* Sync Status Panel */
+/* Sync Status Panel - Inline in header */
 .sync-status-panel {
   display: flex;
-  align-items: stretch;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .sync-status-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.6rem;
 }
 
 .sync-source {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .sync-icon {
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
 
 .sync-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .sync-details {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0;
+  line-height: 1.2;
 }
 
 .sync-time-row,
 .sync-queue-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
+  gap: 0.35rem;
+  font-size: 0.7rem;
 }
 
 .sync-time-label,
 .sync-queue-label {
-  color: var(--text-secondary);
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.4));
 }
 
 .sync-time-value {
   font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   cursor: default;
+  font-size: 0.7rem;
 }
 
 .sync-queue-value {
@@ -455,19 +453,21 @@ onMounted(() => {
 .sync-queue-value.pending {
   color: #f5a623;
   background: rgba(245, 166, 35, 0.15);
-  padding: 0.1rem 0.5rem;
-  border-radius: 4px;
+  padding: 0 0.35rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
 }
 
 .sync-queue-ok {
   color: #4ade80;
   font-weight: 500;
+  font-size: 0.65rem;
 }
 
 .sync-divider {
   width: 1px;
+  height: 1.75rem;
   background: rgba(255, 255, 255, 0.1);
-  align-self: stretch;
 }
 
 .header-actions {
