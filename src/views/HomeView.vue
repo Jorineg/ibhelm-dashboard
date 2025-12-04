@@ -521,34 +521,43 @@ onMounted(() => {
 .view-tabs {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  background: var(--bg-tertiary);
-  padding: 0.35rem;
-  border-radius: var(--radius-md);
+  gap: 0.5rem;
+  margin-left: 3rem;
 }
 
 .view-tab {
-  padding: 0.6rem 1.25rem;
+  padding: 0.5rem 0.75rem;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 500;
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: all 0.15s ease;
   letter-spacing: 0.01em;
+  position: relative;
 }
 
 .view-tab:hover:not(.active) {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
 }
 
 .view-tab.active {
   color: var(--text-primary);
-  background: var(--bg-secondary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+}
+
+.view-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 2px;
+  background: var(--accent-primary, #6366f1);
+  border-radius: 1px;
 }
 
 /* Sync Status Panel - Right side of header */

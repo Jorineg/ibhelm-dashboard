@@ -114,7 +114,7 @@
       <Column
         v-if="props.viewType === 'items' || !props.viewType"
         frozen
-        :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
+        :style="{ width: '52px', minWidth: '52px', maxWidth: '52px' }"
         header=""
         class="source-links-column"
       >
@@ -832,7 +832,7 @@ onUnmounted(() => {
 .source-links-cell {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
   justify-content: center;
 }
 
@@ -840,12 +840,12 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   text-decoration: none;
   transition: all 0.15s ease;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
 }
 
 .source-link-btn.teamwork {
