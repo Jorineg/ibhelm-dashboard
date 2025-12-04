@@ -162,6 +162,15 @@ const displayFields = computed(() => {
 })
 
 const formatFieldName = (key: string): string => {
+  // Special field name mappings
+  const fieldNameMappings: Record<string, string> = {
+    'body': 'Extracted Email Text'
+  }
+  
+  if (fieldNameMappings[key]) {
+    return fieldNameMappings[key]
+  }
+  
   return key
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
