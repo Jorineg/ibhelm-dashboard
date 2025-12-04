@@ -95,8 +95,9 @@ export function useData() {
       if (selectedTaskTypes && selectedTaskTypes.length > 0) {
         // Filter tasks by task_type_id
         typeFilters.push(`and(type.eq.task,task_type_id.in.(${selectedTaskTypes.join(',')}))`)
-      } else if (showTasks && (!selectedTaskTypes || selectedTaskTypes.length === 0)) {
-        // Legacy behavior: if selectedTaskTypes not specified but showTasks is true
+      } else if (showTasks && selectedTaskTypes == null) {
+        // Legacy behavior: only if selectedTaskTypes is not provided (null/undefined)
+        // If selectedTaskTypes is an empty array, user explicitly deselected all - show no tasks
         typeFilters.push('type.eq.task')
       }
       
