@@ -29,7 +29,7 @@
         </button>
       </nav>
       
-      <!-- Sync Status - Right side -->
+      <!-- Sync Status - Centered -->
       <div class="sync-status-panel">
         <div class="sync-status-item">
           <div class="sync-source">
@@ -79,6 +79,9 @@
       </div>
       
       <div class="header-actions">
+        <button class="settings-btn" @click="goToSettings" title="Settings">
+          <i class="pi pi-cog"></i>
+        </button>
         <span class="user-email">{{ user?.email }}</span>
         <Button
           label="Sign Out"
@@ -121,12 +124,14 @@
           :view-mode="activeConfig?.viewMode || 'list'"
           :sort-config="currentSort"
           :view-type="activeView"
+          :selected-task-types="selectedTaskTypes"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
           @update:show-tasks="handleUpdateShowTasks"
           @update:show-emails="handleUpdateShowEmails"
           @update:view-mode="handleUpdateViewMode"
+          @update:selected-task-types="handleUpdateSelectedTaskTypes"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
           @sort="handleSort"
@@ -154,12 +159,17 @@ import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
+import { useTaskTypes } from '@/composables/useTaskTypes'
 import type { DataItem, ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, updateConfiguration } = useFilterConfigs()
 const { syncStatus } = useSyncStatus()
+const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
+
+// Selected task types for filtering
+const selectedTaskTypes = ref<string[]>([])
 
 // Active view state
 const activeView = ref<ViewType>('items')
@@ -202,6 +212,7 @@ const selectedItem = ref<ViewDataItem | null>(null)
 // Items view columns
 const itemColumns: Column[] = [
   { field: 'type', header: 'Type', sortable: true, width: '100px' },
+  { field: 'task_type_name', header: 'Task Type', sortable: true, width: '120px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
   { field: 'body', header: 'Email Content', sortable: false, width: '400px' },
@@ -303,7 +314,8 @@ const switchView = async (view: ViewType) => {
     '',
     activeConfig.value || null,
     defaultSort,
-    view
+    view,
+    selectedTaskTypes.value
   )
 }
 
@@ -349,7 +361,8 @@ watch(dataFetchConfig, () => {
         searchQuery.value,
         activeConfig.value, // Pass filter config to apply at database level
         undefined,
-        activeView.value
+        activeView.value,
+        selectedTaskTypes.value
       )
     }
   }, 300) // 300ms debounce for filter changes
@@ -370,7 +383,8 @@ watch(searchQuery, () => {
         searchQuery.value,
         activeConfig.value, // Pass filter config to apply at database level
         undefined,
-        activeView.value
+        activeView.value,
+        selectedTaskTypes.value
       )
     }
   }, 500)
@@ -409,6 +423,10 @@ const handleSignOut = async () => {
   router.push('/login')
 }
 
+const goToSettings = () => {
+  router.push('/settings')
+}
+
 const handleRowClick = (item: ViewDataItem) => {
   selectedItem.value = item
   detailDialogVisible.value = true
@@ -421,7 +439,8 @@ const handleLoadMore = async () => {
       activeConfig.value.showEmails,
       searchQuery.value,
       activeConfig.value, // Pass filter config to apply at database level
-      activeView.value
+      activeView.value,
+      selectedTaskTypes.value
     )
   }
 }
@@ -473,6 +492,22 @@ const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
   }
 }
 
+const handleUpdateSelectedTaskTypes = (types: string[]) => {
+  selectedTaskTypes.value = types
+  // Trigger data reload with new task type filter
+  if (activeConfig.value) {
+    loadData(
+      activeConfig.value.showTasks,
+      activeConfig.value.showEmails,
+      searchQuery.value,
+      activeConfig.value,
+      undefined,
+      activeView.value,
+      types
+    )
+  }
+}
+
 const handleSort = async (sortConfig: SortConfig) => {
   if (activeConfig.value) {
     await loadData(
@@ -481,13 +516,16 @@ const handleSort = async (sortConfig: SortConfig) => {
       searchQuery.value,
       activeConfig.value,
       sortConfig,
-      activeView.value
+      activeView.value,
+      selectedTaskTypes.value
     )
   }
 }
 
-onMounted(() => {
-  // Initial data load is handled by watch on activeConfig
+onMounted(async () => {
+  // Initialize task types and select all by default
+  await initTaskTypes()
+  selectedTaskTypes.value = taskTypes.value.map(t => t.id)
 })
 </script>
 
@@ -507,6 +545,7 @@ onMounted(() => {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+  position: relative;
 }
 
 .page-header h1 {
@@ -560,13 +599,14 @@ onMounted(() => {
   border-radius: 1px;
 }
 
-/* Sync Status Panel - Right side of header */
+/* Sync Status Panel - Centered in header */
 .sync-status-panel {
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  margin-left: auto;
-  margin-right: 1.5rem;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .sync-status-item {
@@ -647,8 +687,29 @@ onMounted(() => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-shrink: 0;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 1.1rem;
+}
+
+.settings-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: rotate(45deg);
 }
 
 .user-email {

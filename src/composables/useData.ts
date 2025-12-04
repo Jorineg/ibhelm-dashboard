@@ -73,7 +73,8 @@ export function useData() {
     showEmails = true,
     includeCount = false,
     filterConfig: FilterConfiguration | null = null,
-    sortConfig: SortConfig | null = null
+    sortConfig: SortConfig | null = null,
+    selectedTaskTypes: string[] | null = null
   ) => {
     try {
       const sort = sortConfig || currentSort.value
@@ -83,13 +84,29 @@ export function useData() {
         .order(sort.field, { ascending: sort.order === 'asc' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      // Filter by item type
-      if (!showTasks && showEmails) {
-        query = query.eq('type', 'email')
-      } else if (showTasks && !showEmails) {
-        query = query.eq('type', 'task')
+      // Build type filters based on showEmails and selectedTaskTypes
+      const typeFilters: string[] = []
+      
+      if (showEmails) {
+        typeFilters.push('type.eq.email')
       }
-      // If both are true or both are false, fetch all
+      
+      // For tasks, filter by selected task types
+      if (selectedTaskTypes && selectedTaskTypes.length > 0) {
+        // Filter tasks by task_type_id
+        typeFilters.push(`and(type.eq.task,task_type_id.in.(${selectedTaskTypes.join(',')}))`)
+      } else if (showTasks && (!selectedTaskTypes || selectedTaskTypes.length === 0)) {
+        // Legacy behavior: if selectedTaskTypes not specified but showTasks is true
+        typeFilters.push('type.eq.task')
+      }
+      
+      // Apply combined type filter
+      if (typeFilters.length > 0) {
+        query = query.or(typeFilters.join(','))
+      } else {
+        // Neither emails nor tasks selected - return empty
+        return { data: [], count: 0 }
+      }
 
       // Apply search if provided
       if (search) {
@@ -184,7 +201,8 @@ export function useData() {
     search = '',
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
-    viewType: ViewType = 'items'
+    viewType: ViewType = 'items',
+    selectedTaskTypes: string[] | null = null
   ) => {
     loading.value = true
     currentPage.value = 0
@@ -209,7 +227,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
@@ -229,7 +247,8 @@ export function useData() {
     showEmails = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
-    viewType: ViewType = 'items'
+    viewType: ViewType = 'items',
+    selectedTaskTypes: string[] | null = null
   ) => {
     if (loading.value || !hasMore.value) return
 
@@ -248,7 +267,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       

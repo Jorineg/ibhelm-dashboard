@@ -132,6 +132,38 @@ export interface Attachment {
 export type ItemType = 'task' | 'email'
 export type ViewType = 'items' | 'projects' | 'people'
 
+// Task Types (configurable categories)
+export interface TaskType {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  color?: string
+  icon?: string
+  is_default: boolean
+  display_order: number
+  db_created_at?: string
+  db_updated_at?: string
+}
+
+export interface TaskTypeRule {
+  id: string
+  task_type_id: string
+  teamwork_tag_name: string
+  db_created_at?: string
+}
+
+export interface ExtractionRun {
+  id: string
+  status: 'running' | 'completed' | 'failed'
+  total_count?: number
+  processed_count: number
+  progress_percent?: number
+  started_at: string
+  completed_at?: string
+  error_message?: string
+}
+
 export interface DataItem {
   id: string
   type: ItemType
@@ -147,6 +179,11 @@ export interface DataItem {
   due_date?: string
   created_at?: string
   updated_at?: string
+  // Task type fields
+  task_type_id?: string
+  task_type_name?: string
+  task_type_slug?: string
+  task_type_color?: string
   // Any other fields for display
   [key: string]: any
 }

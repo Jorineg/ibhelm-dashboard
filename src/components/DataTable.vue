@@ -25,14 +25,29 @@
         <div class="item-type-toggles">
           <template v-if="props.viewType === 'items' || !props.viewType">
             <span class="toggle-label">Show:</span>
-            <div class="checkbox-group">
+            
+            <!-- Task type checkboxes -->
+            <div 
+              v-for="taskType in taskTypes" 
+              :key="taskType.id"
+              class="checkbox-group task-type-checkbox"
+            >
               <Checkbox
-                v-model="localShowTasks"
-                input-id="show-tasks"
+                :model-value="isTaskTypeSelected(taskType.id)"
+                @update:model-value="toggleTaskType(taskType.id)"
+                :input-id="`task-type-${taskType.id}`"
                 :binary="true"
               />
-              <label for="show-tasks" class="toggle-item-label">Tasks</label>
+              <label 
+                :for="`task-type-${taskType.id}`" 
+                class="toggle-item-label"
+                :style="taskType.color ? { borderLeft: `3px solid ${taskType.color}`, paddingLeft: '0.5rem' } : {}"
+              >
+                {{ taskType.name }}
+              </label>
             </div>
+            
+            <div class="type-divider"></div>
             
             <div class="checkbox-group">
               <Checkbox
@@ -266,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
 import DataTablePrime from 'primevue/datatable'
 import Column from 'primevue/column'
 import MultiSelect from 'primevue/multiselect'
@@ -275,7 +290,8 @@ import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
-import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType } from '@/types'
+import { useTaskTypes } from '@/composables/useTaskTypes'
+import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
 
 interface Props {
   items: ViewDataItem[]
@@ -291,6 +307,8 @@ interface Props {
   totalCount?: number | null
   sortConfig?: SortConfig
   viewType?: ViewType
+  // Task type filters
+  selectedTaskTypes?: string[]
 }
 
 interface Emits {
@@ -301,6 +319,7 @@ interface Emits {
   (e: 'update:showEmails', value: boolean): void
   (e: 'update:viewMode', value: 'list' | 'gallery'): void
   (e: 'update:searchQuery', value: string): void
+  (e: 'update:selectedTaskTypes', value: string[]): void
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
@@ -310,16 +329,51 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+// Task types from composable
+const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
+
+// Local state for selected task types (initialized from props or all selected)
+const localSelectedTaskTypes = ref<string[]>([])
+
+// Initialize task types on mount
+onMounted(async () => {
+  await initTaskTypes()
+  // Default: select all task types
+  if (props.selectedTaskTypes) {
+    localSelectedTaskTypes.value = [...props.selectedTaskTypes]
+  } else {
+    localSelectedTaskTypes.value = taskTypes.value.map(t => t.id)
+  }
+})
+
+// Watch for task type changes from parent
+watch(() => props.selectedTaskTypes, (newVal) => {
+  if (newVal) {
+    localSelectedTaskTypes.value = [...newVal]
+  }
+}, { deep: true })
+
+// Toggle a specific task type
+const toggleTaskType = (typeId: string) => {
+  const index = localSelectedTaskTypes.value.indexOf(typeId)
+  if (index === -1) {
+    localSelectedTaskTypes.value.push(typeId)
+  } else {
+    localSelectedTaskTypes.value.splice(index, 1)
+  }
+  emit('update:selectedTaskTypes', [...localSelectedTaskTypes.value])
+}
+
+// Check if a task type is selected
+const isTaskTypeSelected = (typeId: string) => {
+  return localSelectedTaskTypes.value.includes(typeId)
+}
+
 const scrollTrigger = ref<HTMLElement | null>(null)
 
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,
   set: (value) => emit('update:visibleColumns', value)
-})
-
-const localShowTasks = computed({
-  get: () => props.showTasks,
-  set: (value) => emit('update:showTasks', value)
 })
 
 const localShowEmails = computed({
@@ -426,6 +480,18 @@ const getCellComponent = (field: string, data: DataItem) => {
       severity: value === 'task' ? 'success' : 'info',
       class: 'tag-style'
     })
+  }
+
+  // Task type with color indicator
+  if (field === 'task_type_name' && value) {
+    const color = data.task_type_color || '#6366f1'
+    return h('div', { class: 'task-type-cell' }, [
+      h('span', { 
+        class: 'task-type-dot',
+        style: { background: color }
+      }),
+      h('span', value)
+    ])
   }
 
   if (Array.isArray(value)) {
@@ -586,6 +652,17 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.task-type-checkbox .toggle-item-label {
+  margin-left: 0;
+}
+
+.type-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin: 0 0.25rem;
+}
+
 .results-count {
   font-size: 0.875rem;
   color: var(--text-tertiary);
@@ -725,6 +802,20 @@ onUnmounted(() => {
 
 .array-item:not(:last-child) {
   margin-bottom: 0.25rem;
+}
+
+/* Task Type Cell */
+.task-type-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-type-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* Gallery View */

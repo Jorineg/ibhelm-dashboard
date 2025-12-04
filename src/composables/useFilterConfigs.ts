@@ -24,6 +24,7 @@ const defaultConfig = (): FilterConfiguration => ({
   visibleColumns: [
     'name',
     'type',
+    'task_type_name',
     'status',
     'project',
     'customer',
@@ -33,6 +34,7 @@ const defaultConfig = (): FilterConfiguration => ({
   columnOrder: [
     'name',
     'type',
+    'task_type_name',
     'status',
     'project',
     'customer',
