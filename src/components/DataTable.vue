@@ -104,6 +104,39 @@
         </div>
       </template>
 
+      <!-- Source Link Buttons Column (frozen on left) -->
+      <Column
+        frozen
+        :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
+        header=""
+        class="source-links-column"
+      >
+        <template #body="{ data }">
+          <div class="source-links-cell" @click.stop>
+            <a
+              v-if="data.teamwork_url"
+              :href="data.teamwork_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="source-link-btn teamwork"
+              title="Open in Teamwork"
+            >
+              <i class="pi pi-check-square"></i>
+            </a>
+            <a
+              v-if="data.missive_url"
+              :href="data.missive_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="source-link-btn missive"
+              title="Open in Missive"
+            >
+              <i class="pi pi-envelope"></i>
+            </a>
+          </div>
+        </template>
+      </Column>
+
       <Column
         v-for="col in orderedVisibleColumns"
         :key="col.field"
@@ -137,6 +170,28 @@
               :severity="item.type === 'task' ? 'info' : 'success'"
               class="tag-style"
             />
+            <div class="gallery-item-links" @click.stop>
+              <a
+                v-if="item.teamwork_url"
+                :href="item.teamwork_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="source-link-btn teamwork"
+                title="Open in Teamwork"
+              >
+                <i class="pi pi-check-square"></i>
+              </a>
+              <a
+                v-if="item.missive_url"
+                :href="item.missive_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="source-link-btn missive"
+                title="Open in Missive"
+              >
+                <i class="pi pi-envelope"></i>
+              </a>
+            </div>
           </div>
           <div class="gallery-item-thumbnail">
             <i
@@ -673,6 +728,58 @@ onUnmounted(() => {
 .scroll-trigger {
   height: 20px;
   margin: 1rem 0;
+}
+
+/* Source Links Column */
+.source-links-column {
+  background: var(--bg-secondary) !important;
+}
+
+.source-links-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.source-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  font-size: 0.85rem;
+}
+
+.source-link-btn.teamwork {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.source-link-btn.teamwork:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.1);
+}
+
+.source-link-btn.missive {
+  background: rgba(33, 150, 243, 0.15);
+  color: #2196f3;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.source-link-btn.missive:hover {
+  background: rgba(33, 150, 243, 0.3);
+  transform: scale(1.1);
+}
+
+/* Gallery View Source Links */
+.gallery-item-links {
+  display: flex;
+  gap: 0.5rem;
 }
 </style>
 

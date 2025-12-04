@@ -24,13 +24,37 @@
         </div>
       </div>
 
-      <!-- Type badge -->
-      <div class="detail-section">
+      <!-- Type badge and source links -->
+      <div class="detail-section detail-header-row">
         <Tag
           :value="item.type.toUpperCase()"
           :severity="item.type === 'task' ? 'info' : 'success'"
           class="tag-style"
         />
+        <div class="source-links">
+          <a
+            v-if="item.teamwork_url"
+            :href="item.teamwork_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="source-link-btn teamwork"
+            title="Open in Teamwork"
+          >
+            <i class="pi pi-check-square"></i>
+            <span>Teamwork</span>
+          </a>
+          <a
+            v-if="item.missive_url"
+            :href="item.missive_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="source-link-btn missive"
+            title="Open in Missive"
+          >
+            <i class="pi pi-envelope"></i>
+            <span>Missive</span>
+          </a>
+        </div>
       </div>
 
       <!-- Display all fields -->
@@ -105,7 +129,7 @@ const isVisible = computed({
 })
 
 // Fields to exclude from display
-const excludedFields = ['_raw', 'id']
+const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url']
 
 const displayFields = computed(() => {
   if (!props.item) return []
@@ -211,6 +235,56 @@ watch(isVisible, (visible) => {
 
 .detail-section {
   margin-bottom: 1.5rem;
+}
+
+.detail-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.source-links {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.source-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.source-link-btn.teamwork {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.source-link-btn.teamwork:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: translateY(-1px);
+}
+
+.source-link-btn.missive {
+  background: rgba(33, 150, 243, 0.15);
+  color: #2196f3;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.source-link-btn.missive:hover {
+  background: rgba(33, 150, 243, 0.3);
+  transform: translateY(-1px);
+}
+
+.source-link-btn i {
+  font-size: 1rem;
 }
 
 .detail-fields {
