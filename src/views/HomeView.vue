@@ -2,32 +2,34 @@
   <div class="home-view">
     <!-- Header -->
     <div class="page-header">
-      <h1>ibhelm Dashboard</h1>
-      
-      <!-- View Tabs -->
-      <nav class="view-tabs">
-        <button 
-          class="view-tab" 
-          :class="{ active: activeView === 'items' }"
-          @click="switchView('items')"
-        >
-          Items
-        </button>
-        <button 
-          class="view-tab" 
-          :class="{ active: activeView === 'projects' }"
-          @click="switchView('projects')"
-        >
-          Projects
-        </button>
-        <button 
-          class="view-tab" 
-          :class="{ active: activeView === 'people' }"
-          @click="switchView('people')"
-        >
-          People
-        </button>
-      </nav>
+      <div class="header-left-group">
+        <h1>ibhelm Dashboard</h1>
+        
+        <!-- View Tabs -->
+        <nav class="view-tabs">
+          <button 
+            class="view-tab" 
+            :class="{ active: activeView === 'items' }"
+            @click="switchView('items')"
+          >
+            Items
+          </button>
+          <button 
+            class="view-tab" 
+            :class="{ active: activeView === 'projects' }"
+            @click="switchView('projects')"
+          >
+            Projects
+          </button>
+          <button 
+            class="view-tab" 
+            :class="{ active: activeView === 'people' }"
+            @click="switchView('people')"
+          >
+            People
+          </button>
+        </nav>
+      </div>
       
       <!-- Sync Status - Centered -->
       <div class="sync-status-panel">
@@ -547,6 +549,13 @@ onMounted(async () => {
   position: relative;
 }
 
+.header-left-group {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0;
+}
+
 .page-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
@@ -560,7 +569,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: 3rem;
 }
 
 .view-tab {

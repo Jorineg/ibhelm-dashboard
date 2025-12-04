@@ -129,7 +129,7 @@
       <Column
         v-if="props.viewType === 'items' || !props.viewType"
         frozen
-        :style="{ width: '52px', minWidth: '52px', maxWidth: '52px' }"
+        :style="{ width: '60px', minWidth: '60px', maxWidth: '60px' }"
         header=""
         class="source-links-column"
       >
@@ -140,7 +140,8 @@
               :href="data.teamwork_url"
               target="_blank"
               rel="noopener noreferrer"
-              class="source-link-btn teamwork"
+              class="source-link-btn"
+              :style="getSourceLinkStyle(data)"
               title="Open in Teamwork"
             >
               <i class="pi pi-check-square"></i>
@@ -150,7 +151,8 @@
               :href="data.missive_url"
               target="_blank"
               rel="noopener noreferrer"
-              class="source-link-btn missive"
+              class="source-link-btn"
+              :style="getSourceLinkStyle(data)"
               title="Open in Missive"
             >
               <i class="pi pi-envelope"></i>
@@ -212,7 +214,8 @@
                 :href="item.teamwork_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="source-link-btn teamwork"
+                class="source-link-btn"
+                :style="getSourceLinkStyle(item)"
                 title="Open in Teamwork"
               >
                 <i class="pi pi-check-square"></i>
@@ -222,7 +225,8 @@
                 :href="item.missive_url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="source-link-btn missive"
+                class="source-link-btn"
+                :style="getSourceLinkStyle(item)"
                 title="Open in Missive"
               >
                 <i class="pi pi-envelope"></i>
@@ -556,6 +560,17 @@ const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
     background: `${color}20`,
     color: color,
     borderColor: `${color}40`
+  }
+}
+
+// Get link button style based on task type color
+const getSourceLinkStyle = (item: ViewDataItem) => {
+  const isEmail = item.type?.toLowerCase() === 'email'
+  const color = isEmail ? '#3b82f6' : (item.task_type_color || '#4ade80')
+  return {
+    background: `${color}15`,
+    color: color,
+    borderColor: `${color}30`
   }
 }
 
@@ -976,34 +991,18 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   text-decoration: none;
   transition: all 0.15s ease;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
+  border: 1px solid;
 }
 
-.source-link-btn.teamwork {
-  background: rgba(76, 175, 80, 0.15);
-  color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.source-link-btn.teamwork:hover {
-  background: rgba(76, 175, 80, 0.3);
-  transform: scale(1.1);
-}
-
-.source-link-btn.missive {
-  background: rgba(33, 150, 243, 0.15);
-  color: #2196f3;
-  border: 1px solid rgba(33, 150, 243, 0.3);
-}
-
-.source-link-btn.missive:hover {
-  background: rgba(33, 150, 243, 0.3);
-  transform: scale(1.1);
+.source-link-btn:hover {
+  transform: scale(1.12);
+  filter: brightness(1.15);
 }
 
 /* Gallery View Source Links */

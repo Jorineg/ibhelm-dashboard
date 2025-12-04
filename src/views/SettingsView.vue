@@ -103,23 +103,9 @@
                   <div 
                     class="task-type-color-btn"
                     :style="{ background: taskType.color || '#6366f1' }"
-                    @click="openColorPicker(taskType)"
+                    @click="(e) => openColorPicker(taskType, e)"
                     title="Click to change color"
-                  >
-                    <OverlayPanel ref="colorPickerOverlay" appendTo="body">
-                      <div class="color-picker-panel">
-                        <label>Choose color:</label>
-                        <ColorPicker 
-                          v-model="editingColor" 
-                          inline 
-                          @update:model-value="onColorChange"
-                        />
-                        <div class="color-picker-actions">
-                          <Button label="Apply" size="small" @click="applyColorChange" />
-                        </div>
-                      </div>
-                    </OverlayPanel>
-                  </div>
+                  ></div>
                   <div class="task-type-details">
                     <template v-if="editingTypeId === taskType.id">
                       <InputText
@@ -299,6 +285,25 @@
       </div>
     </div>
 
+    <!-- Color Picker Overlay (shared for all task types) -->
+    <OverlayPanel 
+      ref="colorPickerOverlay" 
+      appendTo="body"
+      class="color-picker-overlay"
+    >
+      <div class="color-picker-panel">
+        <label>Choose color:</label>
+        <ColorPicker 
+          v-model="editingColor" 
+          inline 
+          @update:model-value="onColorChange"
+        />
+        <div class="color-picker-actions">
+          <Button label="Apply" size="small" @click="applyColorChange" />
+        </div>
+      </div>
+    </OverlayPanel>
+
     <!-- Confirm Delete Dialog -->
     <Dialog
       v-model:visible="deleteDialogVisible"
@@ -449,9 +454,10 @@ const handleDeleteType = async () => {
 }
 
 // Color picker for existing types
-const openColorPicker = (taskType: TaskType, event?: Event) => {
+const openColorPicker = (taskType: TaskType, event: Event) => {
   editingColorTypeId.value = taskType.id
   editingColor.value = taskType.color?.replace('#', '') || '6366f1'
+  // Use the event target for proper positioning
   colorPickerOverlay.value?.toggle(event)
 }
 
@@ -854,20 +860,36 @@ onUnmounted(() => {
 
 /* Color Picker Panel */
 .color-picker-panel {
-  padding: 0.5rem;
+  padding: 1rem 1.25rem;
 }
 
 .color-picker-panel label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
   color: var(--text-secondary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .color-picker-actions {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
   display: flex;
   justify-content: flex-end;
+}
+
+/* Color Picker Overlay - position above and larger */
+:deep(.color-picker-overlay) {
+  transform: translateY(-100%) translateY(-10px) !important;
+  margin-top: 0 !important;
+}
+
+:deep(.color-picker-overlay .p-colorpicker-preview) {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+}
+
+:deep(.color-picker-overlay .p-colorpicker-panel) {
+  width: 220px !important;
 }
 
 /* Rules */
@@ -1031,14 +1053,18 @@ onUnmounted(() => {
 
 .color-picker-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   left: 0;
   z-index: 1000;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 0.5rem;
+  padding: 1rem;
   box-shadow: var(--shadow-lg);
+}
+
+.color-picker-dropdown :deep(.p-colorpicker-panel) {
+  width: 220px !important;
 }
 
 /* Placeholder Content */
