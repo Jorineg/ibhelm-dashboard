@@ -59,14 +59,26 @@ export function useSyncStatus() {
     }
   }
 
+  // Parse timestamp from database as UTC
+  // PostgreSQL returns TIMESTAMP without timezone, but values are stored in UTC
+  // Append 'Z' to treat the timestamp as UTC, so it converts correctly to local time
+  const parseUtcTimestamp = (timestamp: string | null): Date | null => {
+    if (!timestamp) return null
+    // If the timestamp doesn't already have timezone info, treat it as UTC
+    const utcTimestamp = timestamp.endsWith('Z') || timestamp.includes('+') || timestamp.includes('-', 10)
+      ? timestamp
+      : timestamp + 'Z'
+    return new Date(utcTimestamp)
+  }
+
   const processSyncStatus = (rows: SyncStatusRow[]) => {
     rows.forEach(row => {
       if (row.source === 'teamwork') {
-        syncStatus.value.teamwork.lastScanned = row.last_event_time ? new Date(row.last_event_time) : null
+        syncStatus.value.teamwork.lastScanned = parseUtcTimestamp(row.last_event_time)
         syncStatus.value.teamwork.pendingCount = row.pending_count || 0
         syncStatus.value.teamwork.processingCount = row.processing_count || 0
       } else if (row.source === 'missive') {
-        syncStatus.value.missive.lastScanned = row.last_event_time ? new Date(row.last_event_time) : null
+        syncStatus.value.missive.lastScanned = parseUtcTimestamp(row.last_event_time)
         syncStatus.value.missive.pendingCount = row.pending_count || 0
         syncStatus.value.missive.processingCount = row.processing_count || 0
       }

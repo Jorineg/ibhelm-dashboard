@@ -146,13 +146,12 @@ const formatTime = (date: Date | null): string => {
 // Format full date for tooltip
 const formatFullDate = (date: Date | null): string => {
   if (!date) return 'No data available'
-  return date.toLocaleString('de-DE', {
+  return 'V: ' + date.toLocaleString('de-DE', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
+    year: '2-digit',
     hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    minute: '2-digit'
   })
 }
 const {

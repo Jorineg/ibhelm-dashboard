@@ -46,6 +46,8 @@ const defaultConfig = (): FilterConfiguration => ({
 
 const configurations = ref<FilterConfiguration[]>([])
 const activeConfigId = ref<string>('')
+// Module-level activeConfig so all consumers share the same reactive reference
+const activeConfig = ref<FilterConfiguration | null>(null)
 
 // Load from browser storage
 function loadConfigurations() {
@@ -89,19 +91,20 @@ function saveConfigurations() {
   }
 }
 
-export function useFilterConfigs() {
-  const activeConfig = ref<FilterConfiguration | null>(null)
-
-  // Initialize
-  if (configurations.value.length === 0) {
-    loadConfigurations()
-  }
-
-  // Update active config reference when activeConfigId changes
+// Initialize module-level watchers (runs once)
+let moduleInitialized = false
+function initializeModule() {
+  if (moduleInitialized) return
+  moduleInitialized = true
+  
+  // Load configurations from storage
+  loadConfigurations()
+  
+  // Update active config reference when activeConfigId or configurations change
   watch([configurations, activeConfigId], () => {
     activeConfig.value = configurations.value.find(c => c.id === activeConfigId.value) || null
   }, { immediate: true, deep: true })
-
+  
   // Auto-save when configurations change
   watch(configurations, () => {
     saveConfigurations()
@@ -110,6 +113,11 @@ export function useFilterConfigs() {
   watch(activeConfigId, () => {
     saveConfigurations()
   })
+}
+
+export function useFilterConfigs() {
+  // Initialize module (only runs once)
+  initializeModule()
 
   const createConfiguration = (name?: string) => {
     const config = defaultConfig()
