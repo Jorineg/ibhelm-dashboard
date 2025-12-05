@@ -248,6 +248,12 @@ const switchView = async (view: ViewType) => {
     view,
     selectedTaskTypes.value
   )
+  
+  // Clear any pending filter timeout to prevent double-load from the dataFetchConfig watcher
+  if (filterTimeout) {
+    clearTimeout(filterTimeout)
+    filterTimeout = null
+  }
 }
 
 // Filtered items (server-side filtering is primary)
