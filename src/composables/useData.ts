@@ -196,9 +196,9 @@ export function useData() {
         return { data: [], count: 0 }
       }
 
-      // Apply search if provided
+      // Apply search if provided (searches name, description, full body, and conversation comments)
       if (search) {
-        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,body.ilike.%${search}%,conversation_comments_text.ilike.%${search}%`)
       }
 
       query = applyDynamicFiltersToQuery(query, filterConfig)
