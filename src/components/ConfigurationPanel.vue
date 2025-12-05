@@ -1,7 +1,7 @@
 <template>
   <div class="configuration-panel">
     <div class="panel-header">
-      <div class="header-title">
+      <div class="header-top">
         <h3>Filter Configurations</h3>
         <span class="view-badge">{{ viewLabel }}</span>
       </div>
@@ -138,14 +138,15 @@ const handleUpdateName = (name: string) => {
 .panel-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.header-title {
+.header-top {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .panel-header h3 {
@@ -164,6 +165,7 @@ const handleUpdateName = (name: string) => {
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  width: fit-content;
 }
 
 .configurations-list {

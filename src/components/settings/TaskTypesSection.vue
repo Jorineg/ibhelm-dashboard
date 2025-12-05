@@ -130,11 +130,13 @@
       :closable="true"
       class="delete-dialog"
     >
-      <p>Are you sure you want to delete "{{ typeToDelete?.name }}"?</p>
-      <p class="warning-text">
-        <i class="pi pi-exclamation-triangle"></i>
-        Tasks currently assigned to this type will lose their type assignment.
-      </p>
+      <div class="delete-dialog-content">
+        <p>Are you sure you want to delete "{{ typeToDelete?.name }}"?</p>
+        <div class="warning-text">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>Tasks currently assigned to this type will lose their type assignment.</span>
+        </div>
+      </div>
       <template #footer>
         <Button
           label="Cancel"
@@ -458,20 +460,35 @@ onUnmounted(() => {
 }
 
 /* Delete Dialog */
+.delete-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.delete-dialog-content p {
+  margin: 0;
+  color: var(--text-primary);
+}
+
 .warning-text {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   background: rgba(239, 68, 68, 0.1);
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   color: #f87171;
-  margin-top: 1rem;
 }
 
 .warning-text i {
   margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.warning-text span {
+  line-height: 1.4;
 }
 </style>
 

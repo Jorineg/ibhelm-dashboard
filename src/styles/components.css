@@ -3,6 +3,27 @@
  * Shared styles for tags, badges, and other repeated elements
  */
 
+/* PrimeVue Dialog Overrides */
+.p-dialog {
+  background: var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.p-dialog .p-dialog-header {
+  padding: 1.25rem 1.5rem !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+}
+
+.p-dialog .p-dialog-content {
+  padding: 1.5rem !important;
+}
+
+.p-dialog .p-dialog-footer {
+  padding: 1rem 1.5rem !important;
+  border-top: 1px solid var(--border-primary) !important;
+}
+
 /* Tag/Badge consistent styling */
 .tag-style,
 .p-tag {

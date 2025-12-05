@@ -234,6 +234,8 @@ onMounted(async () => {
 /* Settings Content */
 .settings-content {
   min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 /* Responsive */
