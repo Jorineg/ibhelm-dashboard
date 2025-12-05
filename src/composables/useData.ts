@@ -205,7 +205,7 @@ export function useData() {
       // This avoids fetching large text fields like body, conversation_comments_text
       let query = supabase
         .from('unified_items')
-        .select(UNIFIED_ITEMS_LIST_COLUMNS, { count: includeCount ? 'estimated' : undefined })
+        .select(UNIFIED_ITEMS_LIST_COLUMNS, { count: includeCount ? 'exact' : undefined })
         .order(sort.field, { ascending: sort.order === 'asc' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
@@ -234,10 +234,9 @@ export function useData() {
         return { data: [], count: 0 }
       }
 
-      // Apply search if provided (searches name, description, preview only for performance)
-      // Full-text search in body moved to detail view
+      // Apply search if provided (searches name, description, body, preview, and conversation comments)
       if (search) {
-        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,preview.ilike.%${search}%`)
+        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,body.ilike.%${search}%,preview.ilike.%${search}%,conversation_comments_text.ilike.%${search}%`)
       }
 
       query = applyDynamicFiltersToQuery(query, filterConfig)
