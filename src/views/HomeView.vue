@@ -166,7 +166,7 @@ import type { DataItem, ViewDataItem, Column, SortConfig, ViewType } from '@/typ
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const { activeConfig, updateConfiguration } = useFilterConfigs()
+const { activeConfig, updateConfiguration, setCurrentView } = useFilterConfigs()
 const { syncStatus } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
@@ -301,6 +301,9 @@ const switchView = async (view: ViewType) => {
   if (activeView.value === view) return
   activeView.value = view
   searchQuery.value = ''
+  
+  // Update filter configurations to show configs for this view
+  setCurrentView(view)
   
   // Set default sort for the view
   const defaultSort: SortConfig = view === 'items' 
@@ -527,6 +530,9 @@ onMounted(async () => {
   // Initialize task types and select all by default
   await initTaskTypes()
   selectedTaskTypes.value = taskTypes.value.map(t => t.id)
+  
+  // Set initial view for filter configurations
+  setCurrentView(activeView.value)
 })
 </script>
 

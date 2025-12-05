@@ -1,7 +1,10 @@
 <template>
   <div class="configuration-panel">
     <div class="panel-header">
-      <h3>Filter Configurations</h3>
+      <div class="header-title">
+        <h3>Filter Configurations</h3>
+        <span class="view-badge">{{ viewLabel }}</span>
+      </div>
       <Button
         icon="pi pi-plus"
         label="New"
@@ -64,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Divider from 'primevue/divider'
@@ -73,12 +77,23 @@ const {
   configurations,
   activeConfig,
   activeConfigId,
+  currentViewType,
   createConfiguration,
   duplicateConfiguration,
   deleteConfiguration,
   updateConfiguration,
   setActiveConfiguration
 } = useFilterConfigs()
+
+// View label for the header badge
+const viewLabel = computed(() => {
+  switch (currentViewType.value) {
+    case 'items': return 'Items'
+    case 'projects': return 'Projects'
+    case 'people': return 'People'
+    default: return ''
+  }
+})
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -127,10 +142,28 @@ const handleUpdateName = (name: string) => {
   margin-bottom: 1.5rem;
 }
 
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .panel-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
+}
+
+.view-badge {
+  padding: 0.25rem 0.6rem;
+  background: var(--accent-primary-dark, rgba(99, 102, 241, 0.15));
+  color: var(--accent-primary, #6366f1);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .configurations-list {

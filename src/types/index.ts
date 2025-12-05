@@ -275,6 +275,7 @@ export interface ColumnFilter {
 export interface FilterConfiguration {
   id: string
   name: string
+  viewType: ViewType
   showTasks: boolean
   showEmails: boolean
   viewMode: 'list' | 'gallery'
