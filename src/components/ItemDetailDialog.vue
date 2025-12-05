@@ -2,7 +2,7 @@
   <Dialog
     v-model:visible="isVisible"
     modal
-    :header="item?.name || 'Item Details'"
+    :header="dialogTitle"
     :style="{ width: '90vw', maxWidth: '1200px' }"
     :dismissable-mask="true"
     :pt="{
@@ -27,8 +27,8 @@
       <!-- Type badge and source links -->
       <div class="detail-section detail-header-row">
         <Tag
-          :value="item.type.toUpperCase()"
-          :severity="item.type === 'task' ? 'success' : 'info'"
+          :value="itemTypeLabel"
+          :severity="itemTypeSeverity"
           class="tag-style"
         />
         <div class="source-links">
@@ -108,11 +108,11 @@ import Checkbox from 'primevue/checkbox'
 import Tag from 'primevue/tag'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
-import type { DataItem } from '@/types'
+import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
 
 interface Props {
   visible: boolean
-  item: DataItem | null
+  item: ViewDataItem | null
 }
 
 interface Emits {
@@ -126,6 +126,72 @@ const showEmptyFields = ref(false)
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value)
+})
+
+// Detect item type based on properties
+const detectedItemType = computed<'item' | 'project' | 'person'>(() => {
+  if (!props.item) return 'item'
+  
+  // Check for PersonItem: has display_name and primary_email
+  if ('display_name' in props.item && 'primary_email' in props.item) {
+    return 'person'
+  }
+  
+  // Check for ProjectItem: has company_name or task_count (project-specific fields)
+  if ('company_name' in props.item || 'task_count' in props.item || 'contractor_count' in props.item) {
+    return 'project'
+  }
+  
+  // Default to item (DataItem with type field)
+  return 'item'
+})
+
+// Dialog title based on item type
+const dialogTitle = computed(() => {
+  if (!props.item) return 'Details'
+  
+  switch (detectedItemType.value) {
+    case 'person':
+      return (props.item as PersonItem).display_name || 'Person Details'
+    case 'project':
+      return (props.item as ProjectItem).name || 'Project Details'
+    default:
+      return (props.item as DataItem).name || 'Item Details'
+  }
+})
+
+// Type badge label
+const itemTypeLabel = computed(() => {
+  if (!props.item) return 'UNKNOWN'
+  
+  switch (detectedItemType.value) {
+    case 'person':
+      const person = props.item as PersonItem
+      if (person.is_company) return 'COMPANY'
+      if (person.is_internal) return 'INTERNAL'
+      return 'PERSON'
+    case 'project':
+      return 'PROJECT'
+    default:
+      const dataItem = props.item as DataItem
+      return dataItem.type?.toUpperCase() || 'ITEM'
+  }
+})
+
+// Type badge severity
+const itemTypeSeverity = computed<'success' | 'info' | 'warning' | 'danger' | 'secondary' | 'contrast' | undefined>(() => {
+  switch (detectedItemType.value) {
+    case 'person':
+      const person = props.item as PersonItem
+      if (person.is_company) return 'warning'
+      if (person.is_internal) return 'success'
+      return 'info'
+    case 'project':
+      return 'warning'
+    default:
+      const dataItem = props.item as DataItem
+      return dataItem.type === 'task' ? 'success' : 'info'
+  }
 })
 
 // Fields to exclude from display
