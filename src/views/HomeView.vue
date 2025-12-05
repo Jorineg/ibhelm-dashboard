@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
@@ -106,7 +106,7 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const { activeConfig, updateConfiguration, setCurrentView } = useFilterConfigs()
+const { activeConfig, updateConfiguration, setCurrentView, currentViewType } = useFilterConfigs()
 const { syncStatus } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
@@ -117,11 +117,8 @@ const viewTabs = [
   { id: 'people' as ViewType, label: 'People' }
 ]
 
-// Selected task types for filtering
-const selectedTaskTypes = ref<string[]>([])
-
-// Active view state
-const activeView = ref<ViewType>('items')
+// Active view state - sync with filter config's currentViewType
+const activeView = computed(() => currentViewType.value)
 
 const {
   dataItems,
@@ -136,6 +133,17 @@ const {
 const searchQuery = ref('')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
+
+// Selected task types derived from config - fallback to all when undefined/empty
+const selectedTaskTypes = computed(() => {
+  if (!activeConfig.value) return []
+  // If selectedTaskTypes is defined and not empty, use it; otherwise use all task types
+  if (activeConfig.value.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
+    return activeConfig.value.selectedTaskTypes
+  }
+  // Default to all task types (only for items view)
+  return taskTypes.value.map(t => t.id)
+})
 
 // Column definitions
 const itemColumns: Column[] = [
@@ -218,10 +226,12 @@ const availableColumns = computed<Column[]>(() => {
 
 // Switch view handler
 const switchView = async (view: ViewType) => {
-  if (activeView.value === view) return
-  activeView.value = view
+  if (currentViewType.value === view) return
   searchQuery.value = ''
   setCurrentView(view)
+  
+  // Wait for Vue to update the reactive state (activeConfig will change)
+  await nextTick()
   
   const defaultSort: SortConfig = view === 'items' 
     ? { field: 'sort_date', order: 'desc' }
@@ -243,7 +253,7 @@ const switchView = async (view: ViewType) => {
 // Filtered items (server-side filtering is primary)
 const filteredAndSearchedItems = computed(() => dataItems.value)
 
-// Watch for config changes
+// Watch for config changes - computed key for change detection
 const dataFetchConfig = computed(() => {
   if (!activeConfig.value) return null
   return {
@@ -256,19 +266,26 @@ const dataFetchConfig = computed(() => {
   }
 })
 
+// Track last loaded config ID to prevent duplicate loads on same config
+let lastLoadedConfigId: string | null = null
 let filterTimeout: number | null = null
-watch(dataFetchConfig, () => {
+
+watch(dataFetchConfig, async (newConfig, oldConfig) => {
   if (filterTimeout) clearTimeout(filterTimeout)
+  
+  // Skip if no config
+  if (!newConfig || !activeConfig.value) return
   
   filterTimeout = window.setTimeout(async () => {
     if (activeConfig.value) {
+      lastLoadedConfigId = activeConfig.value.id
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         searchQuery.value,
         activeConfig.value,
         undefined,
-        activeView.value,
+        currentViewType.value,
         selectedTaskTypes.value
       )
     }
@@ -288,7 +305,7 @@ watch(searchQuery, () => {
         searchQuery.value,
         activeConfig.value,
         undefined,
-        activeView.value,
+        currentViewType.value,
         selectedTaskTypes.value
       )
     }
@@ -343,7 +360,7 @@ const handleLoadMore = async () => {
       activeConfig.value.showEmails,
       searchQuery.value,
       activeConfig.value,
-      activeView.value,
+      currentViewType.value,
       selectedTaskTypes.value
     )
   }
@@ -396,19 +413,9 @@ const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
 }
 
 const handleUpdateSelectedTaskTypes = (types: string[]) => {
-  selectedTaskTypes.value = types
   if (activeConfig.value) {
-    // Persist selected task types to configuration
+    // Persist selected task types to configuration - the watch will trigger data reload
     updateConfiguration(activeConfig.value.id, { selectedTaskTypes: types })
-    loadData(
-      activeConfig.value.showTasks,
-      activeConfig.value.showEmails,
-      searchQuery.value,
-      activeConfig.value,
-      undefined,
-      activeView.value,
-      types
-    )
   }
 }
 
@@ -420,7 +427,7 @@ const handleSort = async (sortConfig: SortConfig) => {
       searchQuery.value,
       activeConfig.value,
       sortConfig,
-      activeView.value,
+      currentViewType.value,
       selectedTaskTypes.value
     )
   }
@@ -428,26 +435,7 @@ const handleSort = async (sortConfig: SortConfig) => {
 
 onMounted(async () => {
   await initTaskTypes()
-  setCurrentView(activeView.value)
-  
-  // Initialize selectedTaskTypes from config if saved, otherwise default to all
-  if (activeConfig.value?.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
-    selectedTaskTypes.value = activeConfig.value.selectedTaskTypes
-  } else {
-    selectedTaskTypes.value = taskTypes.value.map(t => t.id)
-  }
-})
-
-// Watch for activeConfig changes to update selectedTaskTypes
-watch(() => activeConfig.value?.id, (newId, oldId) => {
-  if (newId && newId !== oldId) {
-    // When switching configs, load the saved task types or default to all
-    if (activeConfig.value?.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
-      selectedTaskTypes.value = activeConfig.value.selectedTaskTypes
-    } else {
-      selectedTaskTypes.value = taskTypes.value.map(t => t.id)
-    }
-  }
+  // The dataFetchConfig watch will trigger the initial data load
 })
 </script>
 

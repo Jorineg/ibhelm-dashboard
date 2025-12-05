@@ -62,8 +62,11 @@ const activeConfigId = computed(() => {
   return activeConfigIds.value[currentViewType.value]
 })
 
-// Module-level activeConfig so all consumers share the same reactive reference
-const activeConfig = ref<FilterConfiguration | null>(null)
+// Module-level activeConfig computed - always derives from allConfigurations
+const activeConfig = computed<FilterConfiguration | null>(() => {
+  const currentId = activeConfigIds.value[currentViewType.value]
+  return allConfigurations.value.find(c => c.id === currentId) || null
+})
 
 // Load from browser storage
 function loadConfigurations() {
@@ -149,13 +152,7 @@ function initializeModule() {
   // Load configurations from storage
   loadConfigurations()
   
-  // Update active config reference when activeConfigIds, currentViewType, or allConfigurations change
-  watch([allConfigurations, activeConfigIds, currentViewType], () => {
-    const currentId = activeConfigIds.value[currentViewType.value]
-    activeConfig.value = allConfigurations.value.find(c => c.id === currentId) || null
-  }, { immediate: true, deep: true })
-  
-  // Auto-save when configurations change
+  // Auto-save when configurations change (deep watch)
   watch(allConfigurations, () => {
     saveConfigurations()
   }, { deep: true })
@@ -224,11 +221,18 @@ export function useFilterConfigs() {
   }
 
   const updateConfiguration = (id: string, updates: Partial<FilterConfiguration>) => {
-    const config = allConfigurations.value.find(c => c.id === id)
-    if (!config) return false
+    const index = allConfigurations.value.findIndex(c => c.id === id)
+    if (index === -1) return false
 
-    Object.assign(config, updates)
-    config.updatedAt = new Date().toISOString()
+    const config = allConfigurations.value[index]
+    const updatedConfig = {
+      ...config,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+    
+    // Replace the config in the array to trigger reactivity
+    allConfigurations.value.splice(index, 1, updatedConfig)
     return true
   }
 
@@ -244,47 +248,45 @@ export function useFilterConfigs() {
 
   const addDynamicFilter = (filter: ColumnFilter) => {
     if (activeConfig.value) {
-      activeConfig.value.dynamicFilters.push(filter)
-      activeConfig.value.updatedAt = new Date().toISOString()
+      const newFilters = [...activeConfig.value.dynamicFilters, filter]
+      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
     }
   }
 
   const removeDynamicFilter = (filterId: string) => {
     if (activeConfig.value) {
-      const index = activeConfig.value.dynamicFilters.findIndex(f => f.id === filterId)
-      if (index !== -1) {
-        activeConfig.value.dynamicFilters.splice(index, 1)
-        activeConfig.value.updatedAt = new Date().toISOString()
-      }
+      const newFilters = activeConfig.value.dynamicFilters.filter(f => f.id !== filterId)
+      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
     }
   }
 
   const updateDynamicFilter = (filterId: string, updates: Partial<ColumnFilter>) => {
     if (activeConfig.value) {
-      const filter = activeConfig.value.dynamicFilters.find(f => f.id === filterId)
-      if (filter) {
-        Object.assign(filter, updates)
-        activeConfig.value.updatedAt = new Date().toISOString()
-      }
+      const newFilters = activeConfig.value.dynamicFilters.map(f => 
+        f.id === filterId ? { ...f, ...updates } : f
+      )
+      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
     }
   }
 
   const updateAlwaysVisibleFilter = (filterName: string, value: string) => {
     if (activeConfig.value) {
+      const newFilters = { ...activeConfig.value.alwaysVisibleFilters }
       if (value) {
-        activeConfig.value.alwaysVisibleFilters[filterName as keyof typeof activeConfig.value.alwaysVisibleFilters] = value
+        newFilters[filterName as keyof typeof newFilters] = value
       } else {
-        delete activeConfig.value.alwaysVisibleFilters[filterName as keyof typeof activeConfig.value.alwaysVisibleFilters]
+        delete newFilters[filterName as keyof typeof newFilters]
       }
-      activeConfig.value.updatedAt = new Date().toISOString()
+      updateConfiguration(activeConfig.value.id, { alwaysVisibleFilters: newFilters })
     }
   }
 
   const clearAllFilters = () => {
     if (activeConfig.value) {
-      activeConfig.value.alwaysVisibleFilters = {}
-      activeConfig.value.dynamicFilters = []
-      activeConfig.value.updatedAt = new Date().toISOString()
+      updateConfiguration(activeConfig.value.id, { 
+        alwaysVisibleFilters: {}, 
+        dynamicFilters: [] 
+      })
     }
   }
 

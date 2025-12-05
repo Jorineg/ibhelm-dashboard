@@ -353,41 +353,29 @@ const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 // Appearance settings from composable
 const { emailColor, initialize: initAppearance } = useAppearanceSettings()
 
-// Local state for selected task types (initialized from props or all selected)
-const localSelectedTaskTypes = ref<string[]>([])
-
 // Initialize task types and appearance settings on mount
 onMounted(async () => {
   await Promise.all([initTaskTypes(), initAppearance()])
-  // Default: select all task types
-  if (props.selectedTaskTypes) {
-    localSelectedTaskTypes.value = [...props.selectedTaskTypes]
-  } else {
-    localSelectedTaskTypes.value = taskTypes.value.map(t => t.id)
-  }
 })
 
-// Watch for task type changes from parent
-watch(() => props.selectedTaskTypes, (newVal) => {
-  if (newVal) {
-    localSelectedTaskTypes.value = [...newVal]
-  }
-}, { deep: true })
-
-// Toggle a specific task type
+// Toggle a specific task type - directly emit the change
 const toggleTaskType = (typeId: string) => {
-  const index = localSelectedTaskTypes.value.indexOf(typeId)
+  const currentSelected = props.selectedTaskTypes || []
+  const index = currentSelected.indexOf(typeId)
+  let newSelection: string[]
+  
   if (index === -1) {
-    localSelectedTaskTypes.value.push(typeId)
+    newSelection = [...currentSelected, typeId]
   } else {
-    localSelectedTaskTypes.value.splice(index, 1)
+    newSelection = currentSelected.filter(id => id !== typeId)
   }
-  emit('update:selectedTaskTypes', [...localSelectedTaskTypes.value])
+  emit('update:selectedTaskTypes', newSelection)
 }
 
-// Check if a task type is selected
+// Check if a task type is selected - directly read from props
 const isTaskTypeSelected = (typeId: string) => {
-  return localSelectedTaskTypes.value.includes(typeId)
+  const currentSelected = props.selectedTaskTypes || []
+  return currentSelected.includes(typeId)
 }
 
 const scrollTrigger = ref<HTMLElement | null>(null)
