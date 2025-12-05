@@ -4,6 +4,8 @@
  */
 
 @import './colors.css';
+@import './typography.css';
+@import './layout.css';
 @import './inputs.css';
 @import './buttons.css';
 @import './cards.css';

@@ -32,28 +32,16 @@
           class="tag-style"
         />
         <div class="source-links">
-          <a
+          <SourceLink
             v-if="item.teamwork_url"
-            :href="item.teamwork_url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="source-link-btn teamwork"
-            title="Open in Teamwork"
-          >
-            <i class="pi pi-check-square"></i>
-            <span>Teamwork</span>
-          </a>
-          <a
+            :url="item.teamwork_url"
+            variant="teamwork"
+          />
+          <SourceLink
             v-if="item.missive_url"
-            :href="item.missive_url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="source-link-btn missive"
-            title="Open in Missive"
-          >
-            <i class="pi pi-envelope"></i>
-            <span>Missive</span>
-          </a>
+            :url="item.missive_url"
+            variant="missive"
+          />
         </div>
       </div>
 
@@ -108,6 +96,7 @@ import Checkbox from 'primevue/checkbox'
 import Tag from 'primevue/tag'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
+import { SourceLink } from '@/components/common'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
 
 interface Props {
@@ -313,44 +302,6 @@ watch(isVisible, (visible) => {
 .source-links {
   display: flex;
   gap: 0.75rem;
-}
-
-.source-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.source-link-btn.teamwork {
-  background: rgba(76, 175, 80, 0.15);
-  color: #4caf50;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.source-link-btn.teamwork:hover {
-  background: rgba(76, 175, 80, 0.3);
-  transform: translateY(-1px);
-}
-
-.source-link-btn.missive {
-  background: rgba(33, 150, 243, 0.15);
-  color: #2196f3;
-  border: 1px solid rgba(33, 150, 243, 0.3);
-}
-
-.source-link-btn.missive:hover {
-  background: rgba(33, 150, 243, 0.3);
-  transform: translateY(-1px);
-}
-
-.source-link-btn i {
-  font-size: 1rem;
 }
 
 .detail-fields {

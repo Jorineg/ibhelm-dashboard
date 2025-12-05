@@ -1,99 +1,38 @@
 <template>
   <div class="home-view">
     <!-- Header -->
-    <div class="page-header">
-      <div class="header-left-group">
-        <h1>ibhelm Dashboard</h1>
-        
+    <PageHeader
+      title="ibhelm Dashboard"
+      :user-email="user?.email"
+      :show-sign-out="true"
+      @sign-out="handleSignOut"
+    >
+      <template #after-title>
         <!-- View Tabs -->
         <nav class="view-tabs">
           <button 
+            v-for="view in viewTabs"
+            :key="view.id"
             class="view-tab" 
-            :class="{ active: activeView === 'items' }"
-            @click="switchView('items')"
+            :class="{ active: activeView === view.id }"
+            @click="switchView(view.id)"
           >
-            Items
-          </button>
-          <button 
-            class="view-tab" 
-            :class="{ active: activeView === 'projects' }"
-            @click="switchView('projects')"
-          >
-            Projects
-          </button>
-          <button 
-            class="view-tab" 
-            :class="{ active: activeView === 'people' }"
-            @click="switchView('people')"
-          >
-            People
+            {{ view.label }}
           </button>
         </nav>
-      </div>
+      </template>
       
-      <!-- Sync Status - Centered -->
-      <div class="sync-status-panel">
-        <div class="sync-status-item">
-          <div class="sync-source">
-            <span class="sync-icon">📋</span>
-            <span class="sync-label">Teamwork</span>
-          </div>
-          <div class="sync-details">
-            <div class="sync-time-row">
-              <span class="sync-time-label">Last sync:</span>
-              <span class="sync-time-value" :title="formatFullDate(syncStatus.teamwork.lastScanned)">
-                {{ formatTime(syncStatus.teamwork.lastScanned) }}
-              </span>
-            </div>
-            <div v-if="syncStatus.teamwork.pendingCount > 0" class="sync-queue-row">
-              <span class="sync-queue-label">Queue:</span>
-              <span class="sync-queue-value pending">{{ syncStatus.teamwork.pendingCount }} pending</span>
-            </div>
-            <div v-else class="sync-queue-row">
-              <span class="sync-queue-ok">✓ synced</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="sync-divider"></div>
-        
-        <div class="sync-status-item">
-          <div class="sync-source">
-            <span class="sync-icon">✉️</span>
-            <span class="sync-label">Missive</span>
-          </div>
-          <div class="sync-details">
-            <div class="sync-time-row">
-              <span class="sync-time-label">Last sync:</span>
-              <span class="sync-time-value" :title="formatFullDate(syncStatus.missive.lastScanned)">
-                {{ formatTime(syncStatus.missive.lastScanned) }}
-              </span>
-            </div>
-            <div v-if="syncStatus.missive.pendingCount > 0" class="sync-queue-row">
-              <span class="sync-queue-label">Queue:</span>
-              <span class="sync-queue-value pending">{{ syncStatus.missive.pendingCount }} pending</span>
-            </div>
-            <div v-else class="sync-queue-row">
-              <span class="sync-queue-ok">✓ synced</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <template #center>
+        <!-- Sync Status Panel -->
+        <SyncStatusPanel :sync-status="syncStatus" />
+      </template>
       
-      <div class="header-actions">
+      <template #actions>
         <button class="settings-btn" @click="goToSettings" title="Settings">
           <i class="pi pi-cog"></i>
         </button>
-        <span class="user-email">{{ user?.email }}</span>
-        <Button
-          label="Sign Out"
-          icon="pi pi-sign-out"
-          @click="handleSignOut"
-          outlined
-          class="sign-out-btn"
-        />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -152,17 +91,18 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
+import { PageHeader } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import DataTable from '@/components/DataTable.vue'
 import ItemDetailDialog from '@/components/ItemDetailDialog.vue'
+import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
-import type { DataItem, ViewDataItem, Column, SortConfig, ViewType } from '@/types'
+import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
@@ -170,33 +110,19 @@ const { activeConfig, updateConfiguration, setCurrentView } = useFilterConfigs()
 const { syncStatus } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
+// View tabs configuration
+const viewTabs = [
+  { id: 'items' as ViewType, label: 'Items' },
+  { id: 'projects' as ViewType, label: 'Projects' },
+  { id: 'people' as ViewType, label: 'People' }
+]
+
 // Selected task types for filtering
 const selectedTaskTypes = ref<string[]>([])
 
 // Active view state
 const activeView = ref<ViewType>('items')
 
-// Format time with seconds
-const formatTime = (date: Date | null): string => {
-  if (!date) return '--:--:--'
-  return date.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
-// Format full date for tooltip
-const formatFullDate = (date: Date | null): string => {
-  if (!date) return 'No data available'
-  return 'V: ' + date.toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 const {
   dataItems,
   loading,
@@ -211,7 +137,7 @@ const searchQuery = ref('')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
 
-// Items view columns
+// Column definitions
 const itemColumns: Column[] = [
   { field: 'type', header: 'Type', sortable: true, width: '120px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
@@ -239,7 +165,6 @@ const itemColumns: Column[] = [
   { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
 ]
 
-// Projects view columns
 const projectColumns: Column[] = [
   { field: 'name', header: 'Project Name', sortable: true, width: '250px' },
   { field: 'description', header: 'Description', sortable: false, width: '300px' },
@@ -264,7 +189,6 @@ const projectColumns: Column[] = [
   { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
 ]
 
-// People view columns
 const peopleColumns: Column[] = [
   { field: 'display_name', header: 'Name', sortable: true, width: '200px' },
   { field: 'primary_email', header: 'Email', sortable: true, width: '250px' },
@@ -286,13 +210,9 @@ const peopleColumns: Column[] = [
 // Available columns based on active view
 const availableColumns = computed<Column[]>(() => {
   switch (activeView.value) {
-    case 'projects':
-      return projectColumns
-    case 'people':
-      return peopleColumns
-    case 'items':
-    default:
-      return itemColumns
+    case 'projects': return projectColumns
+    case 'people': return peopleColumns
+    default: return itemColumns
   }
 })
 
@@ -301,11 +221,8 @@ const switchView = async (view: ViewType) => {
   if (activeView.value === view) return
   activeView.value = view
   searchQuery.value = ''
-  
-  // Update filter configurations to show configs for this view
   setCurrentView(view)
   
-  // Set default sort for the view
   const defaultSort: SortConfig = view === 'items' 
     ? { field: 'sort_date', order: 'desc' }
     : view === 'projects'
@@ -323,39 +240,24 @@ const switchView = async (view: ViewType) => {
   )
 }
 
-// Note: Filters are now applied at the DATABASE level in useData.ts
-// These client-side filters are kept for backwards compatibility but are mostly redundant
-// since filtering happens server-side. They serve as a safety net for edge cases.
-const filteredItems = computed(() => {
-  // Since filters are applied server-side, this mostly just passes through
-  return dataItems.value
-})
+// Filtered items (server-side filtering is primary)
+const filteredAndSearchedItems = computed(() => dataItems.value)
 
-// Search is also applied server-side, so this is redundant
-const filteredAndSearchedItems = computed(() => {
-  return filteredItems.value
-})
-
-// Load initial data when component mounts or config changes
-// Watch for changes that should trigger a server-side reload
+// Watch for config changes
 const dataFetchConfig = computed(() => {
   if (!activeConfig.value) return null
   return {
     id: activeConfig.value.id,
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
-    // Include filters so changes trigger reload
     alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
     dynamicFilters: activeConfig.value.dynamicFilters
   }
 })
 
-// Debounce filter changes to avoid too many API calls
 let filterTimeout: number | null = null
 watch(dataFetchConfig, () => {
-  if (filterTimeout) {
-    clearTimeout(filterTimeout)
-  }
+  if (filterTimeout) clearTimeout(filterTimeout)
   
   filterTimeout = window.setTimeout(async () => {
     if (activeConfig.value) {
@@ -363,21 +265,19 @@ watch(dataFetchConfig, () => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         searchQuery.value,
-        activeConfig.value, // Pass filter config to apply at database level
+        activeConfig.value,
         undefined,
         activeView.value,
         selectedTaskTypes.value
       )
     }
-  }, 300) // 300ms debounce for filter changes
+  }, 300)
 }, { immediate: true, deep: true })
 
-// Watch search query changes with debouncing
+// Search debouncing
 let searchTimeout: number | null = null
 watch(searchQuery, () => {
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
+  if (searchTimeout) clearTimeout(searchTimeout)
   
   searchTimeout = window.setTimeout(async () => {
     if (activeConfig.value) {
@@ -385,7 +285,7 @@ watch(searchQuery, () => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         searchQuery.value,
-        activeConfig.value, // Pass filter config to apply at database level
+        activeConfig.value,
         undefined,
         activeView.value,
         selectedTaskTypes.value
@@ -398,15 +298,13 @@ const clearSearch = () => {
   searchQuery.value = ''
 }
 
-// Watch for visible columns changes (e.g., when switching configs) and clean up widths
+// Watch for visible columns changes
 watch(() => activeConfig.value?.visibleColumns, (newColumns, oldColumns) => {
   if (!activeConfig.value || !newColumns || !oldColumns) return
   
-  // Only clean up if columns actually changed
   const columnsChanged = JSON.stringify(newColumns) !== JSON.stringify(oldColumns)
   if (!columnsChanged) return
   
-  // Clean up column widths for columns that are no longer visible
   const currentWidths = activeConfig.value.columnWidths || {}
   const newWidths: Record<string, string> = {}
   
@@ -416,12 +314,12 @@ watch(() => activeConfig.value?.visibleColumns, (newColumns, oldColumns) => {
     }
   })
   
-  // Only update if widths actually changed
   if (JSON.stringify(newWidths) !== JSON.stringify(currentWidths)) {
     updateConfiguration(activeConfig.value.id, { columnWidths: newWidths })
   }
 }, { deep: true })
 
+// Navigation
 const handleSignOut = async () => {
   await signOut()
   router.push('/login')
@@ -431,6 +329,7 @@ const goToSettings = () => {
   router.push('/settings')
 }
 
+// Event handlers
 const handleRowClick = (item: ViewDataItem) => {
   selectedItem.value = item
   detailDialogVisible.value = true
@@ -442,7 +341,7 @@ const handleLoadMore = async () => {
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
       searchQuery.value,
-      activeConfig.value, // Pass filter config to apply at database level
+      activeConfig.value,
       activeView.value,
       selectedTaskTypes.value
     )
@@ -451,7 +350,6 @@ const handleLoadMore = async () => {
 
 const handleUpdateVisibleColumns = (columns: string[]) => {
   if (activeConfig.value) {
-    // Clean up column widths for columns that are no longer visible
     const newWidths: Record<string, string> = {}
     Object.keys(activeConfig.value.columnWidths || {}).forEach(field => {
       if (columns.includes(field)) {
@@ -498,7 +396,6 @@ const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
 
 const handleUpdateSelectedTaskTypes = (types: string[]) => {
   selectedTaskTypes.value = types
-  // Trigger data reload with new task type filter
   if (activeConfig.value) {
     loadData(
       activeConfig.value.showTasks,
@@ -527,11 +424,8 @@ const handleSort = async (sortConfig: SortConfig) => {
 }
 
 onMounted(async () => {
-  // Initialize task types and select all by default
   await initTaskTypes()
   selectedTaskTypes.value = taskTypes.value.map(t => t.id)
-  
-  // Set initial view for filter configurations
   setCurrentView(activeView.value)
 })
 </script>
@@ -541,33 +435,6 @@ onMounted(async () => {
   min-height: 100vh;
   background: var(--bg-primary);
   padding: 2rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding: 1rem 2rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  position: relative;
-}
-
-.header-left-group {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-shrink: 0;
-}
-
-.page-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-  flex-shrink: 0;
 }
 
 /* View Tabs */
@@ -608,102 +475,11 @@ onMounted(async () => {
   transform: translateX(-50%);
   width: 70%;
   height: 2px;
-  background: var(--accent-primary, #6366f1);
+  background: var(--accent-primary);
   border-radius: 1px;
 }
 
-/* Sync Status Panel - Centered in header */
-.sync-status-panel {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.sync-status-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.sync-source {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.sync-icon {
-  font-size: 1rem;
-}
-
-.sync-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.sync-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  line-height: 1.2;
-}
-
-.sync-time-row,
-.sync-queue-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.7rem;
-}
-
-.sync-time-label,
-.sync-queue-label {
-  color: var(--text-tertiary, rgba(255, 255, 255, 0.4));
-}
-
-.sync-time-value {
-  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  color: var(--text-secondary);
-  cursor: default;
-  font-size: 0.7rem;
-}
-
-.sync-queue-value {
-  font-weight: 600;
-}
-
-.sync-queue-value.pending {
-  color: #f5a623;
-  background: rgba(245, 166, 35, 0.15);
-  padding: 0 0.35rem;
-  border-radius: 3px;
-  font-size: 0.65rem;
-}
-
-.sync-queue-ok {
-  color: #4ade80;
-  font-weight: 500;
-  font-size: 0.65rem;
-}
-
-.sync-divider {
-  width: 1px;
-  height: 1.75rem;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-shrink: 0;
-}
-
+/* Settings button */
 .settings-btn {
   display: flex;
   align-items: center;
@@ -722,11 +498,7 @@ onMounted(async () => {
   transform: rotate(45deg);
 }
 
-.user-email {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
+/* Main Content */
 .main-content {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -764,4 +536,3 @@ onMounted(async () => {
   }
 }
 </style>
-
