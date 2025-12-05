@@ -191,6 +191,13 @@ export interface ProjectLinkingRun {
   error_message?: string
 }
 
+export interface AppearanceSettings {
+  id: string
+  email_color: string
+  db_created_at?: string
+  db_updated_at?: string
+}
+
 export interface DataItem {
   id: string
   type: ItemType

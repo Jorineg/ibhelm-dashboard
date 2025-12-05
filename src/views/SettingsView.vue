@@ -62,12 +62,9 @@
           message="General settings will be available soon."
         />
 
-        <PlaceholderSection
+        <!-- Appearance Section -->
+        <AppearanceSection
           v-else-if="activeSection === 'appearance'"
-          title="Appearance"
-          description="Customize the look and feel of the application."
-          icon="pi pi-palette"
-          message="Appearance settings will be available soon."
         />
       </div>
     </div>
@@ -78,7 +75,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, PlaceholderSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'

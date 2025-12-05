@@ -55,13 +55,19 @@
             
             <div class="type-divider"></div>
             
-            <div class="checkbox-group">
-              <Checkbox
-                v-model="localShowEmails"
-                input-id="show-emails"
-                :binary="true"
-              />
-              <label for="show-emails" class="toggle-item-label">Emails</label>
+            <div class="checkbox-group email-checkbox">
+              <div class="email-checkbox-inner">
+                <Checkbox
+                  v-model="localShowEmails"
+                  input-id="show-emails"
+                  :binary="true"
+                />
+                <label for="show-emails" class="toggle-item-label">Emails</label>
+              </div>
+              <span 
+                class="email-color-bar"
+                :style="{ backgroundColor: emailColor }"
+              ></span>
             </div>
           </template>
           
@@ -302,6 +308,7 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import { useTaskTypes } from '@/composables/useTaskTypes'
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
 
 interface Props {
@@ -343,12 +350,15 @@ const emit = defineEmits<Emits>()
 // Task types from composable
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
+// Appearance settings from composable
+const { emailColor, initialize: initAppearance } = useAppearanceSettings()
+
 // Local state for selected task types (initialized from props or all selected)
 const localSelectedTaskTypes = ref<string[]>([])
 
-// Initialize task types on mount
+// Initialize task types and appearance settings on mount
 onMounted(async () => {
-  await initTaskTypes()
+  await Promise.all([initTaskTypes(), initAppearance()])
   // Default: select all task types
   if (props.selectedTaskTypes) {
     localSelectedTaskTypes.value = [...props.selectedTaskTypes]
@@ -488,7 +498,7 @@ const getCellComponent = (field: string, data: DataItem) => {
   if (field === 'type') {
     const isEmail = value?.toLowerCase() === 'email'
     const displayValue = isEmail ? 'EMAIL' : (data.task_type_name?.toUpperCase() || 'TASK')
-    const color = isEmail ? '#3b82f6' : (data.task_type_color || '#4ade80')
+    const color = isEmail ? emailColor.value : (data.task_type_color || '#4ade80')
     
     return h('span', {
       class: 'type-badge',
@@ -561,7 +571,7 @@ const getGalleryIcon = (item: ViewDataItem): string => {
 
 const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
   const isEmail = item.type?.toLowerCase() === 'email'
-  const color = isEmail ? '#3b82f6' : (item.task_type_color || '#4ade80')
+  const color = isEmail ? emailColor.value : (item.task_type_color || '#4ade80')
   return {
     background: `${color}20`,
     color: color,
@@ -572,7 +582,7 @@ const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
 // Get link button style based on task type color
 const getSourceLinkStyle = (item: ViewDataItem) => {
   const isEmail = item.type?.toLowerCase() === 'email'
-  const color = isEmail ? '#3b82f6' : (item.task_type_color || '#4ade80')
+  const color = isEmail ? emailColor.value : (item.task_type_color || '#4ade80')
   return {
     background: `${color}15`,
     color: color,
@@ -714,6 +724,25 @@ onUnmounted(() => {
 }
 
 .task-type-color-bar {
+  display: block;
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+}
+
+.email-checkbox {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.email-checkbox-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.email-color-bar {
   display: block;
   height: 3px;
   width: 100%;
