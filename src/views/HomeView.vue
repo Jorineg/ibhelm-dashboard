@@ -36,16 +36,12 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <!-- Left Sidebar: Configuration Panel -->
-      <aside class="left-sidebar">
-        <ConfigurationPanel />
-      </aside>
-
       <!-- Center: Filters and Table -->
       <main class="center-content">
-        <!-- Filters -->
-        <div class="filters-section">
-          <FilterBar :available-columns="availableColumns" />
+        <!-- Config Panel and Filters Row -->
+        <div class="top-controls">
+          <ConfigurationPanel />
+          <FilterBar :available-columns="availableColumns" class="filters-section" />
         </div>
 
         <!-- Data Table -->
@@ -529,17 +525,7 @@ onMounted(async () => {
 
 /* Main Content */
 .main-content {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 2rem;
-  align-items: start;
   max-width: 100%;
-}
-
-.left-sidebar {
-  position: sticky;
-  top: 2rem;
-  min-width: 0;
 }
 
 .center-content {
@@ -549,19 +535,15 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.filters-section {
-  flex-shrink: 0;
-  min-width: 0;
+.top-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
 }
 
-@media (max-width: 1200px) {
-  .main-content {
-    grid-template-columns: 1fr;
-  }
-
-  .left-sidebar {
-    position: relative;
-    top: 0;
-  }
+.filters-section {
+  flex: 1;
+  min-width: 0;
 }
 </style>

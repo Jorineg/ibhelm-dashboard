@@ -1,73 +1,90 @@
 <template>
-  <div class="configuration-panel">
-    <div class="panel-header">
-      <div class="header-top">
-        <h3>Filter Configurations</h3>
-        <span class="view-badge">{{ viewLabel }}</span>
-      </div>
-      <Button
-        icon="pi pi-plus"
-        label="New"
-        size="small"
-        @click="handleCreateConfig"
-      />
-    </div>
-
-    <div class="configurations-list thin-scrollbar">
-      <div
+  <div class="config-panel-wrapper" :class="{ expanded: isExpanded }">
+    <!-- Collapsed Mini View (always rendered, hidden when expanded) -->
+    <div v-show="!isExpanded" class="mini-config-bar">
+      <button
         v-for="config in configurations"
         :key="config.id"
-        :class="['config-item', { active: config.id === activeConfigId }]"
+        :class="['mini-config-item', { active: config.id === activeConfigId }]"
         @click="setActiveConfiguration(config.id)"
+        :title="config.name"
       >
-        <i class="pi pi-filter config-icon"></i>
-        <span class="config-name">{{ config.name }}</span>
-        <span class="config-date">{{ formatDate(config.updatedAt) }}</span>
-      </div>
+        {{ truncateName(config.name) }}
+      </button>
+      <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
+        <i class="pi pi-chevron-down"></i>
+      </button>
     </div>
 
-    <Divider />
-
-    <!-- Active configuration controls -->
-    <div v-if="activeConfig" class="active-config-controls">
-      <h4>Active Configuration</h4>
-      
-      <div class="control-group">
-        <label for="config-name">Name</label>
-        <InputText
-          id="config-name"
-          :model-value="activeConfig.name"
-          @update:model-value="handleUpdateName"
-          placeholder="Configuration name"
-          class="config-name-input"
+    <!-- Expanded Panel (floating) -->
+    <div v-show="isExpanded" ref="panelRef" class="configuration-panel">
+      <div class="panel-header">
+        <Button
+          icon="pi pi-plus"
+          label="New"
+          size="small"
+          @click="handleCreateConfig"
+          class="new-config-btn"
         />
+        <span class="view-badge">{{ viewLabel }}</span>
       </div>
 
-      <div class="control-buttons">
-        <Button
-          label="Duplicate"
-          icon="pi pi-copy"
-          outlined
-          size="small"
-          @click="handleDuplicate"
-        />
+      <div class="configurations-list thin-scrollbar">
+        <div
+          v-for="config in configurations"
+          :key="config.id"
+          :class="['config-item', { active: config.id === activeConfigId }]"
+          @click="setActiveConfiguration(config.id)"
+        >
+          <i class="pi pi-filter config-icon"></i>
+          <span class="config-name">{{ config.name }}</span>
+          <span class="config-date">{{ formatDate(config.updatedAt) }}</span>
+        </div>
+      </div>
+
+      <Divider />
+
+      <!-- Active configuration controls -->
+      <div v-if="activeConfig" class="active-config-controls">
+        <h4>Active Configuration</h4>
         
-        <Button
-          label="Delete"
-          icon="pi pi-trash"
-          outlined
-          severity="danger"
-          size="small"
-          @click="handleDelete"
-          :disabled="configurations.length <= 1"
-        />
+        <div class="control-group">
+          <label for="config-name">Name</label>
+          <InputText
+            id="config-name"
+            :model-value="activeConfig.name"
+            @update:model-value="handleUpdateName"
+            placeholder="Configuration name"
+            class="config-name-input"
+          />
+        </div>
+
+        <div class="control-buttons">
+          <Button
+            label="Duplicate"
+            icon="pi pi-copy"
+            outlined
+            size="small"
+            @click="handleDuplicate"
+          />
+          
+          <Button
+            label="Delete"
+            icon="pi pi-trash"
+            outlined
+            severity="danger"
+            size="small"
+            @click="handleDelete"
+            :disabled="configurations.length <= 1"
+          />
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Divider from 'primevue/divider'
@@ -85,12 +102,54 @@ const {
   setActiveConfiguration
 } = useFilterConfigs()
 
+const isExpanded = ref(false)
+const panelRef = ref<HTMLElement | null>(null)
+
+// Truncate config name for mini view
+const truncateName = (name: string) => {
+  return name.length > 10 ? name.slice(0, 10) + '…' : name
+}
+
+const expand = () => {
+  isExpanded.value = true
+}
+
+const collapse = () => {
+  isExpanded.value = false
+}
+
+// Click outside handler
+const handleClickOutside = (event: MouseEvent) => {
+  if (!isExpanded.value) return
+  const target = event.target as HTMLElement
+  if (panelRef.value && !panelRef.value.contains(target)) {
+    collapse()
+  }
+}
+
+// Scroll handler
+const handleScroll = () => {
+  if (isExpanded.value) {
+    collapse()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside, true)
+  window.addEventListener('scroll', handleScroll, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside, true)
+  window.removeEventListener('scroll', handleScroll, true)
+})
+
 // View label for the header badge
 const viewLabel = computed(() => {
   switch (currentViewType.value) {
-    case 'items': return 'Items'
-    case 'projects': return 'Projects'
-    case 'people': return 'People'
+    case 'items': return 'ITEMS'
+    case 'projects': return 'PROJECTS'
+    case 'people': return 'PEOPLE'
     default: return ''
   }
 })
@@ -126,34 +185,84 @@ const handleUpdateName = (name: string) => {
 </script>
 
 <style scoped>
+.config-panel-wrapper {
+  position: relative;
+}
+
+/* Mini Config Bar (collapsed state) */
+.mini-config-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mini-config-item {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  white-space: nowrap;
+}
+
+.mini-config-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mini-config-item.active {
+  background: var(--accent-primary-dark);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.mini-expand-btn {
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini-expand-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Expanded Panel (floating) */
 .configuration-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 100;
   background: var(--bg-secondary);
-  padding: 2rem;
+  padding: 1.25rem;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  height: fit-content;
-  min-width: 300px;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border-primary);
+  min-width: 280px;
+  max-width: 320px;
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.header-top {
-  display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
-.panel-header h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
+.new-config-btn {
+  width: 100%;
 }
 
 .view-badge {
@@ -171,18 +280,17 @@ const handleUpdateName = (name: string) => {
 .configurations-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-height: 400px;
+  gap: 0.5rem;
+  max-height: 250px;
   overflow-y: auto;
-  margin-bottom: 1.5rem;
-  padding-right: 0.5rem;
+  padding-right: 0.25rem;
 }
 
 .config-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.6rem;
+  padding: 0.75rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-normal);
@@ -201,7 +309,7 @@ const handleUpdateName = (name: string) => {
 
 .config-icon {
   color: var(--text-tertiary);
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .config-item.active .config-icon {
@@ -211,37 +319,47 @@ const handleUpdateName = (name: string) => {
 .config-name {
   flex: 1;
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-primary);
 }
 
 .config-date {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
 }
 
 .active-config-controls {
-  padding-top: 1.5rem;
+  padding-top: 1rem;
 }
 
 .active-config-controls h4 {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
   color: var(--text-primary);
 }
 
 .control-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.control-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.config-name-input {
+  width: 100%;
 }
 
 .control-buttons {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .control-buttons button {
   flex: 1;
 }
 </style>
-
