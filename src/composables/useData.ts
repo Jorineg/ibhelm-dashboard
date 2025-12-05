@@ -4,6 +4,41 @@ import type { DataItem, ProjectItem, PersonItem, ViewDataItem, FilterConfigurati
 
 const PAGE_SIZE = 50
 
+// Columns needed for list view - excludes large text fields like body, conversation_comments_text
+const UNIFIED_ITEMS_LIST_COLUMNS = `
+  id,
+  type,
+  name,
+  description,
+  status,
+  project,
+  customer,
+  location,
+  location_path,
+  cost_group,
+  cost_group_code,
+  due_date,
+  created_at,
+  updated_at,
+  priority,
+  progress,
+  tasklist,
+  task_type_id,
+  task_type_name,
+  task_type_slug,
+  task_type_color,
+  assignees,
+  tags,
+  preview,
+  from_name,
+  from_email,
+  conversation_subject,
+  attachment_count,
+  teamwork_url,
+  missive_url,
+  sort_date
+`
+
 export function useData() {
   const items = ref<ViewDataItem[]>([])
   const loading = ref(false)
@@ -165,9 +200,12 @@ export function useData() {
 
     try {
       const sort = sortConfig || currentSort.value
+      
+      // Use selected columns instead of * for better performance
+      // This avoids fetching large text fields like body, conversation_comments_text
       let query = supabase
         .from('unified_items')
-        .select('*', { count: includeCount ? 'exact' : undefined })
+        .select(UNIFIED_ITEMS_LIST_COLUMNS, { count: includeCount ? 'estimated' : undefined })
         .order(sort.field, { ascending: sort.order === 'asc' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
@@ -196,9 +234,10 @@ export function useData() {
         return { data: [], count: 0 }
       }
 
-      // Apply search if provided (searches name, description, full body, and conversation comments)
+      // Apply search if provided (searches name, description, preview only for performance)
+      // Full-text search in body moved to detail view
       if (search) {
-        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,body.ilike.%${search}%,conversation_comments_text.ilike.%${search}%`)
+        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,preview.ilike.%${search}%`)
       }
 
       query = applyDynamicFiltersToQuery(query, filterConfig)
