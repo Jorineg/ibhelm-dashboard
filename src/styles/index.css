@@ -12,6 +12,10 @@
 @import './components.css';
 
 /* Base styles */
+html {
+  scrollbar-gutter: stable;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
