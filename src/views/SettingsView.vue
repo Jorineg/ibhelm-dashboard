@@ -45,6 +45,14 @@
           @rerun-linking="handleRerunPersonLinking"
         />
 
+        <!-- Emails Section -->
+        <EmailsSection
+          v-else-if="activeSection === 'emails'"
+          :project-linking-run="projectLinkingRun"
+          :is-linking="isProjectLinking"
+          @rerun-linking="handleRerunProjectLinking"
+        />
+
         <!-- Placeholder sections -->
         <PlaceholderSection
           v-else-if="activeSection === 'general'"
@@ -70,10 +78,11 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, PlaceholderSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, PlaceholderSection } from '@/components/settings'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
+import { useEmails } from '@/composables/useEmails'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
@@ -91,10 +100,18 @@ const {
   fetchLatestPersonLinkingRun
 } = usePeople()
 
+const {
+  projectLinkingRun,
+  isLinking: isProjectLinking,
+  rerunProjectLinking,
+  fetchLatestProjectLinkingRun
+} = useEmails()
+
 // Settings navigation
 const settingsSections = [
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
+  { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
   { id: 'general', label: 'General', icon: 'pi pi-cog' },
   { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' }
 ]
@@ -134,12 +151,23 @@ const handleRerunPersonLinking = async () => {
   }
 }
 
+// Project Linking for Emails
+const handleRerunProjectLinking = async () => {
+  try {
+    const runId = await rerunProjectLinking()
+    console.log('Project linking started with run ID:', runId)
+  } catch (error) {
+    console.error('Error starting project linking:', error)
+  }
+}
+
 // Initialize
 onMounted(async () => {
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
-    fetchLatestPersonLinkingRun()
+    fetchLatestPersonLinkingRun(),
+    fetchLatestProjectLinkingRun()
   ])
 })
 </script>
