@@ -80,6 +80,17 @@ export function useData() {
       const sort = sortConfig || currentSort.value
       const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person || ''
       
+      console.log('[DEBUG] Involved person search:', {
+        involvedPersonSearch,
+        showTasks,
+        showEmails,
+        textSearch: search,
+        sortField: sort.field,
+        sortOrder: sort.order,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE
+      })
+      
       // Call the RPC function for involved person search
       const { data, error } = await supabase.rpc('get_unified_items_by_involved_person', {
         p_search_text: involvedPersonSearch,
@@ -91,6 +102,8 @@ export function useData() {
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE
       })
+
+      console.log('[DEBUG] RPC response:', { data, error, dataLength: data?.length })
 
       if (error) throw error
 
