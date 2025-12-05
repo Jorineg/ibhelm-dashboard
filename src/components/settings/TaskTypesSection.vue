@@ -47,7 +47,7 @@
         :task-type="taskType"
         :rules="getRulesForType(taskType.id)"
         :is-editing="editingTypeId === taskType.id"
-        :editing-name="editingTypeName"
+        v-model:editing-name="editingTypeName"
         @start-edit="startEditType"
         @save-name="saveTypeName"
         @cancel-edit="cancelEditType"
