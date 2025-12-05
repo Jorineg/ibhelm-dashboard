@@ -69,6 +69,21 @@
                 :style="{ backgroundColor: emailColor }"
               ></span>
             </div>
+            
+            <div class="checkbox-group craft-checkbox">
+              <div class="craft-checkbox-inner">
+                <Checkbox
+                  v-model="localShowCraft"
+                  input-id="show-craft"
+                  :binary="true"
+                />
+                <label for="show-craft" class="toggle-item-label">Craft</label>
+              </div>
+              <span 
+                class="craft-color-bar"
+                :style="{ backgroundColor: craftColor }"
+              ></span>
+            </div>
           </template>
           
           <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
@@ -169,6 +184,17 @@
             >
               <i class="pi pi-envelope"></i>
             </a>
+            <a
+              v-if="data.craft_url"
+              :href="data.craft_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="source-link-btn"
+              :style="getSourceLinkStyle(data)"
+              title="Open in Craft"
+            >
+              <i class="pi pi-file-edit"></i>
+            </a>
           </div>
         </template>
       </Column>
@@ -242,6 +268,17 @@
                 title="Open in Missive"
               >
                 <i class="pi pi-envelope"></i>
+              </a>
+              <a
+                v-if="item.craft_url"
+                :href="item.craft_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="source-link-btn"
+                :style="getSourceLinkStyle(item)"
+                title="Open in Craft"
+              >
+                <i class="pi pi-file-edit"></i>
               </a>
             </div>
           </div>
@@ -320,6 +357,7 @@ interface Props {
   columnWidths: Record<string, string>
   showTasks: boolean
   showEmails: boolean
+  showCraft: boolean
   viewMode: 'list' | 'gallery'
   searchQuery: string
   totalCount?: number | null
@@ -335,6 +373,7 @@ interface Emits {
   (e: 'update:columnWidths', value: Record<string, string>): void
   (e: 'update:showTasks', value: boolean): void
   (e: 'update:showEmails', value: boolean): void
+  (e: 'update:showCraft', value: boolean): void
   (e: 'update:viewMode', value: 'list' | 'gallery'): void
   (e: 'update:searchQuery', value: string): void
   (e: 'update:selectedTaskTypes', value: string[]): void
@@ -351,7 +390,7 @@ const emit = defineEmits<Emits>()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
-const { emailColor, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, initialize: initAppearance } = useAppearanceSettings()
 
 // Initialize task types and appearance settings on mount
 onMounted(async () => {
@@ -388,6 +427,11 @@ const localVisibleColumns = computed({
 const localShowEmails = computed({
   get: () => props.showEmails,
   set: (value) => emit('update:showEmails', value)
+})
+
+const localShowCraft = computed({
+  get: () => props.showCraft,
+  set: (value) => emit('update:showCraft', value)
 })
 
 const localViewMode = computed({
@@ -484,9 +528,11 @@ const getCellComponent = (field: string, data: DataItem) => {
 
   // Special rendering for type field - shows task_type_name if available
   if (field === 'type') {
-    const isEmail = value?.toLowerCase() === 'email'
-    const displayValue = isEmail ? 'EMAIL' : (data.task_type_name?.toUpperCase() || 'TASK')
-    const color = isEmail ? emailColor.value : (data.task_type_color || '#4ade80')
+    const itemType = value?.toLowerCase()
+    const isEmail = itemType === 'email'
+    const isCraft = itemType === 'craft'
+    const displayValue = isEmail ? 'EMAIL' : isCraft ? 'CRAFT' : (data.task_type_name?.toUpperCase() || 'TASK')
+    const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (data.task_type_color || '#4ade80')
     
     return h('span', {
       class: 'type-badge',
@@ -553,13 +599,17 @@ const getGalleryIcon = (item: ViewDataItem): string => {
     return item.is_company ? 'pi pi-building' : 'pi pi-user'
   }
   // Items view
-  const isEmail = item.type?.toLowerCase() === 'email'
-  return isEmail ? 'pi pi-envelope' : 'pi pi-check-square'
+  const itemType = item.type?.toLowerCase()
+  if (itemType === 'email') return 'pi pi-envelope'
+  if (itemType === 'craft') return 'pi pi-file-edit'
+  return 'pi pi-check-square'
 }
 
 const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
-  const isEmail = item.type?.toLowerCase() === 'email'
-  const color = isEmail ? emailColor.value : (item.task_type_color || '#4ade80')
+  const itemType = item.type?.toLowerCase()
+  const isEmail = itemType === 'email'
+  const isCraft = itemType === 'craft'
+  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
   return {
     background: `${color}20`,
     color: color,
@@ -569,8 +619,10 @@ const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
 
 // Get link button style based on task type color
 const getSourceLinkStyle = (item: ViewDataItem) => {
-  const isEmail = item.type?.toLowerCase() === 'email'
-  const color = isEmail ? emailColor.value : (item.task_type_color || '#4ade80')
+  const itemType = item.type?.toLowerCase()
+  const isEmail = itemType === 'email'
+  const isCraft = itemType === 'craft'
+  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
   return {
     background: `${color}15`,
     color: color,
@@ -579,8 +631,10 @@ const getSourceLinkStyle = (item: ViewDataItem) => {
 }
 
 const getGalleryTypeBadgeText = (item: ViewDataItem): string => {
-  const isEmail = item.type?.toLowerCase() === 'email'
-  return isEmail ? 'EMAIL' : (item.task_type_name?.toUpperCase() || 'TASK')
+  const itemType = item.type?.toLowerCase()
+  if (itemType === 'email') return 'EMAIL'
+  if (itemType === 'craft') return 'CRAFT'
+  return item.task_type_name?.toUpperCase() || 'TASK'
 }
 
 const getGalleryTitle = (item: ViewDataItem): string => {
@@ -731,6 +785,25 @@ onUnmounted(() => {
 }
 
 .email-color-bar {
+  display: block;
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+}
+
+.craft-checkbox {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.craft-checkbox-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.craft-color-bar {
   display: block;
   height: 3px;
   width: 100%;

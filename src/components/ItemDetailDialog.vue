@@ -42,6 +42,11 @@
             :url="item.missive_url"
             variant="missive"
           />
+          <SourceLink
+            v-if="item.craft_url"
+            :url="item.craft_url"
+            variant="craft"
+          />
         </div>
       </div>
 
@@ -179,12 +184,14 @@ const itemTypeSeverity = computed<'success' | 'info' | 'warning' | 'danger' | 's
       return 'warning'
     default:
       const dataItem = props.item as DataItem
-      return dataItem.type === 'task' ? 'success' : 'info'
+      if (dataItem.type === 'task') return 'success'
+      if (dataItem.type === 'craft') return 'secondary'
+      return 'info'
   }
 })
 
 // Fields to exclude from display
-const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url']
+const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url']
 
 const displayFields = computed(() => {
   if (!props.item) return []

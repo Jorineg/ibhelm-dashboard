@@ -17,7 +17,7 @@ import { computed } from 'vue'
 
 interface Props {
   url: string
-  variant: 'teamwork' | 'missive'
+  variant: 'teamwork' | 'missive' | 'craft'
   compact?: boolean
   color?: string
 }
@@ -27,11 +27,21 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const iconClass = computed(() => {
-  return props.variant === 'teamwork' ? 'pi pi-check-square' : 'pi pi-envelope'
+  switch (props.variant) {
+    case 'teamwork': return 'pi pi-check-square'
+    case 'missive': return 'pi pi-envelope'
+    case 'craft': return 'pi pi-file-edit'
+    default: return 'pi pi-external-link'
+  }
 })
 
 const label = computed(() => {
-  return props.variant === 'teamwork' ? 'Teamwork' : 'Missive'
+  switch (props.variant) {
+    case 'teamwork': return 'Teamwork'
+    case 'missive': return 'Missive'
+    case 'craft': return 'Craft'
+    default: return 'Link'
+  }
 })
 
 const title = computed(() => {
@@ -87,6 +97,18 @@ const title = computed(() => {
 
 .source-link.missive:hover {
   background: rgba(33, 150, 243, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Craft colors */
+.source-link.craft {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.source-link.craft:hover {
+  background: rgba(139, 92, 246, 0.3);
   transform: translateY(-1px);
 }
 

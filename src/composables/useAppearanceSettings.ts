@@ -8,8 +8,9 @@ const loading = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
 
-// Default email color
+// Default colors
 const DEFAULT_EMAIL_COLOR = '#3b82f6'
+const DEFAULT_CRAFT_COLOR = '#8b5cf6'
 
 export function useAppearanceSettings() {
   // Fetch appearance settings (singleton)
@@ -27,7 +28,8 @@ export function useAppearanceSettings() {
         if (error.code === 'PGRST116') {
           settings.value = {
             id: '',
-            email_color: DEFAULT_EMAIL_COLOR
+            email_color: DEFAULT_EMAIL_COLOR,
+            craft_color: DEFAULT_CRAFT_COLOR
           }
           return
         }
@@ -39,7 +41,8 @@ export function useAppearanceSettings() {
       // Use defaults on error
       settings.value = {
         id: '',
-        email_color: DEFAULT_EMAIL_COLOR
+        email_color: DEFAULT_EMAIL_COLOR,
+        craft_color: DEFAULT_CRAFT_COLOR
       }
     } finally {
       loading.value = false
@@ -92,9 +95,53 @@ export function useAppearanceSettings() {
     }
   }
 
+  // Update craft color
+  const updateCraftColor = async (color: string): Promise<boolean> => {
+    try {
+      saving.value = true
+      
+      if (settings.value?.id) {
+        // Update existing row
+        const { error } = await supabase
+          .from('appearance_settings')
+          .update({ craft_color: color })
+          .eq('id', settings.value.id)
+
+        if (error) throw error
+      } else {
+        // Insert new row (shouldn't happen normally due to migration)
+        const { data, error } = await supabase
+          .from('appearance_settings')
+          .insert({ craft_color: color })
+          .select()
+          .single()
+
+        if (error) throw error
+        settings.value = data
+      }
+      
+      // Update local state
+      if (settings.value) {
+        settings.value.craft_color = color
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Error updating craft color:', error)
+      return false
+    } finally {
+      saving.value = false
+    }
+  }
+
   // Computed: email color (with fallback)
   const emailColor = computed(() => {
     return settings.value?.email_color || DEFAULT_EMAIL_COLOR
+  })
+
+  // Computed: craft color (with fallback)
+  const craftColor = computed(() => {
+    return settings.value?.craft_color || DEFAULT_CRAFT_COLOR
   })
 
   return {
@@ -102,9 +149,11 @@ export function useAppearanceSettings() {
     loading,
     saving,
     emailColor,
+    craftColor,
     initialize,
     fetchSettings,
-    updateEmailColor
+    updateEmailColor,
+    updateCraftColor
   }
 }
 

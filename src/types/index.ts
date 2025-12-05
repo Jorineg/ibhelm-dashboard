@@ -129,7 +129,7 @@ export interface Attachment {
 }
 
 // UI types
-export type ItemType = 'task' | 'email'
+export type ItemType = 'task' | 'email' | 'craft'
 export type ViewType = 'items' | 'projects' | 'people'
 
 // Task Types (configurable categories)
@@ -194,6 +194,7 @@ export interface ProjectLinkingRun {
 export interface AppearanceSettings {
   id: string
   email_color: string
+  craft_color: string
   db_created_at?: string
   db_updated_at?: string
 }
@@ -298,6 +299,7 @@ export interface FilterConfiguration {
   viewType: ViewType
   showTasks: boolean
   showEmails: boolean
+  showCraft: boolean
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   alwaysVisibleFilters: {

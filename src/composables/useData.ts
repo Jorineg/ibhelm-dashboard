@@ -34,6 +34,7 @@ const UNIFIED_ITEMS_LIST_COLUMNS = `
   from_email,
   conversation_subject,
   attachment_count,
+  craft_url,
   teamwork_url,
   missive_url,
   sort_date
@@ -106,6 +107,7 @@ export function useData() {
     search = '',
     showTasks = true,
     showEmails = true,
+    showCraft = true,
     includeCount = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
@@ -135,6 +137,7 @@ export function useData() {
       if (selectedTaskTypes && selectedTaskTypes.length > 0) {
         filteredData = filteredData.filter((item: any) => {
           if (item.type === 'email') return showEmails
+          if (item.type === 'craft') return showCraft
           if (item.type === 'task') {
             return item.task_type_id && selectedTaskTypes.includes(item.task_type_id)
           }
@@ -143,6 +146,11 @@ export function useData() {
       } else if (selectedTaskTypes && selectedTaskTypes.length === 0) {
         // Empty array = user deselected all task types - filter out all tasks
         filteredData = filteredData.filter((item: any) => item.type !== 'task')
+      }
+      
+      // Filter out craft items if showCraft is false
+      if (!showCraft) {
+        filteredData = filteredData.filter((item: any) => item.type !== 'craft')
       }
 
       // Apply other always-visible filters (except involved_person which is handled by RPC)
@@ -185,6 +193,7 @@ export function useData() {
     search = '',
     showTasks = true,
     showEmails = true,
+    showCraft = true,
     includeCount = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
@@ -194,7 +203,7 @@ export function useData() {
     const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person
     if (involvedPersonSearch) {
       return fetchUnifiedItemsWithInvolvedPerson(
-        page, search, showTasks, showEmails, includeCount, filterConfig, sortConfig, selectedTaskTypes
+        page, search, showTasks, showEmails, showCraft, includeCount, filterConfig, sortConfig, selectedTaskTypes
       )
     }
 
@@ -209,11 +218,15 @@ export function useData() {
         .order(sort.field, { ascending: sort.order === 'asc' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      // Build type filters based on showEmails and selectedTaskTypes
+      // Build type filters based on showEmails, showCraft and selectedTaskTypes
       const typeFilters: string[] = []
       
       if (showEmails) {
         typeFilters.push('type.eq.email')
+      }
+      
+      if (showCraft) {
+        typeFilters.push('type.eq.craft')
       }
       
       // For tasks, filter by selected task types
@@ -230,7 +243,7 @@ export function useData() {
       if (typeFilters.length > 0) {
         query = query.or(typeFilters.join(','))
       } else {
-        // Neither emails nor tasks selected - return empty
+        // Neither emails, craft docs, nor tasks selected - return empty
         return { data: [], count: 0 }
       }
 
@@ -324,6 +337,7 @@ export function useData() {
   const loadData = async (
     showTasks = true,
     showEmails = true,
+    showCraft = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
@@ -353,7 +367,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, true, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, true, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
@@ -371,6 +385,7 @@ export function useData() {
   const loadMore = async (
     showTasks = true,
     showEmails = true,
+    showCraft = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
     viewType: ViewType = 'items',
@@ -393,7 +408,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, false, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, false, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       

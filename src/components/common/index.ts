@@ -6,4 +6,5 @@ export { default as SourceLink } from './SourceLink.vue'
 export { default as StatsGrid } from './StatsGrid.vue'
 export { default as SectionCard } from './SectionCard.vue'
 export { default as AutocompleteInput } from './AutocompleteInput.vue'
+export { default as ColorPickerField } from './ColorPickerField.vue'
 

@@ -62,6 +62,7 @@
           :column-widths="activeConfig?.columnWidths || {}"
           :show-tasks="activeConfig?.showTasks ?? true"
           :show-emails="activeConfig?.showEmails ?? true"
+          :show-craft="activeConfig?.showCraft ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
           :sort-config="currentSort"
           :view-type="activeView"
@@ -71,6 +72,7 @@
           @update:column-widths="handleUpdateColumnWidths"
           @update:show-tasks="handleUpdateShowTasks"
           @update:show-emails="handleUpdateShowEmails"
+          @update:show-craft="handleUpdateShowCraft"
           @update:view-mode="handleUpdateViewMode"
           @update:selected-task-types="handleUpdateSelectedTaskTypes"
           @row-click="handleRowClick"
@@ -242,6 +244,7 @@ const switchView = async (view: ViewType) => {
   await loadData(
     activeConfig.value?.showTasks ?? true,
     activeConfig.value?.showEmails ?? true,
+    activeConfig.value?.showCraft ?? true,
     '',
     activeConfig.value || null,
     defaultSort,
@@ -266,6 +269,7 @@ const dataFetchConfig = computed(() => {
     id: activeConfig.value.id,
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
+    showCraft: activeConfig.value.showCraft,
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
     alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
     dynamicFilters: activeConfig.value.dynamicFilters
@@ -288,6 +292,7 @@ watch(dataFetchConfig, async (newConfig, oldConfig) => {
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
+        activeConfig.value.showCraft ?? true,
         searchQuery.value,
         activeConfig.value,
         undefined,
@@ -308,6 +313,7 @@ watch(searchQuery, () => {
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
+        activeConfig.value.showCraft ?? true,
         searchQuery.value,
         activeConfig.value,
         undefined,
@@ -364,6 +370,7 @@ const handleLoadMore = async () => {
     await loadMore(
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
+      activeConfig.value.showCraft ?? true,
       searchQuery.value,
       activeConfig.value,
       currentViewType.value,
@@ -412,6 +419,12 @@ const handleUpdateShowEmails = (show: boolean) => {
   }
 }
 
+const handleUpdateShowCraft = (show: boolean) => {
+  if (activeConfig.value) {
+    updateConfiguration(activeConfig.value.id, { showCraft: show })
+  }
+}
+
 const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
   if (activeConfig.value) {
     updateConfiguration(activeConfig.value.id, { viewMode: mode })
@@ -430,6 +443,7 @@ const handleSort = async (sortConfig: SortConfig) => {
     await loadData(
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
+      activeConfig.value.showCraft ?? true,
       searchQuery.value,
       activeConfig.value,
       sortConfig,

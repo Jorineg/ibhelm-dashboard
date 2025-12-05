@@ -28,6 +28,7 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     viewType,
     showTasks: true,
     showEmails: true,
+    showCraft: true,
     viewMode: 'list',
     alwaysVisibleFilters: {},
     dynamicFilters: [],
