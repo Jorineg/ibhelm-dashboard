@@ -65,7 +65,86 @@ export function useData() {
     return query
   }
 
-  // Fetch unified items from the database view
+  // Fetch unified items using the involved_person RPC function when that filter is set
+  const fetchUnifiedItemsWithInvolvedPerson = async (
+    page = 0,
+    search = '',
+    showTasks = true,
+    showEmails = true,
+    includeCount = false,
+    filterConfig: FilterConfiguration | null = null,
+    sortConfig: SortConfig | null = null,
+    selectedTaskTypes: string[] | null = null
+  ) => {
+    try {
+      const sort = sortConfig || currentSort.value
+      const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person || ''
+      
+      // Call the RPC function for involved person search
+      const { data, error } = await supabase.rpc('get_unified_items_by_involved_person', {
+        p_search_text: involvedPersonSearch,
+        p_show_tasks: showTasks,
+        p_show_emails: showEmails,
+        p_text_search: search || null,
+        p_sort_field: sort.field,
+        p_sort_order: sort.order,
+        p_limit: PAGE_SIZE,
+        p_offset: page * PAGE_SIZE
+      })
+
+      if (error) throw error
+
+      let filteredData = data || []
+
+      // Apply task type filtering client-side (RPC doesn't handle this)
+      if (selectedTaskTypes && selectedTaskTypes.length > 0) {
+        filteredData = filteredData.filter((item: any) => {
+          if (item.type === 'email') return showEmails
+          if (item.type === 'task') {
+            return item.task_type_id && selectedTaskTypes.includes(item.task_type_id)
+          }
+          return true
+        })
+      } else if (selectedTaskTypes && selectedTaskTypes.length === 0) {
+        // Empty array = user deselected all task types - filter out all tasks
+        filteredData = filteredData.filter((item: any) => item.type !== 'task')
+      }
+
+      // Apply other always-visible filters (except involved_person which is handled by RPC)
+      if (filterConfig?.alwaysVisibleFilters) {
+        Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
+          if (value && key !== 'involved_person') {
+            filteredData = filteredData.filter((item: any) => {
+              const itemValue = item[key]
+              if (!itemValue) return false
+              return String(itemValue).toLowerCase().includes(String(value).toLowerCase())
+            })
+          }
+        })
+      }
+
+      // Get count if needed
+      let count: number | null = null
+      if (includeCount) {
+        const { data: countResult, error: countError } = await supabase.rpc('count_unified_items_by_involved_person', {
+          p_search_text: involvedPersonSearch,
+          p_show_tasks: showTasks,
+          p_show_emails: showEmails,
+          p_text_search: search || null
+        })
+        if (!countError) {
+          count = countResult
+        }
+      }
+
+      return { data: filteredData, count }
+    } catch (error) {
+      console.error('Error fetching unified items with involved person:', error)
+      return { data: [], count: null }
+    }
+  }
+
+  // Fetch unified items from the database view (original method, used when no involved_person filter)
   const fetchUnifiedItems = async (
     page = 0,
     search = '',
@@ -76,6 +155,14 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null
   ) => {
+    // Check if involved_person filter is set - if so, use the RPC function
+    const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person
+    if (involvedPersonSearch) {
+      return fetchUnifiedItemsWithInvolvedPerson(
+        page, search, showTasks, showEmails, includeCount, filterConfig, sortConfig, selectedTaskTypes
+      )
+    }
+
     try {
       const sort = sortConfig || currentSort.value
       let query = supabase

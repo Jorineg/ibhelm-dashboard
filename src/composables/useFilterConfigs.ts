@@ -6,7 +6,7 @@ const STORAGE_KEY = 'ibhelm_filter_configurations'
 // Default always-visible filters (can be easily changed here)
 const DEFAULT_ALWAYS_VISIBLE_FILTERS = [
   'project',
-  'customer',
+  'involved_person',
   'building',
   'floor',
   'room',

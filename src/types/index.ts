@@ -198,7 +198,7 @@ export interface DataItem {
   description?: string
   status?: string
   project?: string
-  customer?: string
+  customer?: string  // Company from project (kept for display)
   building?: string
   floor?: string
   room?: string
@@ -294,7 +294,7 @@ export interface FilterConfiguration {
   viewMode: 'list' | 'gallery'
   alwaysVisibleFilters: {
     project?: string
-    customer?: string
+    involved_person?: string
     building?: string
     floor?: string
     room?: string
