@@ -250,6 +250,7 @@ const dataFetchConfig = computed(() => {
     id: activeConfig.value.id,
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
+    selectedTaskTypes: activeConfig.value.selectedTaskTypes,
     alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
     dynamicFilters: activeConfig.value.dynamicFilters
   }
@@ -397,6 +398,8 @@ const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
 const handleUpdateSelectedTaskTypes = (types: string[]) => {
   selectedTaskTypes.value = types
   if (activeConfig.value) {
+    // Persist selected task types to configuration
+    updateConfiguration(activeConfig.value.id, { selectedTaskTypes: types })
     loadData(
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
@@ -425,8 +428,26 @@ const handleSort = async (sortConfig: SortConfig) => {
 
 onMounted(async () => {
   await initTaskTypes()
-  selectedTaskTypes.value = taskTypes.value.map(t => t.id)
   setCurrentView(activeView.value)
+  
+  // Initialize selectedTaskTypes from config if saved, otherwise default to all
+  if (activeConfig.value?.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
+    selectedTaskTypes.value = activeConfig.value.selectedTaskTypes
+  } else {
+    selectedTaskTypes.value = taskTypes.value.map(t => t.id)
+  }
+})
+
+// Watch for activeConfig changes to update selectedTaskTypes
+watch(() => activeConfig.value?.id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    // When switching configs, load the saved task types or default to all
+    if (activeConfig.value?.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
+      selectedTaskTypes.value = activeConfig.value.selectedTaskTypes
+    } else {
+      selectedTaskTypes.value = taskTypes.value.map(t => t.id)
+    }
+  }
 })
 </script>
 

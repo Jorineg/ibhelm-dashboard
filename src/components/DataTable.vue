@@ -32,19 +32,25 @@
               :key="taskType.id"
               class="checkbox-group task-type-checkbox"
             >
-              <Checkbox
-                :model-value="isTaskTypeSelected(taskType.id)"
-                @update:model-value="toggleTaskType(taskType.id)"
-                :input-id="`task-type-${taskType.id}`"
-                :binary="true"
-              />
-              <label 
-                :for="`task-type-${taskType.id}`" 
-                class="toggle-item-label"
-                :style="taskType.color ? { borderLeft: `3px solid ${taskType.color}`, paddingLeft: '0.5rem' } : {}"
-              >
-                {{ taskType.name }}
-              </label>
+              <div class="task-type-checkbox-inner">
+                <Checkbox
+                  :model-value="isTaskTypeSelected(taskType.id)"
+                  @update:model-value="toggleTaskType(taskType.id)"
+                  :input-id="`task-type-${taskType.id}`"
+                  :binary="true"
+                />
+                <label 
+                  :for="`task-type-${taskType.id}`" 
+                  class="toggle-item-label"
+                >
+                  {{ taskType.name }}
+                </label>
+              </div>
+              <span 
+                v-if="taskType.color" 
+                class="task-type-color-bar"
+                :style="{ backgroundColor: taskType.color }"
+              ></span>
             </div>
             
             <div class="type-divider"></div>
@@ -691,8 +697,27 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.task-type-checkbox {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.task-type-checkbox-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .task-type-checkbox .toggle-item-label {
   margin-left: 0;
+}
+
+.task-type-color-bar {
+  display: block;
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
 }
 
 .type-divider {

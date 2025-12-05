@@ -291,6 +291,7 @@ export interface FilterConfiguration {
   viewType: ViewType
   showTasks: boolean
   showEmails: boolean
+  selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   alwaysVisibleFilters: {
     project?: string
