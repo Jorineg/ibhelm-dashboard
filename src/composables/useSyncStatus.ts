@@ -21,12 +21,18 @@ interface SyncStatus {
     pendingCount: number
     processingCount: number
   }
+  craft: {
+    lastScanned: Date | null
+    pendingCount: number
+    processingCount: number
+  }
 }
 
 export function useSyncStatus() {
   const syncStatus = ref<SyncStatus>({
     teamwork: { lastScanned: null, pendingCount: 0, processingCount: 0 },
-    missive: { lastScanned: null, pendingCount: 0, processingCount: 0 }
+    missive: { lastScanned: null, pendingCount: 0, processingCount: 0 },
+    craft: { lastScanned: null, pendingCount: 0, processingCount: 0 }
   })
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -81,6 +87,10 @@ export function useSyncStatus() {
         syncStatus.value.missive.lastScanned = parseUtcTimestamp(row.last_event_time)
         syncStatus.value.missive.pendingCount = row.pending_count || 0
         syncStatus.value.missive.processingCount = row.processing_count || 0
+      } else if (row.source === 'craft') {
+        syncStatus.value.craft.lastScanned = parseUtcTimestamp(row.last_event_time)
+        syncStatus.value.craft.pendingCount = row.pending_count || 0
+        syncStatus.value.craft.processingCount = row.processing_count || 0
       }
     })
   }

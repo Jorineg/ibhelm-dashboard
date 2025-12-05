@@ -45,6 +45,30 @@
         </div>
       </div>
     </div>
+    
+    <div class="sync-divider"></div>
+    
+    <div class="sync-status-item">
+      <div class="sync-source">
+        <span class="sync-icon">📝</span>
+        <span class="sync-label">Craft</span>
+      </div>
+      <div class="sync-details">
+        <div class="sync-time-row">
+          <span class="sync-time-label">Last sync:</span>
+          <span class="sync-time-value" :title="formatFullDate(syncStatus.craft.lastScanned)">
+            {{ formatTime(syncStatus.craft.lastScanned) }}
+          </span>
+        </div>
+        <div v-if="syncStatus.craft.pendingCount > 0" class="sync-queue-row">
+          <span class="sync-queue-label">Queue:</span>
+          <span class="sync-queue-value pending">{{ syncStatus.craft.pendingCount }} pending</span>
+        </div>
+        <div v-else class="sync-queue-row">
+          <span class="sync-queue-ok">✓ synced</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -57,6 +81,7 @@ interface SyncSourceStatus {
 interface SyncStatus {
   teamwork: SyncSourceStatus
   missive: SyncSourceStatus
+  craft: SyncSourceStatus
 }
 
 interface Props {

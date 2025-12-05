@@ -62,7 +62,7 @@
                   input-id="show-emails"
                   :binary="true"
                 />
-                <label for="show-emails" class="toggle-item-label">Emails</label>
+                <label for="show-emails" class="toggle-item-label">Email</label>
               </div>
               <span 
                 class="email-color-bar"
