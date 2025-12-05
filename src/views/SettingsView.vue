@@ -260,6 +260,90 @@
           </div>
         </section>
 
+        <!-- People Section -->
+        <section v-else-if="activeSection === 'people'" class="settings-section">
+          <div class="section-header">
+            <h2>People</h2>
+            <p class="section-description">
+              Manage unified persons that connect contacts from Missive and users from Teamwork.
+            </p>
+            <div class="info-box">
+              <i class="pi pi-info-circle"></i>
+              <div>
+                <strong>How auto-linking works:</strong>
+                <p>When a new contact is added in Missive or a new user is added in Teamwork, the system automatically 
+                   creates or links them to a unified person based on their email address. If a unified person with the 
+                   same email already exists, a link is created instead of a duplicate.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Person Linking Controls -->
+          <div class="linking-controls">
+            <div class="linking-info">
+              <div class="linking-status" v-if="personLinkingRun">
+                <span class="status-label">Last linking run:</span>
+                <span :class="['status-badge', personLinkingRun.status]">
+                  {{ personLinkingRun.status }}
+                </span>
+                <span v-if="personLinkingRun.status === 'running'" class="progress-info">
+                  {{ personLinkingRun.processed_count }} / {{ personLinkingRun.total_count }}
+                  ({{ personLinkingRun.progress_percent }}%)
+                </span>
+                <span v-else-if="personLinkingRun.completed_at" class="time-info">
+                  {{ formatDate(personLinkingRun.completed_at) }}
+                </span>
+              </div>
+              <div v-else class="linking-status">
+                <span class="status-label">No linking runs yet</span>
+              </div>
+            </div>
+            
+            <Button
+              label="Link All Existing Contacts & Users"
+              icon="pi pi-link"
+              :loading="isLinking"
+              @click="handleRerunPersonLinking"
+              severity="secondary"
+              class="rerun-btn"
+            />
+          </div>
+
+          <!-- Last Run Statistics -->
+          <div v-if="personLinkingRun && personLinkingRun.status === 'completed'" class="run-statistics">
+            <h4>Last Run Results</h4>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-value">{{ personLinkingRun.total_count || 0 }}</span>
+                <span class="stat-label">Total Processed</span>
+              </div>
+              <div class="stat-item created">
+                <span class="stat-value">{{ personLinkingRun.created_count || 0 }}</span>
+                <span class="stat-label">New Persons Created</span>
+              </div>
+              <div class="stat-item linked">
+                <span class="stat-value">{{ personLinkingRun.linked_count || 0 }}</span>
+                <span class="stat-label">Linked to Existing</span>
+              </div>
+              <div class="stat-item skipped">
+                <span class="stat-value">{{ personLinkingRun.skipped_count || 0 }}</span>
+                <span class="stat-label">Already Linked (Skipped)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Note about when to use -->
+          <div class="note-box">
+            <i class="pi pi-exclamation-circle"></i>
+            <div>
+              <strong>When to use this:</strong>
+              <p>This button is typically not needed because new contacts and users are automatically linked when they are added. 
+                 Use this only if you have existing data that was imported before the auto-linking feature was enabled, 
+                 or if you suspect some entries were not properly linked.</p>
+            </div>
+          </div>
+        </section>
+
         <!-- Placeholder for future sections -->
         <section v-else-if="activeSection === 'general'" class="settings-section">
           <div class="section-header">
@@ -344,6 +428,7 @@ import Dialog from 'primevue/dialog'
 import OverlayPanel from 'primevue/overlaypanel'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
+import { usePeople } from '@/composables/usePeople'
 import type { TaskType } from '@/types'
 
 const router = useRouter()
@@ -363,9 +448,17 @@ const {
   fetchLatestExtractionRun
 } = useTaskTypes()
 
+const {
+  personLinkingRun,
+  isLinking,
+  rerunPersonLinking,
+  fetchLatestPersonLinkingRun
+} = usePeople()
+
 // Settings navigation
 const settingsSections = [
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
+  { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'general', label: 'General', icon: 'pi pi-cog' },
   { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' }
 ]
@@ -510,6 +603,17 @@ const handleRerunExtraction = async () => {
   }
 }
 
+// Person Linking
+const handleRerunPersonLinking = async () => {
+  try {
+    const runId = await rerunPersonLinking()
+    console.log('Person linking started with run ID:', runId)
+    // The composable handles polling
+  } catch (error) {
+    console.error('Error starting person linking:', error)
+  }
+}
+
 // Formatting
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString('de-DE', {
@@ -532,7 +636,10 @@ const handleDocumentClick = (event: MouseEvent) => {
 // Initialize
 onMounted(async () => {
   await initialize()
-  await fetchLatestExtractionRun()
+  await Promise.all([
+    fetchLatestExtractionRun(),
+    fetchLatestPersonLinkingRun()
+  ])
   document.addEventListener('click', handleDocumentClick)
 })
 
@@ -715,7 +822,8 @@ onUnmounted(() => {
 }
 
 /* Extraction Controls */
-.extraction-controls {
+.extraction-controls,
+.linking-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -725,11 +833,13 @@ onUnmounted(() => {
   margin-bottom: 1.5rem;
 }
 
-.extraction-info {
+.extraction-info,
+.linking-info {
   flex: 1;
 }
 
-.extraction-status {
+.extraction-status,
+.linking-status {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -767,6 +877,91 @@ onUnmounted(() => {
 .time-info {
   color: var(--text-secondary);
   font-size: 0.85rem;
+}
+
+/* Run Statistics */
+.run-statistics {
+  padding: 1.25rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+}
+
+.run-statistics h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1rem 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-primary);
+}
+
+.stat-item .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-item .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-top: 0.25rem;
+}
+
+.stat-item.created .stat-value {
+  color: #4ade80;
+}
+
+.stat-item.linked .stat-value {
+  color: var(--accent-primary);
+}
+
+.stat-item.skipped .stat-value {
+  color: var(--text-secondary);
+}
+
+/* Note Box */
+.note-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(245, 166, 35, 0.1);
+  border: 1px solid rgba(245, 166, 35, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+}
+
+.note-box i {
+  color: #f5a623;
+  font-size: 1.1rem;
+  margin-top: 2px;
+}
+
+.note-box strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.note-box p {
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* Task Types List */

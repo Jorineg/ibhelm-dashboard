@@ -164,6 +164,20 @@ export interface ExtractionRun {
   error_message?: string
 }
 
+export interface PersonLinkingRun {
+  id: string
+  status: 'running' | 'completed' | 'failed'
+  total_count?: number
+  processed_count: number
+  created_count?: number
+  linked_count?: number
+  skipped_count?: number
+  progress_percent?: number
+  started_at: string
+  completed_at?: string
+  error_message?: string
+}
+
 export interface DataItem {
   id: string
   type: ItemType
