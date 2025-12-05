@@ -12,7 +12,60 @@
             class="filter-item"
           >
             <label :for="filterName">{{ formatFilterName(filterName) }}</label>
+            
+            <!-- Project autocomplete -->
+            <AutocompleteInput
+              v-if="filterName === 'project'"
+              :id="filterName"
+              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+              :suggestions="projectSuggestions"
+              :loading="projectLoading"
+              :placeholder="`Filter by ${formatFilterName(filterName)}`"
+              primary-field="name"
+              secondary-field="company_name"
+              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+              @search="handleProjectSearch"
+              @select="handleProjectSelect"
+              @clear="handleProjectClear"
+            >
+              <template #option="{ suggestion }">
+                <div class="project-option">
+                  <span class="project-name">{{ suggestion.name }}</span>
+                  <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
+                  <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
+                </div>
+              </template>
+            </AutocompleteInput>
+            
+            <!-- Involved person autocomplete -->
+            <AutocompleteInput
+              v-else-if="filterName === 'involved_person'"
+              :id="filterName"
+              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+              :suggestions="personSuggestions"
+              :loading="personLoading"
+              :placeholder="`Filter by ${formatFilterName(filterName)}`"
+              primary-field="display_name"
+              secondary-field="primary_email"
+              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+              @search="handlePersonSearch"
+              @select="handlePersonSelect"
+              @clear="handlePersonClear"
+            >
+              <template #option="{ suggestion }">
+                <div class="person-option">
+                  <div class="person-info">
+                    <span class="person-name">{{ suggestion.display_name }}</span>
+                    <span v-if="suggestion.primary_email" class="person-email">{{ suggestion.primary_email }}</span>
+                  </div>
+                  <span v-if="suggestion.is_internal" class="person-badge internal">Internal</span>
+                </div>
+              </template>
+            </AutocompleteInput>
+            
+            <!-- Regular input for other filters -->
             <InputText
+              v-else
               :id="filterName"
               :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
               @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
@@ -90,8 +143,11 @@ import { computed } from 'vue'
 import InputText from 'primevue/inputtext'
 import Dropdown from 'primevue/dropdown'
 import Button from 'primevue/button'
+import { AutocompleteInput } from '@/components/common'
 import type { Column, ColumnFilter, FilterOperator } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
+import { useProjectAutocomplete, usePersonAutocomplete } from '@/composables/useAutocomplete'
+import type { ProjectSuggestion, PersonSuggestion } from '@/composables/useAutocomplete'
 
 interface Props {
   availableColumns: Column[]
@@ -108,6 +164,22 @@ const {
   updateAlwaysVisibleFilter,
   clearAllFilters
 } = useFilterConfigs()
+
+// Project autocomplete
+const {
+  suggestions: projectSuggestions,
+  loading: projectLoading,
+  search: searchProjects,
+  clear: clearProjectSuggestions
+} = useProjectAutocomplete()
+
+// Person autocomplete
+const {
+  suggestions: personSuggestions,
+  loading: personLoading,
+  search: searchPersons,
+  clear: clearPersonSuggestions
+} = usePersonAutocomplete()
 
 const alwaysVisibleFilterNames = DEFAULT_ALWAYS_VISIBLE_FILTERS
 
@@ -134,6 +206,34 @@ const addNewFilter = () => {
     value: ''
   }
   addDynamicFilter(newFilter)
+}
+
+// Project autocomplete handlers
+const handleProjectSearch = (searchText: string) => {
+  searchProjects(searchText)
+}
+
+const handleProjectSelect = (suggestion: ProjectSuggestion) => {
+  updateAlwaysVisibleFilter('project', suggestion.name)
+}
+
+const handleProjectClear = () => {
+  updateAlwaysVisibleFilter('project', '')
+  clearProjectSuggestions()
+}
+
+// Person autocomplete handlers
+const handlePersonSearch = (searchText: string) => {
+  searchPersons(searchText)
+}
+
+const handlePersonSelect = (suggestion: PersonSuggestion) => {
+  updateAlwaysVisibleFilter('involved_person', suggestion.display_name)
+}
+
+const handlePersonClear = () => {
+  updateAlwaysVisibleFilter('involved_person', '')
+  clearPersonSuggestions()
 }
 </script>
 
@@ -203,5 +303,79 @@ const addNewFilter = () => {
   white-space: nowrap;
   min-width: 140px;
 }
-</style>
 
+/* Project option styling */
+.project-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.project-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.project-company {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.project-status {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.project-status.active {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.project-status.completed {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-tertiary);
+}
+
+/* Person option styling */
+.person-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.person-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.person-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.person-email {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.person-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.person-badge.internal {
+  background: rgba(74, 158, 255, 0.15);
+  color: var(--accent-primary);
+}
+</style>
