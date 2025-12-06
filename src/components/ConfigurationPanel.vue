@@ -2,6 +2,9 @@
   <div class="config-panel-wrapper" :class="{ expanded: isExpanded }">
     <!-- Collapsed Mini View (always rendered, hidden when expanded) -->
     <div v-show="!isExpanded" class="mini-config-bar">
+      <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
+        <i class="pi pi-chevron-down"></i>
+      </button>
       <button
         v-for="config in configurations"
         :key="config.id"
@@ -11,14 +14,12 @@
       >
         {{ truncateName(config.name) }}
       </button>
-      <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
-        <i class="pi pi-chevron-down"></i>
-      </button>
     </div>
 
     <!-- Expanded Panel (floating) -->
     <div v-show="isExpanded" ref="panelRef" class="configuration-panel">
       <div class="panel-header">
+        <h3>Filter Configurations for <span class="view-badge">{{ viewLabel }}</span></h3>
         <Button
           icon="pi pi-plus"
           label="New"
@@ -26,7 +27,6 @@
           @click="handleCreateConfig"
           class="new-config-btn"
         />
-        <span class="view-badge">{{ viewLabel }}</span>
       </div>
 
       <div class="configurations-list thin-scrollbar">
@@ -192,22 +192,26 @@ const handleUpdateName = (name: string) => {
 /* Mini Config Bar (collapsed state) */
 .mini-config-bar {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 9ch;
 }
 
 .mini-config-item {
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.5rem;
   background: var(--bg-tertiary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-normal);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: left;
 }
 
 .mini-config-item:hover {
@@ -222,7 +226,7 @@ const handleUpdateName = (name: string) => {
 }
 
 .mini-expand-btn {
-  padding: 0.4rem 0.5rem;
+  padding: 0.3rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
@@ -232,6 +236,7 @@ const handleUpdateName = (name: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .mini-expand-btn:hover {
@@ -244,7 +249,7 @@ const handleUpdateName = (name: string) => {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 100;
+  z-index: 1000;
   background: var(--bg-secondary);
   padding: 1.25rem;
   border-radius: var(--radius-lg);
@@ -261,12 +266,23 @@ const handleUpdateName = (name: string) => {
   margin-bottom: 1rem;
 }
 
+.panel-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .new-config-btn {
   width: 100%;
 }
 
 .view-badge {
-  padding: 0.25rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   background: var(--accent-primary-dark, rgba(99, 102, 241, 0.15));
   color: var(--accent-primary, #6366f1);
   font-size: 0.7rem;
@@ -274,7 +290,6 @@ const handleUpdateName = (name: string) => {
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  width: fit-content;
 }
 
 .configurations-list {

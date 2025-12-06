@@ -538,8 +538,9 @@ onMounted(async () => {
 .top-controls {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 1.5rem;
   position: relative;
+  z-index: 1;
 }
 
 .filters-section {
