@@ -1,7 +1,7 @@
 <template>
-  <div class="config-panel-wrapper" :class="{ expanded: isExpanded }">
-    <!-- Collapsed Mini View (always rendered, hidden when expanded) -->
-    <div v-show="!isExpanded" class="mini-config-bar">
+  <div class="config-panel-wrapper">
+    <!-- Collapsed Mini View (always rendered, invisible when expanded to preserve space) -->
+    <div class="mini-config-bar" :class="{ invisible: isExpanded }">
       <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
         <i class="pi pi-chevron-right"></i>
       </button>
@@ -11,13 +11,14 @@
         :class="['mini-config-item', { active: config.id === activeConfigId }]"
         @click="setActiveConfiguration(config.id)"
         :title="config.name"
+        :tabindex="isExpanded ? -1 : 0"
       >
         {{ truncateName(config.name) }}
       </button>
     </div>
 
     <!-- Expanded Panel (floating) -->
-    <div v-show="isExpanded" ref="panelRef" class="configuration-panel">
+    <div v-if="isExpanded" ref="panelRef" class="configuration-panel">
       <div class="panel-header">
         <h3>Filter Configurations for <span class="view-badge">{{ viewLabel }}</span></h3>
         <Button
@@ -127,21 +128,12 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
-// Scroll handler
-const handleScroll = () => {
-  if (isExpanded.value) {
-    collapse()
-  }
-}
-
 onMounted(() => {
   document.addEventListener('click', handleClickOutside, true)
-  window.addEventListener('scroll', handleScroll, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true)
-  window.removeEventListener('scroll', handleScroll, true)
 })
 
 // View label for the header badge
@@ -195,6 +187,12 @@ const handleUpdateName = (name: string) => {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  transition: opacity 0.15s ease;
+}
+
+.mini-config-bar.invisible {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .mini-config-item {
@@ -223,9 +221,10 @@ const handleUpdateName = (name: string) => {
 }
 
 .mini-expand-btn {
-  padding: 0.5rem 0.65rem;
+  width: 2rem;
+  height: 2rem;
   background: transparent;
-  border: 1px dashed var(--border-primary);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   cursor: pointer;
@@ -234,12 +233,12 @@ const handleUpdateName = (name: string) => {
   align-items: center;
   justify-content: center;
   font-size: 0.9rem;
+  margin-bottom: 0.5rem;
 }
 
 .mini-expand-btn:hover {
   background: var(--accent-primary-dark);
   border-color: var(--accent-primary);
-  border-style: solid;
   color: var(--accent-primary);
 }
 
@@ -256,6 +255,10 @@ const handleUpdateName = (name: string) => {
   border: 1px solid var(--border-primary);
   min-width: 280px;
   max-width: 320px;
+  max-height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .panel-header {
@@ -263,6 +266,7 @@ const handleUpdateName = (name: string) => {
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .panel-header h3 {
@@ -295,9 +299,10 @@ const handleUpdateName = (name: string) => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 250px;
   overflow-y: auto;
   padding-right: 0.25rem;
+  flex: 1;
+  min-height: 0;
 }
 
 .config-item {
@@ -310,6 +315,7 @@ const handleUpdateName = (name: string) => {
   transition: all var(--transition-normal);
   border: 2px solid transparent;
   background: var(--bg-tertiary);
+  flex-shrink: 0;
 }
 
 .config-item:hover {
@@ -344,6 +350,7 @@ const handleUpdateName = (name: string) => {
 
 .active-config-controls {
   padding-top: 1rem;
+  flex-shrink: 0;
 }
 
 .active-config-controls h4 {
