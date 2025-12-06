@@ -38,14 +38,13 @@
     <div class="main-content">
       <!-- Center: Filters and Table -->
       <main class="center-content">
-        <!-- Config Panel and Filters Row -->
-        <div class="top-controls">
-          <ConfigurationPanel />
-          <FilterBar :available-columns="availableColumns" class="filters-section" />
-        </div>
+        <!-- Filters -->
+        <FilterBar :available-columns="availableColumns" class="filters-section" />
 
-        <!-- Data Table -->
-        <DataTable
+        <!-- Config Panel + Table Row -->
+        <div class="table-area">
+          <ConfigurationPanel />
+          <DataTable
           :search-query="searchQuery"
           @update:search-query="searchQuery = $event"
           @clear-search="clearSearch"
@@ -75,6 +74,7 @@
           @load-more="handleLoadMore"
           @sort="handleSort"
         />
+        </div>
       </main>
     </div>
 
@@ -132,14 +132,13 @@ const searchQuery = ref('')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
 
-// Selected task types derived from config - fallback to all when undefined/empty
+// Selected task types derived from config - fallback to all only when undefined (for backwards compatibility with old configs)
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
-  // If selectedTaskTypes is defined and not empty, use it; otherwise use all task types
-  if (activeConfig.value.selectedTaskTypes && activeConfig.value.selectedTaskTypes.length > 0) {
+  // If selectedTaskTypes is defined (even if empty), use it; only default to all when undefined
+  if (activeConfig.value.selectedTaskTypes !== undefined) {
     return activeConfig.value.selectedTaskTypes
   }
-  // Default to all task types (only for items view)
   return taskTypes.value.map(t => t.id)
 })
 
@@ -535,16 +534,13 @@ onMounted(async () => {
   min-width: 0;
 }
 
-.top-controls {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  position: relative;
-  z-index: 1;
+.filters-section {
+  min-width: 0;
 }
 
-.filters-section {
-  flex: 1;
-  min-width: 0;
+.table-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
 }
 </style>

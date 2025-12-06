@@ -3,7 +3,7 @@
     <!-- Collapsed Mini View (always rendered, hidden when expanded) -->
     <div v-show="!isExpanded" class="mini-config-bar">
       <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
-        <i class="pi pi-chevron-down"></i>
+        <i class="pi pi-chevron-right"></i>
       </button>
       <button
         v-for="config in configurations"
@@ -105,9 +105,9 @@ const {
 const isExpanded = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
 
-// Truncate config name for mini view
+// Truncate config name for mini view (no ellipsis)
 const truncateName = (name: string) => {
-  return name.length > 10 ? name.slice(0, 10) + '…' : name
+  return name.slice(0, 10)
 }
 
 const expand = () => {
@@ -187,30 +187,27 @@ const handleUpdateName = (name: string) => {
 <style scoped>
 .config-panel-wrapper {
   position: relative;
+  flex-shrink: 0;
 }
 
 /* Mini Config Bar (collapsed state) */
 .mini-config-bar {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  width: 9ch;
+  gap: 0.4rem;
 }
 
 .mini-config-item {
-  padding: 0.35rem 0.5rem;
+  padding: 0.5rem 0.65rem;
   background: var(--bg-tertiary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-normal);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
   text-align: left;
 }
 
@@ -226,9 +223,9 @@ const handleUpdateName = (name: string) => {
 }
 
 .mini-expand-btn {
-  padding: 0.3rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  padding: 0.5rem 0.65rem;
+  background: transparent;
+  border: 1px dashed var(--border-primary);
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   cursor: pointer;
@@ -236,12 +233,14 @@ const handleUpdateName = (name: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  font-size: 0.9rem;
 }
 
 .mini-expand-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--accent-primary-dark);
+  border-color: var(--accent-primary);
+  border-style: solid;
+  color: var(--accent-primary);
 }
 
 /* Expanded Panel (floating) */
@@ -249,7 +248,7 @@ const handleUpdateName = (name: string) => {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1000;
+  z-index: 99999;
   background: var(--bg-secondary);
   padding: 1.25rem;
   border-radius: var(--radius-lg);
