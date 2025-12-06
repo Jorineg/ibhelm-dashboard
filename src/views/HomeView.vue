@@ -36,15 +36,13 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <!-- Center: Filters and Table -->
-      <main class="center-content">
-        <!-- Filters -->
-        <FilterBar :available-columns="availableColumns" class="filters-section" />
+      <!-- Config Panel (left side) -->
+      <ConfigurationPanel />
 
-        <!-- Config Panel + Table Row -->
-        <div class="table-area">
-          <ConfigurationPanel />
-          <DataTable
+      <!-- Filters and Table (aligned container) -->
+      <main class="center-content">
+        <FilterBar :available-columns="availableColumns" class="filters-section" />
+        <DataTable
           :search-query="searchQuery"
           @update:search-query="searchQuery = $event"
           @clear-search="clearSearch"
@@ -74,7 +72,6 @@
           @load-more="handleLoadMore"
           @sort="handleSort"
         />
-        </div>
       </main>
     </div>
 
@@ -524,6 +521,9 @@ onMounted(async () => {
 
 /* Main Content */
 .main-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
   max-width: 100%;
 }
 
@@ -532,15 +532,10 @@ onMounted(async () => {
   flex-direction: column;
   gap: 1.5rem;
   min-width: 0;
+  flex: 1;
 }
 
 .filters-section {
   min-width: 0;
-}
-
-.table-area {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
 }
 </style>
