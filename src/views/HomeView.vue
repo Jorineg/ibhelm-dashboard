@@ -134,9 +134,8 @@ const selectedTaskTypes = computed(() => {
   return activeConfig.value.selectedTaskTypes ?? taskTypes.value.map(t => t.id)
 })
 
-// Column definitions
+// Column definitions (type column is fixed/frozen in DataTable)
 const itemColumns: Column[] = [
-  { field: 'type', header: 'Type', sortable: true, width: '120px' },
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
   { field: 'body', header: 'Email Content', sortable: false, width: '400px' },

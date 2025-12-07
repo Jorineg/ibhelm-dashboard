@@ -10,7 +10,7 @@
             :model-value="props.searchQuery"
             @update:model-value="(value) => emit('update:searchQuery', value as string)"
             placeholder="Search..."
-            class="search-input"
+            class="search-input toolbar-input"
           />
           <Button
             v-if="props.searchQuery"
@@ -22,7 +22,7 @@
           />
         </div>
         
-        <div class="item-type-toggles">
+        <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
           <template v-if="props.viewType === 'items' || !props.viewType">
             <span class="toggle-label">Show:</span>
             
@@ -91,16 +91,21 @@
           </span>
         </div>
         
-        <MultiSelect
-          v-model="localVisibleColumns"
-          :options="allColumns"
-          option-label="header"
-          option-value="field"
-          placeholder="Select Columns"
-          :max-selected-labels="3"
-          selected-items-label="{0} columns selected"
-          class="column-selector"
-        />
+        <div class="column-selector-wrapper">
+          <MultiSelect
+            v-model="localVisibleColumns"
+            :options="allColumns"
+            option-label="header"
+            option-value="field"
+            placeholder="Select Columns"
+            :max-selected-labels="3"
+            selected-items-label="{0} columns selected"
+            class="column-selector toolbar-input"
+          />
+          <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
+            ({{ hiddenEmptyColumnsCount }} empty columns hidden)
+          </span>
+        </div>
       </div>
 
       <div class="toolbar-right">
@@ -119,103 +124,86 @@
     </div>
 
     <!-- List View -->
-    <DataTablePrime
-      v-if="localViewMode === 'list'"
-      :value="displayedItems"
-      :loading="loading"
-      striped-rows
-      :paginator="false"
-      :rows="displayedItems.length"
-      :reorderable-columns="true"
-      :sort-field="props.sortConfig?.field"
-      :sort-order="props.sortConfig?.order === 'asc' ? 1 : -1"
-      removable-sort
-      @row-click="handleRowClick"
-      @column-reorder="handleColumnReorder"
-      @column-resize-end="handleColumnResize"
-      @sort="handleSort"
-      class="data-table"
-      :resizable-columns="true"
-      column-resize-mode="fit"
-    >
-      <template #empty>
-        <div class="empty-state">
-          <i class="pi pi-inbox empty-icon"></i>
-          <p>No items found</p>
-        </div>
-      </template>
-
-      <template #loading>
-        <div class="loading-state">
-          <i class="pi pi-spin pi-spinner loading-icon"></i>
-          <p>Loading data...</p>
-        </div>
-      </template>
-
-      <!-- Source Link Buttons Column (frozen on left, only for items view) -->
-      <Column
-        v-if="props.viewType === 'items' || !props.viewType"
-        frozen
-        :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
-        header=""
-        class="source-links-column"
+    <div class="table-scroll-container">
+      <DataTablePrime
+        ref="dataTableRef"
+        v-if="localViewMode === 'list'"
+        :value="displayedItems"
+        :loading="loading"
+        striped-rows
+        :paginator="false"
+        :rows="displayedItems.length"
+        :reorderable-columns="true"
+        :sort-field="props.sortConfig?.field"
+        :sort-order="props.sortConfig?.order === 'asc' ? 1 : -1"
+        removable-sort
+        @row-click="handleRowClick"
+        @column-reorder="handleColumnReorder"
+        @sort="handleSort"
+        @column-resize-start="handleResizeStart"
+        @column-resize-end="handleResizeEnd"
+        class="data-table"
+        :resizable-columns="true"
+        column-resize-mode="expand"
       >
-        <template #body="{ data }">
-          <div class="source-links-cell" @click.stop>
-            <a
-              v-if="data.teamwork_url"
-              :href="data.teamwork_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="source-link-btn"
-              :style="getSourceLinkStyle(data)"
-              title="Open in Teamwork"
-            >
-              <i class="pi pi-check-square"></i>
-            </a>
-            <a
-              v-if="data.missive_url"
-              :href="data.missive_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="source-link-btn"
-              :style="getSourceLinkStyle(data)"
-              title="Open in Missive"
-            >
-              <i class="pi pi-envelope"></i>
-            </a>
-            <a
-              v-if="data.craft_url"
-              :href="data.craft_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="source-link-btn"
-              :style="getSourceLinkStyle(data)"
-              title="Open in Craft"
-            >
-              <i class="pi pi-file-edit"></i>
-            </a>
+        <template #empty>
+          <div class="empty-state">
+            <i class="pi pi-inbox empty-icon"></i>
+            <p>No items found</p>
           </div>
         </template>
-      </Column>
 
-      <Column
-        v-for="col in orderedVisibleColumns"
-        :key="col.field"
-        :field="col.field"
-        :header="col.header"
-        :sortable="col.sortable !== false"
-        :style="{ width: props.columnWidths[col.field] || col.width || 'auto' }"
-      >
-        <template #body="{ data }">
-          <component
-            :is="getCellComponent(col.field, data)"
-            :data="data"
-            :field="col.field"
-          />
+        <template #loading>
+          <div class="loading-state">
+            <i class="pi pi-spin pi-spinner loading-icon"></i>
+            <p>Loading data...</p>
+          </div>
         </template>
-      </Column>
-    </DataTablePrime>
+
+        <!-- Type Column (frozen on left, only for items view) -->
+        <Column
+          v-if="props.viewType === 'items' || !props.viewType"
+          field="type"
+          header="Type"
+          frozen
+          :sortable="true"
+          :reorderable-column="false"
+          :style="{ width: '100px', minWidth: '100px', maxWidth: '100px' }"
+          class="type-column"
+        >
+          <template #body="{ data }">
+            <a
+              :href="getItemPrimaryUrl(data)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="type-badge-link"
+              :style="getTypeBadgeStyle(data)"
+              :title="getTypeBadgeTooltip(data)"
+              @click.stop
+            >
+              {{ getTypeBadgeText(data) }}
+            </a>
+          </template>
+        </Column>
+
+        <Column
+          v-for="col in orderedVisibleColumnsWithoutType"
+          :key="col.field"
+          :field="col.field"
+          :header="col.header"
+          :sortable="col.sortable !== false"
+          :style="getColumnStyle(col)"
+        >
+          <template #body="{ data }">
+            <component
+              :is="getCellComponent(col.field, data)"
+              :data="data"
+              :field="col.field"
+            />
+          </template>
+        </Column>
+      </DataTablePrime>
+    </div>
 
     <!-- Gallery View -->
     <div v-else class="gallery-view">
@@ -227,13 +215,18 @@
           @click="handleRowClick({ data: item })"
         >
           <div class="gallery-item-header">
-            <span
+            <a
               v-if="props.viewType === 'items' || !props.viewType"
-              class="gallery-type-badge"
-              :style="getGalleryTypeBadgeStyle(item)"
+              :href="getItemPrimaryUrl(item)"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="gallery-type-badge-link"
+              :style="getTypeBadgeStyle(item)"
+              :title="getTypeBadgeTooltip(item)"
+              @click.stop
             >
-              {{ getGalleryTypeBadgeText(item) }}
-            </span>
+              {{ getTypeBadgeText(item) }}
+            </a>
             <Tag
               v-else-if="props.viewType === 'projects'"
               :value="item.status || 'active'"
@@ -246,41 +239,6 @@
               :severity="item.is_internal ? 'warning' : 'info'"
               class="tag-style"
             />
-            <div v-if="props.viewType === 'items' || !props.viewType" class="gallery-item-links" @click.stop>
-              <a
-                v-if="item.teamwork_url"
-                :href="item.teamwork_url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="source-link-btn"
-                :style="getSourceLinkStyle(item)"
-                title="Open in Teamwork"
-              >
-                <i class="pi pi-check-square"></i>
-              </a>
-              <a
-                v-if="item.missive_url"
-                :href="item.missive_url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="source-link-btn"
-                :style="getSourceLinkStyle(item)"
-                title="Open in Missive"
-              >
-                <i class="pi pi-envelope"></i>
-              </a>
-              <a
-                v-if="item.craft_url"
-                :href="item.craft_url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="source-link-btn"
-                :style="getSourceLinkStyle(item)"
-                title="Open in Craft"
-              >
-                <i class="pi pi-file-edit"></i>
-              </a>
-            </div>
           </div>
           <div class="gallery-item-thumbnail">
             <i
@@ -418,6 +376,9 @@ const isTaskTypeSelected = (typeId: string) => {
 }
 
 const scrollTrigger = ref<HTMLElement | null>(null)
+const dataTableRef = ref<InstanceType<typeof DataTablePrime> | null>(null)
+const isResizing = ref(false)
+let resizeTimeout: number | null = null
 
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,
@@ -466,6 +427,22 @@ const orderedVisibleColumns = computed(() => {
   })
 })
 
+// Exclude type column from the regular columns (it's rendered separately as frozen)
+const orderedVisibleColumnsWithoutType = computed(() => {
+  return orderedVisibleColumns.value.filter(col => col.field !== 'type')
+})
+
+// Count columns that are hidden because all their values are empty
+const hiddenEmptyColumnsCount = computed(() => {
+  if (props.items.length === 0) return 0
+  return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
+})
+
+// Get column style with width
+const getColumnStyle = (col: ColumnType) => {
+  return { width: props.columnWidths[col.field] || col.width || 'auto' }
+}
+
 // Check if column should be shown based on data
 const shouldShowColumn = (field: string): boolean => {
   // If no items, show all columns
@@ -500,17 +477,10 @@ const handleColumnReorder = (event: any) => {
   emit('update:columnOrder', newOrder)
 }
 
-const handleColumnResize = (event: any) => {
-  const field = event.element.getAttribute('data-p-field') || event.element.querySelector('[data-p-field]')?.getAttribute('data-p-field')
-  
-  if (field) {
-    const newWidths = { ...props.columnWidths }
-    newWidths[field] = event.element.style.width
-    emit('update:columnWidths', newWidths)
-  }
-}
-
 const handleSort = (event: any) => {
+  // Prevent sort during/right after column resize
+  if (isResizing.value) return
+  
   // PrimeVue sort event: { sortField: string, sortOrder: 1 | -1 | 0 }
   const field = event.sortField
   const order = event.sortOrder === 1 ? 'asc' : 'desc'
@@ -523,25 +493,25 @@ const handleSort = (event: any) => {
   }
 }
 
+// Track column resize to prevent sort trigger
+const handleResizeStart = () => {
+  isResizing.value = true
+  if (resizeTimeout) clearTimeout(resizeTimeout)
+}
+
+const handleResizeEnd = () => {
+  // Delay resetting to prevent sort from firing on mouseup
+  resizeTimeout = window.setTimeout(() => {
+    isResizing.value = false
+  }, 100)
+}
+
 const getCellComponent = (field: string, data: DataItem) => {
   const value = data[field]
 
-  // Special rendering for type field - shows task_type_name if available
+  // Type field is rendered separately in frozen column
   if (field === 'type') {
-    const itemType = value?.toLowerCase()
-    const isEmail = itemType === 'email'
-    const isCraft = itemType === 'craft'
-    const displayValue = isEmail ? 'EMAIL' : isCraft ? 'CRAFT' : (data.task_type_name?.toUpperCase() || 'TASK')
-    const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (data.task_type_color || '#4ade80')
-    
-    return h('span', {
-      class: 'type-badge',
-      style: { 
-        background: `${color}20`,
-        color: color,
-        borderColor: `${color}40`
-      }
-    }, displayValue)
+    return h('span', '—')
   }
 
   // Task type column (separate from type)
@@ -590,6 +560,41 @@ const truncateText = (text: string, maxLength: number): string => {
   return text.substring(0, maxLength) + '...'
 }
 
+// Type badge helpers for clickable badges
+const getTypeBadgeText = (item: ViewDataItem): string => {
+  const itemType = item.type?.toLowerCase()
+  if (itemType === 'email') return 'EMAIL'
+  if (itemType === 'craft') return 'CRAFT'
+  return item.task_type_name?.toUpperCase() || 'TASK'
+}
+
+const getTypeBadgeStyle = (item: ViewDataItem) => {
+  const itemType = item.type?.toLowerCase()
+  const isEmail = itemType === 'email'
+  const isCraft = itemType === 'craft'
+  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
+  return {
+    background: `${color}20`,
+    color: color,
+    borderColor: `${color}40`
+  }
+}
+
+const getItemPrimaryUrl = (item: ViewDataItem): string => {
+  // Return the most relevant URL for this item type
+  if (item.teamwork_url) return item.teamwork_url
+  if (item.missive_url) return item.missive_url
+  if (item.craft_url) return item.craft_url
+  return '#'
+}
+
+const getTypeBadgeTooltip = (item: ViewDataItem): string => {
+  const itemType = item.type?.toLowerCase()
+  if (itemType === 'email') return 'Open in Missive'
+  if (itemType === 'craft') return 'Open in Craft'
+  return 'Open in Teamwork'
+}
+
 // Gallery view helpers
 const getGalleryIcon = (item: ViewDataItem): string => {
   if (props.viewType === 'projects') {
@@ -605,37 +610,6 @@ const getGalleryIcon = (item: ViewDataItem): string => {
   return 'pi pi-check-square'
 }
 
-const getGalleryTypeBadgeStyle = (item: ViewDataItem) => {
-  const itemType = item.type?.toLowerCase()
-  const isEmail = itemType === 'email'
-  const isCraft = itemType === 'craft'
-  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
-  return {
-    background: `${color}20`,
-    color: color,
-    borderColor: `${color}40`
-  }
-}
-
-// Get link button style based on task type color
-const getSourceLinkStyle = (item: ViewDataItem) => {
-  const itemType = item.type?.toLowerCase()
-  const isEmail = itemType === 'email'
-  const isCraft = itemType === 'craft'
-  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
-  return {
-    background: `${color}15`,
-    color: color,
-    borderColor: `${color}30`
-  }
-}
-
-const getGalleryTypeBadgeText = (item: ViewDataItem): string => {
-  const itemType = item.type?.toLowerCase()
-  if (itemType === 'email') return 'EMAIL'
-  if (itemType === 'craft') return 'CRAFT'
-  return item.task_type_name?.toUpperCase() || 'TASK'
-}
 
 const getGalleryTitle = (item: ViewDataItem): string => {
   if (props.viewType === 'people') {
@@ -685,6 +659,7 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .table-toolbar {
@@ -718,8 +693,29 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
+/* Match toolbar inputs to filter bar inputs (34px / 2.125rem) */
+:deep(.toolbar-input.p-inputtext),
+:deep(.toolbar-input.p-multiselect) {
+  height: 2.125rem !important;
+  min-height: 2.125rem !important;
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.9rem !important;
+}
+
+.column-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .column-selector {
   min-width: 280px;
+}
+
+.hidden-columns-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .item-type-toggles {
@@ -729,6 +725,11 @@ onUnmounted(() => {
   padding: 0.875rem 1.5rem;
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
+}
+
+.item-type-toggles.no-bg {
+  background: transparent;
+  padding: 0;
 }
 
 .toggle-label {
@@ -823,15 +824,20 @@ onUnmounted(() => {
   right: 0.25rem;
 }
 
-.data-table {
-  width: 100%;
+/* Horizontal scroll container */
+.table-scroll-container {
+  overflow-x: auto;
+  overflow-y: visible;
   flex: 1;
   min-width: 0;
 }
 
+.data-table {
+  width: max-content;
+  min-width: 100%;
+}
+
 .data-table :deep(.p-datatable-wrapper) {
-  max-width: 100%;
-  width: 100%;
   overflow: visible !important;
 }
 
@@ -840,14 +846,8 @@ onUnmounted(() => {
 }
 
 .data-table :deep(.p-datatable-table) {
-  table-layout: fixed;
-  width: 100%;
-  max-width: 100%;
-}
-
-.data-table :deep(.p-datatable-thead > tr),
-.data-table :deep(.p-datatable-tbody > tr) {
-  width: 100%;
+  table-layout: auto;
+  min-width: 100%;
 }
 
 .data-table :deep(.p-datatable-thead > tr > th),
@@ -871,6 +871,40 @@ onUnmounted(() => {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-primary) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Type column - frozen, not resizable */
+.data-table :deep(.type-column) {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 101 !important;
+  background: var(--bg-secondary) !important;
+}
+
+.data-table :deep(.p-datatable-thead .type-column) {
+  z-index: 102 !important;
+}
+
+/* Disable resize handle on type column */
+.data-table :deep(.type-column .p-column-resizer) {
+  display: none !important;
+}
+
+/* Fix column resize indicator position */
+.data-table :deep(.p-column-resizer-helper) {
+  position: absolute !important;
+  width: 2px !important;
+  background: var(--accent-primary) !important;
+}
+
+/* Ensure resize handle is positioned correctly */
+.data-table :deep(.p-column-resizer) {
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 8px !important;
+  height: 100% !important;
+  cursor: col-resize !important;
 }
 
 .data-table :deep(.p-datatable-tbody > tr > td) {
@@ -923,8 +957,8 @@ onUnmounted(() => {
   margin-bottom: 0.25rem;
 }
 
-/* Type Badge */
-.type-badge {
+/* Type Badge Link - clickable badge */
+.type-badge-link {
   display: inline-block;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
@@ -932,6 +966,14 @@ onUnmounted(() => {
   font-weight: 600;
   letter-spacing: 0.5px;
   border: 1px solid;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.type-badge-link:hover {
+  transform: scale(1.08);
+  filter: brightness(1.15);
 }
 
 /* Task Type Cell */
@@ -982,7 +1024,8 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
-.gallery-type-badge {
+/* Gallery type badge link - clickable */
+.gallery-type-badge-link {
   display: inline-block;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
@@ -990,6 +1033,14 @@ onUnmounted(() => {
   font-weight: 600;
   letter-spacing: 0.5px;
   border: 1px solid;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.gallery-type-badge-link:hover {
+  transform: scale(1.08);
+  filter: brightness(1.15);
 }
 
 .gallery-item-thumbnail {
@@ -1055,40 +1106,5 @@ onUnmounted(() => {
   margin: 1rem 0;
 }
 
-/* Source Links Column */
-.source-links-column {
-  background: var(--bg-secondary) !important;
-}
-
-.source-links-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  justify-content: center;
-}
-
-.source-link-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  text-decoration: none;
-  transition: all 0.15s ease;
-  font-size: 1rem;
-  border: 1px solid;
-}
-
-.source-link-btn:hover {
-  transform: scale(1.12);
-  filter: brightness(1.15);
-}
-
-/* Gallery View Source Links */
-.gallery-item-links {
-  display: flex;
-  gap: 0.5rem;
-}
 </style>
 
