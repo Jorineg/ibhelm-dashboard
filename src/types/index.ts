@@ -158,12 +158,9 @@ export type { ExtractionRun } from '@/composables/useTaskTypes'
 export type { PersonLinkingRun } from '@/composables/usePeople'
 export type { ProjectLinkingRun } from '@/composables/useEmails'
 
-export interface AppearanceSettings {
-  id: string
+export interface AppSettings {
   email_color: string
   craft_color: string
-  db_created_at?: string
-  db_updated_at?: string
 }
 
 export interface DataItem {
