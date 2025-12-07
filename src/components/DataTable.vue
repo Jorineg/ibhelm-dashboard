@@ -658,13 +658,12 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  /* Bounded height: viewport minus page header (~80px), filter bar (~150px), padding */
+  max-height: calc(100vh - 280px);
+  min-height: 400px;
 }
 
 .table-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 101;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -823,11 +822,12 @@ onUnmounted(() => {
   right: 0.25rem;
 }
 
-/* Horizontal scroll container */
+/* Table scroll container - handles both horizontal and vertical scroll */
 .table-scroll-container {
-  overflow-x: auto;
+  overflow: auto;
   flex: 1;
   min-width: 0;
+  min-height: 0; /* Important for flex overflow */
 }
 
 .data-table {
