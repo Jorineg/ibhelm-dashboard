@@ -13,10 +13,6 @@
 @import './run-controls.css';
 
 /* Base styles */
-html {
-  scrollbar-gutter: stable;
-}
-
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -36,16 +32,22 @@ html {
   padding: 0;
 }
 
+html, body {
+  height: 100%;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
-  margin: 0;
   display: flex;
   min-width: 320px;
-  min-height: 100vh;
   background-color: var(--bg-primary);
   zoom: 0.75;
 }
 
 #app {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
 }

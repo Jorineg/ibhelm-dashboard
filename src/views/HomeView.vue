@@ -447,13 +447,12 @@ onMounted(async () => {
 
 <style scoped>
 .home-view {
-  height: 100vh;
+  height: 100%;
   background: var(--bg-primary);
   padding: 2rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-sizing: border-box;
 }
 
 /* View Tabs */
