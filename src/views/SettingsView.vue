@@ -171,9 +171,10 @@ onMounted(async () => {
 
 <style scoped>
 .settings-view {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
   padding: 2rem;
+  overflow-y: auto;
 }
 
 /* Settings Layout */
@@ -234,9 +235,6 @@ onMounted(async () => {
 /* Settings Content */
 .settings-content {
   min-width: 0;
-  overflow-y: auto;
-  padding-right: 1rem;
-  margin-right: -1rem;
 }
 
 /* Responsive */
