@@ -1,17 +1,18 @@
 <template>
   <div class="settings-view">
-    <!-- Header -->
-    <PageHeader
-      title="Settings"
-      :show-back="true"
-      :user-email="user?.email"
-      :show-sign-out="true"
-      @back="goBack"
-      @sign-out="handleSignOut"
-    />
+    <div class="settings-scroll">
+      <!-- Header -->
+      <PageHeader
+        title="Settings"
+        :show-back="true"
+        :user-email="user?.email"
+        :show-sign-out="true"
+        @back="goBack"
+        @sign-out="handleSignOut"
+      />
 
-    <!-- Main Content with Sidebar -->
-    <div class="settings-layout">
+      <!-- Main Content with Sidebar -->
+      <div class="settings-layout">
       <!-- Sidebar Navigation -->
       <nav class="settings-sidebar">
         <ul class="sidebar-menu">
@@ -67,6 +68,7 @@
           v-else-if="activeSection === 'appearance'"
         />
       </div>
+    </div>
     </div>
   </div>
 </template>
@@ -173,8 +175,14 @@ onMounted(async () => {
 .settings-view {
   height: 100vh;
   background: var(--bg-primary);
-  padding: 2rem;
+  padding: 2rem 0 2rem 2rem;
+  overflow: hidden;
+}
+
+.settings-scroll {
+  height: 100%;
   overflow-y: auto;
+  padding-right: 2rem;
 }
 
 /* Settings Layout */
