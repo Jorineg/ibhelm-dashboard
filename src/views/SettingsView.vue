@@ -235,7 +235,8 @@ onMounted(async () => {
 .settings-content {
   min-width: 0;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  padding-right: 1rem;
+  margin-right: -1rem;
 }
 
 /* Responsive */

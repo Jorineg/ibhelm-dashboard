@@ -450,7 +450,6 @@ onMounted(async () => {
   height: 100%;
   background: var(--bg-primary);
   padding: 2rem;
-  padding-right: 0.8rem; 
   display: flex;
   flex-direction: column;
   overflow: hidden;
