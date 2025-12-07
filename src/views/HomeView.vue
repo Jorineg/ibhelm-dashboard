@@ -447,9 +447,12 @@ onMounted(async () => {
 
 <style scoped>
 .home-view {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* View Tabs */
@@ -516,9 +519,11 @@ onMounted(async () => {
 /* Main Content */
 .main-content {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 0.75rem;
   max-width: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .center-content {
@@ -526,10 +531,12 @@ onMounted(async () => {
   flex-direction: column;
   gap: 1.5rem;
   min-width: 0;
+  min-height: 0;
   flex: 1;
 }
 
 .filters-section {
   min-width: 0;
+  flex-shrink: 0;
 }
 </style>

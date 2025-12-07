@@ -124,7 +124,7 @@
     </div>
 
     <!-- List View -->
-    <div v-if="localViewMode === 'list'" class="table-scroll-container">
+    <div v-if="localViewMode === 'list'" class="table-scroll-container" ref="scrollContainerRef">
       <DataTablePrime
         ref="dataTableRef"
         :value="displayedItems"
@@ -202,6 +202,8 @@
           </template>
         </Column>
       </DataTablePrime>
+      <!-- Infinite scroll trigger for list view -->
+      <div ref="scrollTrigger" class="scroll-trigger"></div>
     </div>
 
     <!-- Gallery View -->
@@ -284,10 +286,9 @@
         <i class="pi pi-inbox empty-icon"></i>
         <p>No {{ props.viewType || 'items' }} found</p>
       </div>
+      <!-- Infinite scroll trigger for gallery view -->
+      <div ref="galleryScrollTrigger" class="scroll-trigger"></div>
     </div>
-
-    <!-- Infinite scroll trigger -->
-    <div ref="scrollTrigger" class="scroll-trigger"></div>
   </div>
 </template>
 
@@ -375,6 +376,8 @@ const isTaskTypeSelected = (typeId: string) => {
 }
 
 const scrollTrigger = ref<HTMLElement | null>(null)
+const galleryScrollTrigger = ref<HTMLElement | null>(null)
+const scrollContainerRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTablePrime> | null>(null)
 const isResizing = ref(false)
 let resizeTimeout: number | null = null
@@ -627,18 +630,37 @@ const getGalleryDescription = (item: ViewDataItem): string => {
 // Infinite scroll
 let observer: IntersectionObserver | null = null
 
-onMounted(() => {
+const setupIntersectionObserver = () => {
+  if (observer) {
+    observer.disconnect()
+  }
+  
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some(e => e.isIntersecting) && !props.loading) {
+        emit('loadMore')
+      }
+    },
+    { threshold: 0.1 }
+  )
+  
+  // Observe whichever trigger is currently rendered
   if (scrollTrigger.value) {
-    observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !props.loading) {
-          emit('loadMore')
-        }
-      },
-      { threshold: 0.1 }
-    )
     observer.observe(scrollTrigger.value)
   }
+  if (galleryScrollTrigger.value) {
+    observer.observe(galleryScrollTrigger.value)
+  }
+}
+
+onMounted(() => {
+  setupIntersectionObserver()
+})
+
+// Re-setup observer when view mode changes
+watch(() => localViewMode.value, () => {
+  // Wait for DOM to update
+  setTimeout(setupIntersectionObserver, 100)
 })
 
 onUnmounted(() => {
@@ -658,9 +680,9 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  /* Fill remaining viewport height - account for page header + padding only */
-  height: calc(100vh - 100px);
-  min-height: 300px;
+  /* Fill available space */
+  flex: 1;
+  min-height: 0;
 }
 
 .table-toolbar {
