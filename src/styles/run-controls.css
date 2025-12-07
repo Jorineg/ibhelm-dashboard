@@ -1,0 +1,36 @@
+/* Shared styles for run control sections (extraction, linking, etc.) */
+.run-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+}
+
+.run-info {
+  flex: 1;
+}
+
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.run-status-label {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.run-progress-info,
+.run-time-info {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.run-statistics {
+  margin-bottom: 1.5rem;
+}
+

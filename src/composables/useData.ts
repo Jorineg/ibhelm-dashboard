@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { DataItem, ProjectItem, PersonItem, ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
+import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
 
 const PAGE_SIZE = 50
 
@@ -421,109 +421,6 @@ export function useData() {
     }
   }
 
-  // Apply filters to data items
-  const applyFilters = (items: DataItem[], config: FilterConfiguration | null): DataItem[] => {
-    if (!config) return items
-
-    let filtered = items
-
-    // Filter by item type
-    filtered = filtered.filter(item => {
-      if (item.type === 'task' && !config.showTasks) return false
-      if (item.type === 'email' && !config.showEmails) return false
-      return true
-    })
-
-    // Apply always-visible filters
-    Object.entries(config.alwaysVisibleFilters).forEach(([key, value]) => {
-      if (value) {
-        filtered = filtered.filter(item => {
-          const itemValue = item[key]
-          if (!itemValue) return false
-          return itemValue.toLowerCase().includes(value.toLowerCase())
-        })
-      }
-    })
-
-    // Apply dynamic filters
-    config.dynamicFilters.forEach(filter => {
-      filtered = filtered.filter(item => {
-        const itemValue = item[filter.column]
-
-        // Helper function to check if value contains search term
-        // Handles both strings and arrays (like tags, assignees)
-        const containsValue = (value: any, searchTerm: string): boolean => {
-          if (!value) return false
-
-          // Handle arrays (tags, assignees, etc.)
-          if (Array.isArray(value)) {
-            return value.some(arrayItem => {
-              if (typeof arrayItem === 'object' && arrayItem !== null) {
-                // For objects with 'name' property (tags, users, etc.)
-                if (arrayItem.name) {
-                  return String(arrayItem.name).toLowerCase().includes(searchTerm.toLowerCase())
-                }
-                // For objects with 'first_name' and 'last_name' (users)
-                if (arrayItem.first_name || arrayItem.last_name) {
-                  const fullName = `${arrayItem.first_name || ''} ${arrayItem.last_name || ''}`.trim()
-                  return fullName.toLowerCase().includes(searchTerm.toLowerCase())
-                }
-                // For any other object properties, search through all string values
-                return Object.values(arrayItem).some(v =>
-                  typeof v === 'string' && v.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-              }
-              // For primitive values in array
-              return String(arrayItem).toLowerCase().includes(searchTerm.toLowerCase())
-            })
-          }
-
-          // Handle regular string values
-          return String(value).toLowerCase().includes(searchTerm.toLowerCase())
-        }
-
-        switch (filter.operator) {
-          case 'eq':
-            return itemValue === filter.value
-          case 'neq':
-            return itemValue !== filter.value
-          case 'contains':
-            return containsValue(itemValue, filter.value)
-          case 'not_contains':
-            return !containsValue(itemValue, filter.value)
-          case 'is_empty':
-            return !itemValue || itemValue === '' || (Array.isArray(itemValue) && itemValue.length === 0)
-          case 'is_not_empty':
-            return itemValue && itemValue !== '' && (!Array.isArray(itemValue) || itemValue.length > 0)
-          case 'before':
-            return itemValue && new Date(itemValue) < new Date(filter.value)
-          case 'after':
-            return itemValue && new Date(itemValue) > new Date(filter.value)
-          default:
-            return true
-        }
-      })
-    })
-
-    return filtered
-  }
-
-  // Apply search to filtered items
-  const applySearch = (items: DataItem[], search: string): DataItem[] => {
-    if (!search) return items
-
-    const lowerSearch = search.toLowerCase()
-    return items.filter(item => {
-      // Search across all string fields
-      return Object.values(item).some(value => {
-        if (typeof value === 'string') {
-          return value.toLowerCase().includes(lowerSearch)
-        }
-        return false
-      })
-    })
-  }
-
   return {
     dataItems,
     loading,
@@ -533,9 +430,7 @@ export function useData() {
     currentSort,
     currentViewType,
     loadData,
-    loadMore,
-    applyFilters,
-    applySearch
+    loadMore
   }
 }
 

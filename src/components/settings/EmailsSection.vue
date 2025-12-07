@@ -12,21 +12,21 @@
     </template>
 
     <!-- Project Linking Controls -->
-    <div class="linking-controls">
-      <div class="linking-info">
-        <div class="linking-status" v-if="projectLinkingRun">
-          <span class="status-label">Last linking run:</span>
+    <div class="run-controls">
+      <div class="run-info">
+        <div class="run-status" v-if="projectLinkingRun">
+          <span class="run-status-label">Last linking run:</span>
           <StatusBadge :status="projectLinkingRun.status" />
-          <span v-if="projectLinkingRun.status === 'running'" class="progress-info">
+          <span v-if="projectLinkingRun.status === 'running'" class="run-progress-info">
             {{ projectLinkingRun.processed_count }} / {{ projectLinkingRun.total_count }}
             ({{ projectLinkingRun.progress_percent }}%)
           </span>
-          <span v-else-if="projectLinkingRun.completed_at" class="time-info">
+          <span v-else-if="projectLinkingRun.completed_at" class="run-time-info">
             {{ formatDate(projectLinkingRun.completed_at) }}
           </span>
         </div>
-        <div v-else class="linking-status">
-          <span class="status-label">No linking runs yet</span>
+        <div v-else class="run-status">
+          <span class="run-status-label">No linking runs yet</span>
         </div>
       </div>
       
@@ -36,7 +36,6 @@
         :loading="isLinking"
         @click="$emit('rerun-linking')"
         severity="secondary"
-        class="rerun-btn"
       />
     </div>
 
@@ -61,6 +60,7 @@
 import { computed } from 'vue'
 import Button from 'primevue/button'
 import { SectionCard, InfoBox, StatusBadge, StatsGrid } from '@/components/common'
+import { formatDate } from '@/lib/formatDate'
 import type { ProjectLinkingRun } from '@/types'
 
 interface Props {
@@ -82,52 +82,4 @@ const linkingStats = computed(() => {
     { label: 'No Match / Already Linked', value: props.projectLinkingRun.skipped_count || 0, variant: 'skipped' as const }
   ]
 })
-
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 </script>
-
-<style scoped>
-.linking-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
-}
-
-.linking-info {
-  flex: 1;
-}
-
-.linking-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.status-label {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-}
-
-.progress-info,
-.time-info {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.run-statistics {
-  margin-bottom: 1.5rem;
-}
-</style>
-

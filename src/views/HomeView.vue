@@ -129,14 +129,9 @@ const searchQuery = ref('')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
 
-// Selected task types derived from config - fallback to all only when undefined (for backwards compatibility with old configs)
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
-  // If selectedTaskTypes is defined (even if empty), use it; only default to all when undefined
-  if (activeConfig.value.selectedTaskTypes !== undefined) {
-    return activeConfig.value.selectedTaskTypes
-  }
-  return taskTypes.value.map(t => t.id)
+  return activeConfig.value.selectedTaskTypes ?? taskTypes.value.map(t => t.id)
 })
 
 // Column definitions

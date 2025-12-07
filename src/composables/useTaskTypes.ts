@@ -1,17 +1,33 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import type { TaskType, TaskTypeRule, ExtractionRun } from '@/types'
+import { usePollingRun, type BaseRun } from './usePollingRun'
+import type { TaskType, TaskTypeRule } from '@/types'
+
+export type ExtractionRun = BaseRun
+
+const initialExtractionState = (id: string): ExtractionRun => ({
+  id,
+  status: 'running',
+  processed_count: 0,
+  started_at: new Date().toISOString()
+})
+
+// Polling run for extraction
+const { run: extractionRun, isRunning: extractionRunning, startRun: rerunExtraction, fetchLatestRun: fetchLatestExtractionRun } = usePollingRun<ExtractionRun>(
+  'rerun_all_task_type_extractions',
+  'get_extraction_run_status',
+  'get_latest_extraction_run',
+  initialExtractionState
+)
 
 // Shared state across all composable instances
 const taskTypes = ref<TaskType[]>([])
 const taskTypeRules = ref<TaskTypeRule[]>([])
 const loading = ref(false)
 const saving = ref(false)
-const extractionRun = ref<ExtractionRun | null>(null)
 const initialized = ref(false)
 
 export function useTaskTypes() {
-  // Fetch all task types
   const fetchTaskTypes = async () => {
     try {
       loading.value = true
@@ -29,7 +45,6 @@ export function useTaskTypes() {
     }
   }
 
-  // Fetch all task type rules
   const fetchTaskTypeRules = async () => {
     try {
       const { data, error } = await supabase
@@ -44,21 +59,17 @@ export function useTaskTypes() {
     }
   }
 
-  // Initialize data (only once)
   const initialize = async () => {
     if (initialized.value) return
     initialized.value = true
     await Promise.all([fetchTaskTypes(), fetchTaskTypeRules()])
   }
 
-  // Create a new task type
   const createTaskType = async (taskType: Partial<TaskType>): Promise<TaskType | null> => {
     try {
       saving.value = true
-      
-      // Generate slug from name if not provided
       const slug = taskType.slug || taskType.name?.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || ''
-      
+
       const { data, error } = await supabase
         .from('task_types')
         .insert({
@@ -74,7 +85,7 @@ export function useTaskTypes() {
         .single()
 
       if (error) throw error
-      
+
       taskTypes.value.push(data)
       return data
     } catch (error) {
@@ -85,24 +96,22 @@ export function useTaskTypes() {
     }
   }
 
-  // Update a task type
   const updateTaskType = async (id: string, updates: Partial<TaskType>): Promise<boolean> => {
     try {
       saving.value = true
-      
+
       const { error } = await supabase
         .from('task_types')
         .update(updates)
         .eq('id', id)
 
       if (error) throw error
-      
-      // Update local state
+
       const index = taskTypes.value.findIndex(t => t.id === id)
       if (index !== -1) {
         taskTypes.value[index] = { ...taskTypes.value[index], ...updates }
       }
-      
+
       return true
     } catch (error) {
       console.error('Error updating task type:', error)
@@ -112,23 +121,20 @@ export function useTaskTypes() {
     }
   }
 
-  // Delete a task type
   const deleteTaskType = async (id: string): Promise<boolean> => {
     try {
       saving.value = true
-      
+
       const { error } = await supabase
         .from('task_types')
         .delete()
         .eq('id', id)
 
       if (error) throw error
-      
-      // Update local state
+
       taskTypes.value = taskTypes.value.filter(t => t.id !== id)
-      // Also remove associated rules
       taskTypeRules.value = taskTypeRules.value.filter(r => r.task_type_id !== id)
-      
+
       return true
     } catch (error) {
       console.error('Error deleting task type:', error)
@@ -138,11 +144,10 @@ export function useTaskTypes() {
     }
   }
 
-  // Add a rule to a task type
   const addTaskTypeRule = async (taskTypeId: string, tagName: string): Promise<TaskTypeRule | null> => {
     try {
       saving.value = true
-      
+
       const { data, error } = await supabase
         .from('task_type_rules')
         .insert({
@@ -153,7 +158,7 @@ export function useTaskTypes() {
         .single()
 
       if (error) throw error
-      
+
       taskTypeRules.value.push(data)
       return data
     } catch (error) {
@@ -164,18 +169,17 @@ export function useTaskTypes() {
     }
   }
 
-  // Remove a rule
   const removeTaskTypeRule = async (ruleId: string): Promise<boolean> => {
     try {
       saving.value = true
-      
+
       const { error } = await supabase
         .from('task_type_rules')
         .delete()
         .eq('id', ruleId)
 
       if (error) throw error
-      
+
       taskTypeRules.value = taskTypeRules.value.filter(r => r.id !== ruleId)
       return true
     } catch (error) {
@@ -186,107 +190,18 @@ export function useTaskTypes() {
     }
   }
 
-  // Get rules for a specific task type
   const getRulesForTaskType = (taskTypeId: string): TaskTypeRule[] => {
     return taskTypeRules.value.filter(r => r.task_type_id === taskTypeId)
   }
 
-  // Trigger re-extraction of all task types
-  const rerunExtraction = async (): Promise<string | null> => {
-    try {
-      saving.value = true
-      console.log('Starting extraction...')
-      
-      const { data, error } = await supabase
-        .rpc('rerun_all_task_type_extractions')
-
-      console.log('RPC response:', { data, error })
-
-      if (error) {
-        console.error('RPC error:', error)
-        throw error
-      }
-      
-      // Start polling for status
-      if (data) {
-        console.log('Extraction started with run ID:', data)
-        // Set initial running state
-        extractionRun.value = {
-          id: data,
-          status: 'running',
-          processed_count: 0,
-          started_at: new Date().toISOString()
-        }
-        pollExtractionStatus(data)
-      } else {
-        console.warn('No run ID returned from extraction')
-      }
-      
-      return data
-    } catch (error) {
-      console.error('Error starting extraction:', error)
-      return null
-    } finally {
-      saving.value = false
-    }
-  }
-
-  // Poll extraction run status
-  const pollExtractionStatus = async (runId: string) => {
-    const poll = async () => {
-      try {
-        const { data, error } = await supabase
-          .rpc('get_extraction_run_status', { p_run_id: runId })
-
-        if (error) throw error
-        
-        if (data && data.length > 0) {
-          extractionRun.value = data[0]
-          
-          // Continue polling if still running
-          if (extractionRun.value?.status === 'running') {
-            setTimeout(poll, 1000)
-          }
-        }
-      } catch (error) {
-        console.error('Error polling extraction status:', error)
-      }
-    }
-    
-    poll()
-  }
-
-  // Get latest extraction run on load
-  const fetchLatestExtractionRun = async () => {
-    try {
-      const { data, error } = await supabase
-        .rpc('get_latest_extraction_run')
-
-      if (error) throw error
-      
-      if (data && data.length > 0) {
-        extractionRun.value = data[0]
-      }
-    } catch (error) {
-      console.error('Error fetching latest extraction run:', error)
-    }
-  }
-
-  // Computed: non-default task types (for filtering)
-  const filterableTaskTypes = computed(() => {
-    return taskTypes.value.filter(t => !t.is_default)
-  })
-
-  // Computed: default task type
-  const defaultTaskType = computed(() => {
-    return taskTypes.value.find(t => t.is_default)
-  })
+  const filterableTaskTypes = computed(() => taskTypes.value.filter(t => !t.is_default))
+  const defaultTaskType = computed(() => taskTypes.value.find(t => t.is_default))
 
   return {
     taskTypes,
     taskTypeRules,
     loading,
-    saving,
+    saving: computed(() => saving.value || extractionRunning.value),
     extractionRun,
     filterableTaskTypes,
     defaultTaskType,
@@ -303,4 +218,3 @@ export function useTaskTypes() {
     fetchLatestExtractionRun
   }
 }
-

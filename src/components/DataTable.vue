@@ -749,60 +749,25 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.task-type-checkbox {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.25rem;
-}
-
-.task-type-checkbox-inner {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.task-type-checkbox .toggle-item-label {
-  margin-left: 0;
-}
-
-.task-type-color-bar {
-  display: block;
-  height: 3px;
-  width: 100%;
-  border-radius: 2px;
-}
-
-.email-checkbox {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.25rem;
-}
-
-.email-checkbox-inner {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.email-color-bar {
-  display: block;
-  height: 3px;
-  width: 100%;
-  border-radius: 2px;
-}
-
+/* Unified item type checkbox styling */
+.task-type-checkbox,
+.email-checkbox,
 .craft-checkbox {
   flex-direction: column;
   align-items: stretch;
   gap: 0.25rem;
 }
 
+.task-type-checkbox-inner,
+.email-checkbox-inner,
 .craft-checkbox-inner {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
+.task-type-color-bar,
+.email-color-bar,
 .craft-color-bar {
   display: block;
   height: 3px;

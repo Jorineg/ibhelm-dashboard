@@ -76,30 +76,7 @@ function loadConfigurations() {
     if (stored) {
       const parsed = JSON.parse(stored)
       allConfigurations.value = parsed.configs || []
-      
-      // Support both old format (single activeConfigId) and new format (per-view activeConfigIds)
-      if (parsed.activeConfigIds) {
-        activeConfigIds.value = {
-          items: parsed.activeConfigIds.items || '',
-          projects: parsed.activeConfigIds.projects || '',
-          people: parsed.activeConfigIds.people || ''
-        }
-      } else if (parsed.activeConfigId) {
-        // Migration: old format had a single activeConfigId
-        // Try to find which view it belongs to and set it
-        const config = allConfigurations.value.find(c => c.id === parsed.activeConfigId)
-        if (config && config.viewType) {
-          activeConfigIds.value[config.viewType] = parsed.activeConfigId
-        }
-      }
-      
-      // Migration: add viewType to configs that don't have it (assume 'items')
-      allConfigurations.value = allConfigurations.value.map(config => {
-        if (!config.viewType) {
-          return { ...config, viewType: 'items' as ViewType }
-        }
-        return config
-      })
+      activeConfigIds.value = parsed.activeConfigIds || { items: '', projects: '', people: '' }
     }
 
     // Ensure each view type has at least one configuration
@@ -110,18 +87,14 @@ function loadConfigurations() {
         const config = defaultConfig(viewType)
         allConfigurations.value.push(config)
         activeConfigIds.value[viewType] = config.id
-      } else {
-        // If no active config for this view, set to first one
-        if (!activeConfigIds.value[viewType] || !viewConfigs.find(c => c.id === activeConfigIds.value[viewType])) {
-          activeConfigIds.value[viewType] = viewConfigs[0].id
-        }
+      } else if (!activeConfigIds.value[viewType] || !viewConfigs.find(c => c.id === activeConfigIds.value[viewType])) {
+        activeConfigIds.value[viewType] = viewConfigs[0].id
       }
     }
-    
+
     saveConfigurations()
   } catch (error) {
     console.error('Error loading configurations:', error)
-    // Create default configs for all views
     const viewTypes: ViewType[] = ['items', 'projects', 'people']
     allConfigurations.value = []
     for (const viewType of viewTypes) {

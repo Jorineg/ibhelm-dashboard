@@ -153,43 +153,10 @@ export interface TaskTypeRule {
   db_created_at?: string
 }
 
-export interface ExtractionRun {
-  id: string
-  status: 'running' | 'completed' | 'failed'
-  total_count?: number
-  processed_count: number
-  progress_percent?: number
-  started_at: string
-  completed_at?: string
-  error_message?: string
-}
-
-export interface PersonLinkingRun {
-  id: string
-  status: 'running' | 'completed' | 'failed'
-  total_count?: number
-  processed_count: number
-  created_count?: number
-  linked_count?: number
-  skipped_count?: number
-  progress_percent?: number
-  started_at: string
-  completed_at?: string
-  error_message?: string
-}
-
-export interface ProjectLinkingRun {
-  id: string
-  status: 'running' | 'completed' | 'failed'
-  total_count?: number
-  processed_count: number
-  linked_count?: number
-  skipped_count?: number
-  progress_percent?: number
-  started_at: string
-  completed_at?: string
-  error_message?: string
-}
+// Re-export run types from composables
+export type { ExtractionRun } from '@/composables/useTaskTypes'
+export type { PersonLinkingRun } from '@/composables/usePeople'
+export type { ProjectLinkingRun } from '@/composables/useEmails'
 
 export interface AppearanceSettings {
   id: string

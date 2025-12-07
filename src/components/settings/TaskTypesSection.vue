@@ -11,21 +11,21 @@
     </template>
 
     <!-- Extraction Status & Re-run Button -->
-    <div class="extraction-controls">
-      <div class="extraction-info">
-        <div class="extraction-status" v-if="extractionRun">
-          <span class="status-label">Last extraction:</span>
+    <div class="run-controls">
+      <div class="run-info">
+        <div class="run-status" v-if="extractionRun">
+          <span class="run-status-label">Last extraction:</span>
           <StatusBadge :status="extractionRun.status" />
-          <span v-if="extractionRun.status === 'running'" class="progress-info">
+          <span v-if="extractionRun.status === 'running'" class="run-progress-info">
             {{ extractionRun.processed_count }} / {{ extractionRun.total_count }}
             ({{ extractionRun.progress_percent }}%)
           </span>
-          <span v-else-if="extractionRun.completed_at" class="time-info">
+          <span v-else-if="extractionRun.completed_at" class="run-time-info">
             {{ formatDate(extractionRun.completed_at) }}
           </span>
         </div>
-        <div v-else class="extraction-status">
-          <span class="status-label">No extraction runs yet</span>
+        <div v-else class="run-status">
+          <span class="run-status-label">No extraction runs yet</span>
         </div>
       </div>
       
@@ -35,7 +35,6 @@
         :loading="isExtracting"
         @click="$emit('rerun-extraction')"
         severity="secondary"
-        class="rerun-btn"
       />
     </div>
 
@@ -164,6 +163,7 @@ import OverlayPanel from 'primevue/overlaypanel'
 import { SectionCard, InfoBox, StatusBadge } from '@/components/common'
 import TaskTypeCard from './TaskTypeCard.vue'
 import { useTaskTypes } from '@/composables/useTaskTypes'
+import { formatDate } from '@/lib/formatDate'
 import type { TaskType, ExtractionRun } from '@/types'
 
 interface Props {
@@ -204,12 +204,8 @@ const colorPickerOverlay = ref()
 const editingColorTypeId = ref<string | null>(null)
 const editingColor = ref('6366f1')
 
-// Get rules for a specific type
-const getRulesForType = (typeId: string) => {
-  return getRulesForTaskType(typeId)
-}
+const getRulesForType = (typeId: string) => getRulesForTaskType(typeId)
 
-// Task Type CRUD
 const handleAddType = async () => {
   if (!newTypeName.value.trim()) return
   
@@ -241,7 +237,6 @@ const saveTypeName = async (typeId: string) => {
     cancelEditType()
     return
   }
-  
   await updateTaskType(typeId, { name: editingTypeName.value.trim() })
   cancelEditType()
 }
@@ -253,13 +248,11 @@ const confirmDeleteType = (taskType: TaskType) => {
 
 const handleDeleteType = async () => {
   if (!typeToDelete.value) return
-  
   await deleteTaskType(typeToDelete.value.id)
   deleteDialogVisible.value = false
   typeToDelete.value = null
 }
 
-// Color picker for existing types
 const openColorPicker = (taskType: TaskType, event: Event) => {
   editingColorTypeId.value = taskType.id
   editingColor.value = taskType.color?.replace('#', '') || '6366f1'
@@ -279,11 +272,9 @@ const toggleNewColorPicker = (event: Event) => {
   showNewColorPicker.value = !showNewColorPicker.value
 }
 
-// Rule CRUD
 const handleAddRule = async (typeId: string) => {
   const tagName = newRuleTags.value[typeId]?.trim()
   if (!tagName) return
-  
   await addTaskTypeRule(typeId, tagName)
   newRuleTags.value[typeId] = ''
 }
@@ -292,18 +283,6 @@ const handleRemoveRule = async (ruleId: string) => {
   await removeTaskTypeRule(ruleId)
 }
 
-// Formatting
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-// Handle clicking outside color picker
 const handleDocumentClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement
   if (!target.closest('.color-input-wrapper')) {
@@ -311,48 +290,11 @@ const handleDocumentClick = (event: MouseEvent) => {
   }
 }
 
-onMounted(() => {
-  document.addEventListener('click', handleDocumentClick)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleDocumentClick)
-})
+onMounted(() => document.addEventListener('click', handleDocumentClick))
+onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 </script>
 
 <style scoped>
-/* Extraction Controls */
-.extraction-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-  margin-bottom: 1.5rem;
-}
-
-.extraction-info {
-  flex: 1;
-}
-
-.extraction-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.status-label {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-}
-
-.progress-info,
-.time-info {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
 /* Task Types List */
 .task-types-list {
   display: flex;
@@ -491,4 +433,3 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 </style>
-
