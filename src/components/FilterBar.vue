@@ -1,8 +1,7 @@
 <template>
   <div class="filter-bar">
     <div class="filter-section">
-      <h3>Filters</h3>
-      
+
       <!-- Always-visible filters with action buttons in same row -->
       <div class="filters-with-actions">
         <div class="filters-grid">
