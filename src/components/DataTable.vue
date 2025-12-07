@@ -658,9 +658,9 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  /* Bounded height: viewport minus page header (~80px), filter bar (~150px), padding */
-  max-height: calc(100vh - 280px);
-  min-height: 400px;
+  /* Fill remaining viewport height - account for page header + padding only */
+  height: calc(100vh - 100px);
+  min-height: 300px;
 }
 
 .table-toolbar {
@@ -872,12 +872,14 @@ onUnmounted(() => {
 .data-table :deep(.type-column) {
   position: sticky !important;
   left: 0 !important;
-  z-index: 101 !important;
+  z-index: 2 !important;
   background: var(--bg-secondary) !important;
 }
 
+/* Type column in header - must be above both thead (z-index 100) and body type cells */
 .data-table :deep(.p-datatable-thead .type-column) {
-  z-index: 102 !important;
+  z-index: 110 !important;
+  background: var(--bg-tertiary) !important;
 }
 
 /* Disable resize handle on type column */
