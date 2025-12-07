@@ -10,7 +10,7 @@
             :model-value="props.searchQuery"
             @update:model-value="(value) => emit('update:searchQuery', value as string)"
             placeholder="Search..."
-            class="search-input toolbar-input"
+            class="search-input"
           />
           <Button
             v-if="props.searchQuery"
@@ -826,7 +826,6 @@ onUnmounted(() => {
 /* Horizontal scroll container */
 .table-scroll-container {
   overflow-x: auto;
-  overflow-y: visible;
   flex: 1;
   min-width: 0;
 }
@@ -858,14 +857,11 @@ onUnmounted(() => {
 
 .data-table :deep(.p-datatable-thead) {
   position: sticky !important;
-  top: 98px !important;
+  top: 0 !important;
   z-index: 100 !important;
 }
 
 .data-table :deep(.p-datatable-thead > tr > th) {
-  position: sticky !important;
-  top: 98px !important;
-  z-index: 100 !important;
   padding: 1.25rem 1rem !important;
   background: var(--bg-tertiary) !important;
   border-color: var(--border-primary) !important;
