@@ -124,10 +124,9 @@
     </div>
 
     <!-- List View -->
-    <div class="table-scroll-container">
+    <div v-if="localViewMode === 'list'" class="table-scroll-container">
       <DataTablePrime
         ref="dataTableRef"
-        v-if="localViewMode === 'list'"
         :value="displayedItems"
         :loading="loading"
         striped-rows
