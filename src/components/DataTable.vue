@@ -681,8 +681,9 @@ onUnmounted(() => {
   max-width: 100%;
   min-width: 0;
   /* Fill available space */
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .table-toolbar {
@@ -847,9 +848,9 @@ onUnmounted(() => {
 /* Table scroll container - handles both horizontal and vertical scroll */
 .table-scroll-container {
   overflow: auto;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
-  min-height: 0; /* Important for flex overflow */
+  min-height: 0;
 }
 
 .data-table {
@@ -1012,7 +1013,8 @@ onUnmounted(() => {
 /* Gallery View */
 .gallery-view {
   padding: 2rem;
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: auto;
 }
 

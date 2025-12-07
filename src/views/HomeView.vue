@@ -453,6 +453,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* View Tabs */
@@ -521,9 +522,9 @@ onMounted(async () => {
   display: flex;
   align-items: stretch;
   gap: 0.75rem;
-  max-width: 100%;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .center-content {
@@ -533,6 +534,7 @@ onMounted(async () => {
   min-width: 0;
   min-height: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .filters-section {
