@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-view">
+  <div class="settings-view" ref="viewRef">
     <div class="settings-inner">
       <!-- Header -->
       <PageHeader
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
@@ -85,6 +85,16 @@ import { useEmails } from '@/composables/useEmails'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
+
+const viewRef = ref<HTMLElement | null>(null)
+const scrollbarWidth = ref(0)
+let resizeObserver: ResizeObserver | null = null
+
+const updateScrollbarWidth = () => {
+  if (viewRef.value) {
+    scrollbarWidth.value = Math.max(0, viewRef.value.offsetWidth - viewRef.value.clientWidth)
+  }
+}
 
 const {
   extractionRun,
@@ -163,12 +173,22 @@ const handleRerunProjectLinking = async () => {
 
 // Initialize
 onMounted(async () => {
+  if (viewRef.value) {
+    resizeObserver = new ResizeObserver(() => requestAnimationFrame(updateScrollbarWidth))
+    resizeObserver.observe(viewRef.value)
+    updateScrollbarWidth()
+  }
+
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
     fetchLatestPersonLinkingRun(),
     fetchLatestProjectLinkingRun()
   ])
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
 })
 </script>
 
@@ -184,8 +204,9 @@ onMounted(async () => {
 .settings-inner {
   min-height: 100%;
   padding: 2rem;
-  /* Scrollbar eats padding: 100vw = viewport, 100% = parent content width (shrinks when scrollbar present) */
-  padding-right: calc(2rem - (100vw - 100%));
+  padding-right: calc(2rem - v-bind('scrollbarWidth + "px"'));
+  /* Smooth transition to hide the 1-frame flicker */
+  transition: padding-right 50ms ease-out;
 }
 
 /* Settings Layout */
