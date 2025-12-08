@@ -1,5 +1,5 @@
 <template>
-  <div class="home-view">
+  <div class="home-view" @click="closeSyncPopup">
     <!-- Header -->
     <PageHeader
       title="ibhelm Dashboard"
@@ -23,8 +23,20 @@
       </template>
       
       <template #center>
-        <!-- Sync Status Panel -->
-        <SyncStatusPanel :sync-status="syncStatus" />
+        <!-- Sync Status Indicator (minimal) -->
+        <div class="sync-status-wrapper" @click.stop>
+          <SyncStatusIndicator 
+            :overall-status="overallStatus" 
+            @click="toggleSyncPopup" 
+          />
+          <!-- Popup -->
+          <div v-if="syncPopupVisible" class="sync-popup-container">
+            <SyncStatusPanel 
+              :sync-status="syncStatus" 
+              :is-source-outdated="isSourceOutdated"
+            />
+          </div>
+        </div>
       </template>
       
       <template #actions>
@@ -91,6 +103,7 @@ import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import DataTable from '@/components/DataTable.vue'
 import ItemDetailDialog from '@/components/ItemDetailDialog.vue'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
@@ -102,8 +115,19 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, updateConfiguration, setCurrentView, currentViewType } = useFilterConfigs()
-const { syncStatus } = useSyncStatus()
+const { syncStatus, overallStatus, isSourceOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
+
+// Sync popup state
+const syncPopupVisible = ref(false)
+
+const toggleSyncPopup = () => {
+  syncPopupVisible.value = !syncPopupVisible.value
+}
+
+const closeSyncPopup = () => {
+  syncPopupVisible.value = false
+}
 
 // View tabs configuration
 const viewTabs = [
@@ -495,6 +519,20 @@ onMounted(async () => {
   height: 2px;
   background: var(--accent-primary);
   border-radius: 1px;
+}
+
+/* Sync Status Wrapper */
+.sync-status-wrapper {
+  position: relative;
+}
+
+.sync-popup-container {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  z-index: 1000;
 }
 
 /* Settings button */

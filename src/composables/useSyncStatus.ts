@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 
 interface SyncStatusRow {
@@ -8,43 +8,69 @@ interface SyncStatusRow {
   pending_count: number
   processing_count: number
   failed_count: number
+  last_processed_at: string | null
 }
 
-interface SyncStatus {
-  teamwork: {
-    lastScanned: Date | null
-    pendingCount: number
-    processingCount: number
-  }
-  missive: {
-    lastScanned: Date | null
-    pendingCount: number
-    processingCount: number
-  }
-  craft: {
-    lastScanned: Date | null
-    pendingCount: number
-    processingCount: number
-  }
+export interface SyncSourceStatus {
+  lastScanned: Date | null
+  lastChange: Date | null
+  pendingCount: number
+  processingCount: number
 }
+
+export interface SyncStatus {
+  teamwork: SyncSourceStatus
+  missive: SyncSourceStatus
+  craft: SyncSourceStatus
+}
+
+export type OverallStatus = 'synced' | 'importing' | 'outdated'
+
+const OUTDATED_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
 
 export function useSyncStatus() {
   const syncStatus = ref<SyncStatus>({
-    teamwork: { lastScanned: null, pendingCount: 0, processingCount: 0 },
-    missive: { lastScanned: null, pendingCount: 0, processingCount: 0 },
-    craft: { lastScanned: null, pendingCount: 0, processingCount: 0 }
+    teamwork: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
+    missive: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
+    craft: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 }
   })
   const loading = ref(false)
   const error = ref<string | null>(null)
   
   let pollInterval: number | null = null
 
+  // Computed: check if any source has pending items
+  const hasAnyPending = computed(() => 
+    syncStatus.value.teamwork.pendingCount > 0 ||
+    syncStatus.value.missive.pendingCount > 0 ||
+    syncStatus.value.craft.pendingCount > 0
+  )
+
+  // Computed: check if any last sync is outdated (>5 min)
+  const isAnyOutdated = computed(() => {
+    const now = Date.now()
+    const sources = [syncStatus.value.teamwork, syncStatus.value.missive, syncStatus.value.craft]
+    return sources.some(s => s.lastScanned && (now - s.lastScanned.getTime()) > OUTDATED_THRESHOLD_MS)
+  })
+
+  // Computed: check if a specific source is outdated
+  const isSourceOutdated = (source: SyncSourceStatus): boolean => {
+    if (!source.lastScanned) return false
+    return (Date.now() - source.lastScanned.getTime()) > OUTDATED_THRESHOLD_MS
+  }
+
+  // Computed: overall status for header indicator
+  const overallStatus = computed<OverallStatus>(() => {
+    if (hasAnyPending.value) return 'importing'
+    if (isAnyOutdated.value) return 'outdated'
+    return 'synced'
+  })
+
   const fetchSyncStatus = async () => {
     try {
       loading.value = true
       error.value = null
 
-      // Use the combined RPC function for efficient single-call fetch
       const { data, error: rpcError } = await supabase.rpc('get_sync_status')
 
       if (rpcError) {
@@ -66,11 +92,8 @@ export function useSyncStatus() {
   }
 
   // Parse timestamp from database as UTC
-  // PostgreSQL returns TIMESTAMP without timezone, but values are stored in UTC
-  // Append 'Z' to treat the timestamp as UTC, so it converts correctly to local time
   const parseUtcTimestamp = (timestamp: string | null): Date | null => {
     if (!timestamp) return null
-    // If the timestamp doesn't already have timezone info, treat it as UTC
     const utcTimestamp = timestamp.endsWith('Z') || timestamp.includes('+') || timestamp.includes('-', 10)
       ? timestamp
       : timestamp + 'Z'
@@ -79,19 +102,16 @@ export function useSyncStatus() {
 
   const processSyncStatus = (rows: SyncStatusRow[]) => {
     rows.forEach(row => {
-      if (row.source === 'teamwork') {
-        syncStatus.value.teamwork.lastScanned = parseUtcTimestamp(row.last_event_time)
-        syncStatus.value.teamwork.pendingCount = row.pending_count || 0
-        syncStatus.value.teamwork.processingCount = row.processing_count || 0
-      } else if (row.source === 'missive') {
-        syncStatus.value.missive.lastScanned = parseUtcTimestamp(row.last_event_time)
-        syncStatus.value.missive.pendingCount = row.pending_count || 0
-        syncStatus.value.missive.processingCount = row.processing_count || 0
-      } else if (row.source === 'craft') {
-        syncStatus.value.craft.lastScanned = parseUtcTimestamp(row.last_event_time)
-        syncStatus.value.craft.pendingCount = row.pending_count || 0
-        syncStatus.value.craft.processingCount = row.processing_count || 0
+      const status: SyncSourceStatus = {
+        lastScanned: parseUtcTimestamp(row.last_event_time),
+        lastChange: parseUtcTimestamp(row.last_processed_at),
+        pendingCount: row.pending_count || 0,
+        processingCount: row.processing_count || 0
       }
+      
+      if (row.source === 'teamwork') syncStatus.value.teamwork = status
+      else if (row.source === 'missive') syncStatus.value.missive = status
+      else if (row.source === 'craft') syncStatus.value.craft = status
     })
   }
 
@@ -119,6 +139,10 @@ export function useSyncStatus() {
     syncStatus,
     loading,
     error,
+    overallStatus,
+    hasAnyPending,
+    isAnyOutdated,
+    isSourceOutdated,
     fetchSyncStatus,
     startPolling,
     stopPolling
