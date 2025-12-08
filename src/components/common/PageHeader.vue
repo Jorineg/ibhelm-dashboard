@@ -54,7 +54,7 @@ defineEmits<{
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   position: relative;
-  z-index: 100;
+  z-index: 200;
 }
 
 .header-left {
