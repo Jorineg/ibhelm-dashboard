@@ -128,13 +128,11 @@ const formatFullDate = (date: Date | null): string => {
 }
 
 .sync-sources {
-  padding: 0.5rem;
+  padding: 0.5rem 0;
 }
 
 .sync-source-item {
-  padding: 0.75rem;
-  border-radius: var(--radius-md);
-  transition: background 0.15s ease;
+  padding: 0.75rem 1rem;
 }
 
 .sync-source-item:not(:last-child) {

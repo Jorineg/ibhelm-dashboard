@@ -535,7 +535,7 @@ onMounted(async () => {
   left: 50%;
   transform: translateX(-50%);
   margin-top: 0.5rem;
-  z-index: 1000;
+  z-index: 9999;
 }
 
 /* Settings button */
