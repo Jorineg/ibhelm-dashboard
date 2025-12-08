@@ -63,7 +63,7 @@ const statusTitle = computed(() => {
 }
 
 .indicator-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--text-tertiary);
   text-transform: lowercase;
 }
@@ -72,12 +72,12 @@ const statusTitle = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 .indicator-status i {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .indicator-status.synced {

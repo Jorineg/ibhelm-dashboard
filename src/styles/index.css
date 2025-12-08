@@ -41,7 +41,6 @@ body {
   display: flex;
   min-width: 320px;
   background-color: var(--bg-primary);
-  zoom: 0.75;
 }
 
 #app {

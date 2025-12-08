@@ -184,9 +184,6 @@ onMounted(async () => {
 .settings-inner {
   min-height: 100%;
   padding: 2rem;
-  /* Scrollbar eats padding - accounting for body zoom: 0.75 */
-  /* scrollbar_zoomed = 100vw/0.75 - 100% (difference is scrollbar width in zoomed pixels) */
-  padding-right: calc(2rem + 100% - 100vw / 0.75);
 }
 
 /* Settings Layout */

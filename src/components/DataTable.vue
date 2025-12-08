@@ -1139,12 +1139,8 @@ onUnmounted(() => {
 
 <!-- Unscoped styles for elements appended to body (like resize helper) -->
 <style>
-/* Fix column resize indicator position - compensates for body zoom: 0.75 */
-/* The helper's left position is set based on visual coords, but body zoom affects it again */
-/* Counter with inverse zoom: 1/0.75 = 1.333... */
 .p-column-resizer-helper {
-  zoom: 1.333333 !important;
-  width: 1.5px !important; /* Compensate for zoom making line thicker (2/1.333) */
+  width: 2px !important;
   background: var(--accent-primary) !important;
   z-index: 9999 !important;
 }

@@ -201,7 +201,7 @@ const handleUpdateName = (name: string) => {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-normal);
