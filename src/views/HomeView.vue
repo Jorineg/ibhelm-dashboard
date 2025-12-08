@@ -515,21 +515,34 @@ const handleExport = async () => {
       selectedTaskTypes.value
     )
     
-    // Get all column fields from the current view's columns
-    const columns = availableColumns.value
-    const headers = columns.map(c => c.header)
-    const fields = columns.map(c => c.field)
+    // Get visible columns only, plus type and link
+    const visibleFields = activeConfig.value?.visibleColumns || []
+    const columns = availableColumns.value.filter(c => visibleFields.includes(c.field))
+    
+    // Build headers and fields: Type first, then visible columns, then Link
+    const headers = ['Type', ...columns.map(c => c.header), 'Link']
+    const fields = ['type', ...columns.map(c => c.field)]
+    
+    // Helper to get primary URL
+    const getLink = (item: ViewDataItem): string => {
+      if (item.teamwork_url) return item.teamwork_url
+      if (item.missive_url) return item.missive_url
+      if (item.craft_url) return transformCraftUrl(item.craft_url)
+      return ''
+    }
     
     // Convert data to rows
-    const rows = allData.map(item => 
-      fields.map(field => {
+    const rows = allData.map(item => {
+      const rowData = fields.map(field => {
         const value = item[field]
         if (value === null || value === undefined) return ''
         if (Array.isArray(value)) return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ')
         if (typeof value === 'object') return JSON.stringify(value)
         return value
       })
-    )
+      rowData.push(getLink(item))
+      return rowData
+    })
     
     // Create worksheet
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])

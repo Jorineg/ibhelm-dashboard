@@ -265,6 +265,8 @@ const handlePersonClear = () => {
   padding: 2rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 160;
 }
 
 .filter-section {
