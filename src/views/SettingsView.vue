@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
@@ -103,6 +103,13 @@ const {
   rerunProjectLinking,
   fetchLatestProjectLinkingRun
 } = useEmails()
+
+// Scrollbar width -> used to reduce right padding when scrollbar is visible
+const setScrollbarVar = () => {
+  const rawWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+  const clampedWidth = Math.min(rawWidth, 32) // keep a sensible clamp so padding never goes negative
+  document.documentElement.style.setProperty('--settings-scrollbar-width', `${clampedWidth}px`)
+}
 
 // Settings navigation
 const settingsSections = [
@@ -160,6 +167,9 @@ const handleRerunProjectLinking = async () => {
 
 // Initialize
 onMounted(async () => {
+  setScrollbarVar()
+  window.addEventListener('resize', setScrollbarVar)
+
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
@@ -167,15 +177,19 @@ onMounted(async () => {
     fetchLatestProjectLinkingRun()
   ])
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', setScrollbarVar)
+  document.documentElement.style.removeProperty('--settings-scrollbar-width')
+})
 </script>
 
 <style scoped>
 .settings-view {
-  height: 100vh;
+  min-height: 100vh;
   background: var(--bg-primary);
   padding: 2rem;
-  overflow-y: auto;
-  overflow-y: overlay; /* scrollbar overlays content, doesn't take layout space */
+  padding-right: calc(2rem - var(--settings-scrollbar-width, 0px));
 }
 
 /* Settings Layout */
