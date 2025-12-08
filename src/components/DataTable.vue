@@ -100,7 +100,7 @@
             placeholder="Select Columns"
             :max-selected-labels="3"
             selected-items-label="{0} columns selected"
-            class="column-selector toolbar-input"
+            class="column-selector"
           />
           <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
             ({{ hiddenEmptyColumnsCount }} empty columns hidden)
@@ -142,6 +142,7 @@
         @column-resize-start="handleResizeStart"
         @column-resize-end="handleResizeEnd"
         class="data-table"
+        :class="{ 'is-resizing': isResizing }"
         :resizable-columns="true"
         column-resize-mode="expand"
       >
@@ -503,9 +504,10 @@ const handleResizeStart = () => {
 
 const handleResizeEnd = () => {
   // Delay resetting to prevent sort from firing on mouseup
+  // 200ms gives enough buffer for the click event to be blocked
   resizeTimeout = window.setTimeout(() => {
     isResizing.value = false
-  }, 100)
+  }, 200)
 }
 
 const getCellComponent = (field: string, data: DataItem) => {
@@ -734,7 +736,7 @@ onUnmounted(() => {
 }
 
 .hidden-columns-hint {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-tertiary);
   white-space: nowrap;
 }
@@ -891,30 +893,36 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
+/* Prevent sort clicks during column resize */
+.data-table.is-resizing :deep(.p-datatable-thead > tr > th) {
+  pointer-events: none !important;
+}
+
+/* But allow the resize handle itself to work */
+.data-table.is-resizing :deep(.p-column-resizer) {
+  pointer-events: auto !important;
+}
+
 /* Type column - frozen, not resizable */
 .data-table :deep(.type-column) {
   position: sticky !important;
   left: 0 !important;
   z-index: 2 !important;
-  background: var(--bg-secondary) !important;
 }
 
 /* Type column in header - must be above both thead (z-index 100) and body type cells */
 .data-table :deep(.p-datatable-thead .type-column) {
   z-index: 110 !important;
-  background: var(--bg-tertiary) !important;
+}
+
+/* Type column body - inherit row background for striping/hover */
+.data-table :deep(.p-datatable-tbody > tr > .type-column) {
+  background: inherit !important;
 }
 
 /* Disable resize handle on type column */
 .data-table :deep(.type-column .p-column-resizer) {
   display: none !important;
-}
-
-/* Fix column resize indicator position */
-.data-table :deep(.p-column-resizer-helper) {
-  position: absolute !important;
-  width: 2px !important;
-  background: var(--accent-primary) !important;
 }
 
 /* Ensure resize handle is positioned correctly */
@@ -1127,5 +1135,18 @@ onUnmounted(() => {
   margin: 1rem 0;
 }
 
+</style>
+
+<!-- Unscoped styles for elements appended to body (like resize helper) -->
+<style>
+/* Fix column resize indicator position - compensates for body zoom: 0.75 */
+/* The helper's left position is set based on visual coords, but body zoom affects it again */
+/* Counter with inverse zoom: 1/0.75 = 1.333... */
+.p-column-resizer-helper {
+  zoom: 1.333333 !important;
+  width: 1.5px !important; /* Compensate for zoom making line thicker (2/1.333) */
+  background: var(--accent-primary) !important;
+  z-index: 9999 !important;
+}
 </style>
 
