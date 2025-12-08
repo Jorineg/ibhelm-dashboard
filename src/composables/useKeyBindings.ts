@@ -25,6 +25,7 @@ export interface KeyBindings {
   newConfig: KeyBinding
   deleteConfig: KeyBinding
   focusSearch: KeyBinding
+  toggleView: KeyBinding
 }
 
 const STORAGE_KEY = 'ibhelm_key_bindings'
@@ -48,7 +49,8 @@ const defaultBindings: KeyBindings = {
   closeDialog: { key: 'Escape', description: 'Close dialog' },
   newConfig: { key: 'n', description: 'Create new filter config' },
   deleteConfig: { key: 'd', description: 'Delete current filter config' },
-  focusSearch: { key: 's', description: 'Focus search box' }
+  focusSearch: { key: 's', description: 'Focus search box' },
+  toggleView: { key: 'v', description: 'Toggle list/gallery view' }
 }
 
 const bindings = ref<KeyBindings>({ ...defaultBindings })

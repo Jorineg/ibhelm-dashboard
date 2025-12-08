@@ -20,6 +20,15 @@
             class="clear-search"
             @click="emit('clearSearch')"
           />
+          <InfoTooltip position="bottom">
+            <strong>Searches in:</strong>
+            <ul>
+              <li>Task/email name &amp; subject</li>
+              <li>Description &amp; preview</li>
+              <li>Email body content</li>
+              <li>Conversation comments</li>
+            </ul>
+          </InfoTooltip>
         </div>
         
         <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
@@ -209,12 +218,13 @@
     </div>
 
     <!-- Gallery View -->
-    <div v-else class="gallery-view">
-      <div class="gallery-grid">
+    <div v-else class="gallery-view" ref="galleryViewRef">
+      <div class="gallery-grid" ref="galleryGridRef">
         <div
-          v-for="item in displayedItems"
+          v-for="(item, index) in displayedItems"
           :key="item.id"
           class="gallery-item"
+          :class="{ 'keyboard-selected': index === props.selectedRow }"
           @click="handleRowClick({ data: item })"
         >
           <div class="gallery-item-header">
@@ -304,6 +314,7 @@ import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
+import { InfoTooltip } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
@@ -396,6 +407,8 @@ const galleryScrollTrigger = ref<HTMLElement | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTablePrime> | null>(null)
 const searchInputRef = ref<HTMLElement | null>(null)
+const galleryGridRef = ref<HTMLElement | null>(null)
+const galleryViewRef = ref<HTMLElement | null>(null)
 const isResizing = ref(false)
 let resizeTimeout: number | null = null
 
@@ -424,7 +437,25 @@ const scrollHorizontal = (direction: 'left' | 'right') => {
   })
 }
 
-defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal })
+// Get number of columns in gallery grid
+const getGalleryColumns = (): number => {
+  if (!galleryGridRef.value || displayedItems.value.length === 0) return 1
+  const gridStyle = window.getComputedStyle(galleryGridRef.value)
+  const columns = gridStyle.gridTemplateColumns.split(' ').length
+  return columns || 1
+}
+
+// Scroll to selected gallery item
+const scrollToSelectedGalleryItem = () => {
+  if (props.selectedRow === undefined || props.selectedRow < 0) return
+  if (!galleryGridRef.value) return
+  const items = galleryGridRef.value.querySelectorAll('.gallery-item')
+  if (items && items[props.selectedRow]) {
+    items[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryColumns, scrollToSelectedGalleryItem })
 
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,
@@ -875,7 +906,13 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  width: 250px;
+  width: 270px;
+  gap: 0.25rem;
+}
+
+.search-wrapper > .autocomplete-container,
+.search-wrapper > .p-inputtext {
+  flex: 1;
 }
 
 .search-icon {
@@ -1098,6 +1135,12 @@ onUnmounted(() => {
   box-shadow: var(--shadow-lg);
   transform: translateY(-4px);
   border-color: var(--text-disabled);
+}
+
+.gallery-item.keyboard-selected {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  background: var(--accent-primary-dark);
 }
 
 .gallery-item-header {

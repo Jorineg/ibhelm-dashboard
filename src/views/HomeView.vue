@@ -173,7 +173,13 @@ const selectedItem = ref<ViewDataItem | null>(null)
 // Keyboard navigation
 const selectedRow = ref(-1)
 const selectedCol = ref(0)
-const dataTableRef = ref<{ focusSearch: () => void; scrollToSelectedCell: () => void; scrollHorizontal: (dir: 'left' | 'right') => void } | null>(null)
+const dataTableRef = ref<{ 
+  focusSearch: () => void
+  scrollToSelectedCell: () => void
+  scrollHorizontal: (dir: 'left' | 'right') => void
+  getGalleryColumns: () => number
+  scrollToSelectedGalleryItem: () => void 
+} | null>(null)
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -546,45 +552,104 @@ const handleKeyDown = (event: KeyboardEvent) => {
     }
   }
   
-  // Navigation shortcuts
+  // Navigation shortcuts - handle differently for list vs gallery view
+  const isGalleryView = activeConfig.value?.viewMode === 'gallery'
+  const maxIndex = filteredAndSearchedItems.value.length - 1
+  
+  const scrollToSelected = () => {
+    nextTick(() => {
+      if (isGalleryView) {
+        dataTableRef.value?.scrollToSelectedGalleryItem()
+      } else {
+        dataTableRef.value?.scrollToSelectedCell()
+      }
+    })
+  }
+  
+  const initSelection = () => {
+    if (selectedRow.value === -1 && maxIndex >= 0) {
+      selectedRow.value = 0
+      scrollToSelected()
+      return true
+    }
+    return false
+  }
+  
   if (key === bindings.navigateDown.key) {
     event.preventDefault()
-    const maxRow = filteredAndSearchedItems.value.length - 1
-    if (selectedRow.value < maxRow) {
-      selectedRow.value++
-      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
-    } else if (selectedRow.value === -1 && maxRow >= 0) {
-      selectedRow.value = 0
-      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
-    } else if (selectedRow.value === maxRow && hasMore.value && !loading.value) {
-      // At the end, trigger load more
-      handleLoadMore()
+    if (initSelection()) return
+    if (isGalleryView) {
+      // Move down by number of columns in gallery
+      const cols = dataTableRef.value?.getGalleryColumns() || 1
+      const newIndex = Math.min(selectedRow.value + cols, maxIndex)
+      if (newIndex !== selectedRow.value) {
+        selectedRow.value = newIndex
+        scrollToSelected()
+      } else if (selectedRow.value === maxIndex && hasMore.value && !loading.value) {
+        handleLoadMore()
+      }
+    } else {
+      if (selectedRow.value < maxIndex) {
+        selectedRow.value++
+        scrollToSelected()
+      } else if (selectedRow.value === maxIndex && hasMore.value && !loading.value) {
+        handleLoadMore()
+      }
     }
     return
   }
   
   if (key === bindings.navigateUp.key) {
     event.preventDefault()
-    if (selectedRow.value > 0) {
-      selectedRow.value--
-      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
-    } else if (selectedRow.value === -1 && filteredAndSearchedItems.value.length > 0) {
-      selectedRow.value = 0
-      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    if (initSelection()) return
+    if (isGalleryView) {
+      // Move up by number of columns in gallery
+      const cols = dataTableRef.value?.getGalleryColumns() || 1
+      const newIndex = Math.max(selectedRow.value - cols, 0)
+      if (newIndex !== selectedRow.value) {
+        selectedRow.value = newIndex
+        scrollToSelected()
+      }
+    } else {
+      if (selectedRow.value > 0) {
+        selectedRow.value--
+        scrollToSelected()
+      }
     }
     return
   }
   
-  // Horizontal scrolling
   if (key === bindings.navigateLeft.key) {
     event.preventDefault()
-    dataTableRef.value?.scrollHorizontal('left')
+    if (isGalleryView) {
+      // Move left by 1 in gallery
+      if (initSelection()) return
+      if (selectedRow.value > 0) {
+        selectedRow.value--
+        scrollToSelected()
+      }
+    } else {
+      // Horizontal scroll in list view
+      dataTableRef.value?.scrollHorizontal('left')
+    }
     return
   }
   
   if (key === bindings.navigateRight.key) {
     event.preventDefault()
-    dataTableRef.value?.scrollHorizontal('right')
+    if (isGalleryView) {
+      // Move right by 1 in gallery
+      if (initSelection()) return
+      if (selectedRow.value < maxIndex) {
+        selectedRow.value++
+        scrollToSelected()
+      } else if (selectedRow.value === maxIndex && hasMore.value && !loading.value) {
+        handleLoadMore()
+      }
+    } else {
+      // Horizontal scroll in list view
+      dataTableRef.value?.scrollHorizontal('right')
+    }
     return
   }
   
@@ -622,6 +687,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (key === bindings.focusSearch.key) {
     event.preventDefault()
     dataTableRef.value?.focusSearch()
+    return
+  }
+  
+  // Toggle view (v)
+  if (key === bindings.toggleView.key) {
+    event.preventDefault()
+    const newMode = activeConfig.value?.viewMode === 'gallery' ? 'list' : 'gallery'
+    handleUpdateViewMode(newMode)
     return
   }
 }

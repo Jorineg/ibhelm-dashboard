@@ -13,54 +13,77 @@
             <label :for="filterName">{{ formatFilterName(filterName) }}</label>
             
             <!-- Project autocomplete -->
-            <AutocompleteInput
-              v-if="filterName === 'project'"
-              :id="filterName"
-              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
-              :suggestions="projectSuggestions"
-              :loading="projectLoading"
-              :placeholder="`Filter by ${formatFilterName(filterName)}`"
-              primary-field="name"
-              secondary-field="company_name"
-              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
-              @search="handleProjectSearch"
-              @select="handleProjectSelect"
-              @clear="handleProjectClear"
-            >
-              <template #option="{ suggestion }">
-                <div class="project-option">
-                  <span class="project-name">{{ suggestion.name }}</span>
-                  <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
-                  <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
-                </div>
-              </template>
-            </AutocompleteInput>
+            <div v-if="filterName === 'project'" class="filter-input-with-info">
+              <AutocompleteInput
+                :id="filterName"
+                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :suggestions="projectSuggestions"
+                :loading="projectLoading"
+                :placeholder="`Filter by ${formatFilterName(filterName)}`"
+                primary-field="name"
+                secondary-field="company_name"
+                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @search="handleProjectSearch"
+                @select="handleProjectSelect"
+                @clear="handleProjectClear"
+              >
+                <template #option="{ suggestion }">
+                  <div class="project-option">
+                    <span class="project-name">{{ suggestion.name }}</span>
+                    <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
+                    <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
+                  </div>
+                </template>
+              </AutocompleteInput>
+              <InfoTooltip position="bottom">
+                <strong>Searches in:</strong>
+                <ul>
+                  <li>Project name</li>
+                  <li>Company name</li>
+                  <li>Project description</li>
+                </ul>
+              </InfoTooltip>
+            </div>
             
             <!-- Involved person autocomplete -->
-            <AutocompleteInput
-              v-else-if="filterName === 'involved_person'"
-              :id="filterName"
-              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
-              :suggestions="personSuggestions"
-              :loading="personLoading"
-              :placeholder="`Filter by ${formatFilterName(filterName)}`"
-              primary-field="display_name"
-              secondary-field="primary_email"
-              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
-              @search="handlePersonSearch"
-              @select="handlePersonSelect"
-              @clear="handlePersonClear"
-            >
-              <template #option="{ suggestion }">
-                <div class="person-option">
-                  <div class="person-info">
-                    <span class="person-name">{{ suggestion.display_name }}</span>
-                    <span v-if="suggestion.primary_email" class="person-email">{{ suggestion.primary_email }}</span>
+            <div v-else-if="filterName === 'involved_person'" class="filter-input-with-info">
+              <AutocompleteInput
+                :id="filterName"
+                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :suggestions="personSuggestions"
+                :loading="personLoading"
+                :placeholder="`Filter by ${formatFilterName(filterName)}`"
+                primary-field="display_name"
+                secondary-field="primary_email"
+                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @search="handlePersonSearch"
+                @select="handlePersonSelect"
+                @clear="handlePersonClear"
+              >
+                <template #option="{ suggestion }">
+                  <div class="person-option">
+                    <div class="person-info">
+                      <span class="person-name">{{ suggestion.display_name }}</span>
+                      <span v-if="suggestion.primary_email" class="person-email">{{ suggestion.primary_email }}</span>
+                    </div>
+                    <span v-if="suggestion.is_internal" class="person-badge internal">Internal</span>
                   </div>
-                  <span v-if="suggestion.is_internal" class="person-badge internal">Internal</span>
-                </div>
-              </template>
-            </AutocompleteInput>
+                </template>
+              </AutocompleteInput>
+              <InfoTooltip position="bottom">
+                <strong>Searches in:</strong>
+                <ul>
+                  <li>Unified person names &amp; emails</li>
+                  <li>Teamwork users</li>
+                  <li>Missive contacts</li>
+                </ul>
+                <strong style="margin-top: 0.5rem;">Shows items where person is:</strong>
+                <ul>
+                  <li>Task assignee, creator, or updater</li>
+                  <li>Email sender or recipient</li>
+                </ul>
+              </InfoTooltip>
+            </div>
             
             <!-- Regular input for other filters -->
             <InputText
@@ -142,7 +165,7 @@ import { computed } from 'vue'
 import InputText from 'primevue/inputtext'
 import Dropdown from 'primevue/dropdown'
 import Button from 'primevue/button'
-import { AutocompleteInput } from '@/components/common'
+import { AutocompleteInput, InfoTooltip } from '@/components/common'
 import type { Column, ColumnFilter, FilterOperator } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useProjectAutocomplete, usePersonAutocomplete } from '@/composables/useAutocomplete'
@@ -272,6 +295,16 @@ const handlePersonClear = () => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.filter-input-with-info {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.filter-input-with-info > :first-child {
+  flex: 1;
 }
 
 .filter-actions-inline {
