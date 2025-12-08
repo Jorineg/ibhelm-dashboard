@@ -32,7 +32,12 @@
   padding: 0;
 }
 
-html, body {
+html {
+  height: 100%;
+  font-size: 75%; /* Scale down UI (1rem = 12px instead of 16px) */
+}
+
+body {
   height: 100%;
 }
 
