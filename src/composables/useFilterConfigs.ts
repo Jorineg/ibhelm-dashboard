@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { FilterConfiguration, ColumnFilter, ViewType } from '@/types'
 
 const STORAGE_KEY = 'ibhelm_filter_configurations'
@@ -117,7 +117,7 @@ function saveConfigurations() {
   }
 }
 
-// Initialize module-level watchers (runs once)
+// Initialize module (runs once)
 let moduleInitialized = false
 function initializeModule() {
   if (moduleInitialized) return
@@ -125,15 +125,6 @@ function initializeModule() {
   
   // Load configurations from storage
   loadConfigurations()
-  
-  // Auto-save when configurations change (deep watch)
-  watch(allConfigurations, () => {
-    saveConfigurations()
-  }, { deep: true })
-
-  watch(activeConfigIds, () => {
-    saveConfigurations()
-  }, { deep: true })
 }
 
 export function useFilterConfigs() {
@@ -149,6 +140,7 @@ export function useFilterConfigs() {
     config.name = name || `Configuration ${configurations.value.length + 1}`
     allConfigurations.value.push(config)
     activeConfigIds.value[currentViewType.value] = config.id
+    saveConfigurations()
     return config
   }
 
@@ -166,6 +158,7 @@ export function useFilterConfigs() {
 
     allConfigurations.value.push(duplicate)
     activeConfigIds.value[currentViewType.value] = duplicate.id
+    saveConfigurations()
     return duplicate
   }
 
@@ -191,6 +184,7 @@ export function useFilterConfigs() {
       }
     }
 
+    saveConfigurations()
     return true
   }
 
@@ -205,8 +199,10 @@ export function useFilterConfigs() {
       updatedAt: new Date().toISOString()
     }
     
-    // Replace the config in the array to trigger reactivity
+    // Replace the config in the array
     allConfigurations.value.splice(index, 1, updatedConfig)
+    // Explicit save - deep watch on arrays can be unreliable with splice
+    saveConfigurations()
     return true
   }
 
@@ -215,6 +211,7 @@ export function useFilterConfigs() {
     if (config) {
       // Set active config for the view the config belongs to
       activeConfigIds.value[config.viewType] = id
+      saveConfigurations()
       return true
     }
     return false

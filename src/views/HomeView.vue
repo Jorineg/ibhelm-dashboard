@@ -76,6 +76,7 @@
           :selected-row="selectedRow"
           :selected-col="selectedCol"
           :exporting="exporting"
+          :filter-config-id="activeConfig?.id"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"

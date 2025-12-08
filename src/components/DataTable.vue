@@ -33,7 +33,6 @@
         
         <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
           <template v-if="props.viewType === 'items' || !props.viewType">
-            <span class="toggle-label">Show:</span>
             
             <!-- Task type checkboxes -->
             <div 
@@ -141,12 +140,19 @@
       </div>
     </div>
 
+    <!-- Loading overlay - positioned outside scroll container -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-state">
+        <i class="pi pi-spin pi-spinner loading-icon"></i>
+        <p>Loading data...</p>
+      </div>
+    </div>
+
     <!-- List View -->
-    <div v-if="localViewMode === 'list'" class="table-scroll-container" ref="scrollContainerRef">
+    <div v-show="localViewMode === 'list'" class="table-scroll-container" ref="scrollContainerRef">
       <DataTablePrime
         ref="dataTableRef"
         :value="displayedItems"
-        :loading="loading"
         striped-rows
         :paginator="false"
         :rows="displayedItems.length"
@@ -172,12 +178,6 @@
           </div>
         </template>
 
-        <template #loading>
-          <div class="loading-state">
-            <i class="pi pi-spin pi-spinner loading-icon"></i>
-            <p>Loading data...</p>
-          </div>
-        </template>
 
         <!-- Type Column (frozen on left, only for items view) -->
         <Column
@@ -227,7 +227,7 @@
     </div>
 
     <!-- Gallery View -->
-    <div v-else class="gallery-view" ref="galleryViewRef">
+    <div v-show="localViewMode === 'gallery'" class="gallery-view" ref="galleryViewRef">
       <div class="gallery-grid" ref="galleryGridRef">
         <div
           v-for="(item, index) in displayedItems"
@@ -350,6 +350,8 @@ interface Props {
   selectedCol?: number
   // Export state
   exporting?: boolean
+  // Filter config ID to track config changes
+  filterConfigId?: string
 }
 
 interface Emits {
@@ -423,6 +425,10 @@ const galleryGridRef = ref<HTMLElement | null>(null)
 const galleryViewRef = ref<HTMLElement | null>(null)
 const isResizing = ref(false)
 let resizeTimeout: number | null = null
+
+// Cache columns that have data to preserve visibility during loading
+const cachedColumnsWithData = ref<Set<string>>(new Set())
+const lastFilterConfigId = ref<string | undefined>(undefined)
 
 // Expose methods for parent component
 const focusSearch = () => {
@@ -523,6 +529,10 @@ const orderedVisibleColumnsWithoutType = computed(() => {
 
 // Count columns that are hidden because all their values are empty
 const hiddenEmptyColumnsCount = computed(() => {
+  // During loading with same config, use cached visibility
+  if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
+    return props.visibleColumns.filter(field => !cachedColumnsWithData.value.has(field)).length
+  }
   if (props.items.length === 0) return 0
   return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
 })
@@ -535,7 +545,12 @@ const getColumnStyle = (col: ColumnType) => {
 
 // Check if column should be shown based on data
 const shouldShowColumn = (field: string): boolean => {
-  // If no items, show all columns
+  // If loading and same filter config, use cached visibility
+  if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
+    return cachedColumnsWithData.value.has(field)
+  }
+  
+  // If no items (new config or initial load), show all columns
   if (props.items.length === 0) return true
 
   // Check if any item has a non-empty value for this field
@@ -544,6 +559,31 @@ const shouldShowColumn = (field: string): boolean => {
     return value !== null && value !== undefined && value !== ''
   })
 }
+
+// Update cache when items change with actual data
+watch(() => props.items, (items) => {
+  if (items.length > 0) {
+    // Update cached columns that have data
+    const columnsWithData = new Set<string>()
+    props.columns.forEach(col => {
+      const hasData = items.some(item => {
+        const value = item[col.field]
+        return value !== null && value !== undefined && value !== ''
+      })
+      if (hasData) columnsWithData.add(col.field)
+    })
+    cachedColumnsWithData.value = columnsWithData
+    lastFilterConfigId.value = props.filterConfigId
+  }
+}, { immediate: true })
+
+// Reset cache when filter config changes
+watch(() => props.filterConfigId, (newId, oldId) => {
+  if (newId !== oldId && oldId !== undefined) {
+    // Config changed, clear cache so all columns show until new data loads
+    cachedColumnsWithData.value = new Set()
+  }
+})
 
 const displayedItems = computed(() => props.items)
 
@@ -570,8 +610,28 @@ const getRowClass = (data: ViewDataItem) => {
 }
 
 const handleColumnReorder = (event: any) => {
-  const newOrder = event.columns.map((col: any) => col.props.field)
-  emit('update:columnOrder', newOrder)
+  const { dragIndex, dropIndex } = event
+  if (dragIndex === undefined || dropIndex === undefined) return
+  
+  // Account for frozen type column (index 0) if in items view
+  const hasTypeColumn = props.viewType === 'items' || !props.viewType
+  const offset = hasTypeColumn ? 1 : 0
+  const adjustedDragIndex = dragIndex - offset
+  const adjustedDropIndex = dropIndex - offset
+  
+  // Get current visible column order and apply the drag/drop
+  const currentOrder = [...orderedVisibleColumnsWithoutType.value.map(c => c.field)]
+  
+  if (adjustedDragIndex < 0 || adjustedDropIndex < 0 || adjustedDragIndex >= currentOrder.length) return
+  
+  const [moved] = currentOrder.splice(adjustedDragIndex, 1)
+  currentOrder.splice(adjustedDropIndex, 0, moved)
+  
+  // Merge with hidden columns (preserve their positions at the end)
+  const visibleSet = new Set(currentOrder)
+  const hiddenColumns = props.columnOrder.filter(f => !visibleSet.has(f))
+  
+  emit('update:columnOrder', [...currentOrder, ...hiddenColumns])
 }
 
 const handleSort = (event: any) => {
@@ -780,6 +840,19 @@ onUnmounted(() => {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+}
+
+/* Loading overlay - stays fixed in visible area */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  top: 80px; /* Below toolbar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(42, 42, 42, 0.85);
+  z-index: 50;
 }
 
 .table-toolbar {
