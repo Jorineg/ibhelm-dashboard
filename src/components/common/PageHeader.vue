@@ -49,10 +49,6 @@ defineEmits<{
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  padding: 1rem 2rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
   position: relative;
   z-index: 200;
 }
