@@ -401,7 +401,9 @@ let resizeTimeout: number | null = null
 
 // Expose methods for parent component
 const focusSearch = () => {
-  const input = document.querySelector('.search-input input') as HTMLInputElement
+  // PrimeVue InputText wraps the input, so we need to find it within the wrapper
+  const wrapper = document.querySelector('.search-wrapper')
+  const input = wrapper?.querySelector('input') as HTMLInputElement
   input?.focus()
 }
 
@@ -413,7 +415,16 @@ const scrollToSelectedCell = () => {
   }
 }
 
-defineExpose({ focusSearch, scrollToSelectedCell })
+const scrollHorizontal = (direction: 'left' | 'right') => {
+  if (!scrollContainerRef.value) return
+  const scrollAmount = 200
+  scrollContainerRef.value.scrollBy({
+    left: direction === 'right' ? scrollAmount : -scrollAmount,
+    behavior: 'smooth'
+  })
+}
+
+defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal })
 
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,

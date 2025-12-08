@@ -4,7 +4,8 @@ export const formatDate = (dateStr: string) => {
     month: '2-digit',
     year: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    second: '2-digit'
   })
 }
 

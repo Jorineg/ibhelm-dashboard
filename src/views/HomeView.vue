@@ -163,7 +163,7 @@ const selectedItem = ref<ViewDataItem | null>(null)
 // Keyboard navigation
 const selectedRow = ref(-1)
 const selectedCol = ref(0)
-const dataTableRef = ref<{ focusSearch: () => void; scrollToSelectedCell: () => void } | null>(null)
+const dataTableRef = ref<{ focusSearch: () => void; scrollToSelectedCell: () => void; scrollHorizontal: (dir: 'left' | 'right') => void } | null>(null)
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -523,6 +523,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
     } else if (selectedRow.value === -1 && maxRow >= 0) {
       selectedRow.value = 0
       nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    } else if (selectedRow.value === maxRow && hasMore.value && !loading.value) {
+      // At the end, trigger load more
+      handleLoadMore()
     }
     return
   }
@@ -539,6 +542,19 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
+  // Horizontal scrolling
+  if (key === bindings.navigateLeft.key) {
+    event.preventDefault()
+    dataTableRef.value?.scrollHorizontal('left')
+    return
+  }
+  
+  if (key === bindings.navigateRight.key) {
+    event.preventDefault()
+    dataTableRef.value?.scrollHorizontal('right')
+    return
+  }
+  
   // Open link (Enter)
   if (key === bindings.openLink.key && selectedRow.value >= 0) {
     event.preventDefault()
@@ -550,13 +566,17 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
-  // Open detail popup (o)
-  if (key === bindings.openDetail.key && selectedRow.value >= 0) {
+  // Toggle detail popup (o)
+  if (key === bindings.openDetail.key) {
     event.preventDefault()
-    const item = filteredAndSearchedItems.value[selectedRow.value]
-    if (item) {
-      selectedItem.value = item
-      detailDialogVisible.value = true
+    if (detailDialogVisible.value) {
+      detailDialogVisible.value = false
+    } else if (selectedRow.value >= 0) {
+      const item = filteredAndSearchedItems.value[selectedRow.value]
+      if (item) {
+        selectedItem.value = item
+        detailDialogVisible.value = true
+      }
     }
     return
   }

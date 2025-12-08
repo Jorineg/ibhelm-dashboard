@@ -197,7 +197,7 @@ const formatFullDate = (date: Date | null): string => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
 }
 
 .detail-label {
