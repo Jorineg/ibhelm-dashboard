@@ -3,6 +3,98 @@
  * Shared styles for tags, badges, and other repeated elements
  */
 
+/* ========================================
+   Unified Dropdown Panel Styles
+   Used by: AutocompleteInput, PrimeVue Dropdown, PrimeVue MultiSelect
+   ======================================== */
+
+.dropdown-panel {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* Dropdown scrollbar */
+.dropdown-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dropdown-panel::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 3px;
+}
+
+.dropdown-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.dropdown-item {
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.dropdown-item.highlighted,
+.dropdown-item.selected {
+  background: var(--accent-primary-dark);
+}
+
+/* PrimeVue dropdown/multiselect panel overrides - inherit from .dropdown-panel */
+.p-dropdown-panel,
+.p-multiselect-panel {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  overflow: hidden !important;
+}
+
+.p-dropdown-items-wrapper,
+.p-multiselect-items-wrapper {
+  max-height: 360px !important;
+}
+
+.p-dropdown-item,
+.p-multiselect-item {
+  padding: 0.75rem 1rem !important;
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+}
+
+.p-dropdown-item:last-child,
+.p-multiselect-item:last-child {
+  border-bottom: none !important;
+}
+
+.p-dropdown-item:hover,
+.p-multiselect-item:hover {
+  background: var(--bg-hover) !important;
+}
+
+.p-dropdown-item.p-highlight,
+.p-multiselect-item.p-highlight {
+  background: var(--accent-primary-dark) !important;
+}
+
 /* PrimeVue Dialog Overrides */
 .p-dialog {
   background: var(--bg-secondary) !important;

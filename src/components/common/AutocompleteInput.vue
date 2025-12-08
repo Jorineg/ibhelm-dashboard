@@ -33,12 +33,12 @@
     <Transition name="dropdown">
       <div 
         v-if="showDropdown && suggestions.length > 0" 
-        class="autocomplete-dropdown"
+        class="autocomplete-dropdown dropdown-panel"
       >
         <div
           v-for="(suggestion, index) in suggestions"
           :key="suggestion.id"
-          class="autocomplete-option"
+          class="dropdown-item"
           :class="{ 
             highlighted: index === highlightedIndex,
             selected: isSelected(suggestion)
@@ -280,14 +280,13 @@ onUnmounted(() => {
 
 .autocomplete-input:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.15);
+  border-color: var(--border-secondary);
 }
 
 .autocomplete-input.has-dropdown {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
+  border-bottom-color: var(--border-primary);
 }
 
 .autocomplete-input::placeholder {
@@ -320,48 +319,16 @@ onUnmounted(() => {
   background: var(--bg-hover);
 }
 
+/* Dropdown positioning (uses global .dropdown-panel and .dropdown-item for shared styles) */
 .autocomplete-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--accent-primary);
-  border-top: none;
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
-  max-height: 280px;
-  overflow-y: auto;
   z-index: 1000;
-  box-shadow: var(--shadow-lg);
-}
-
-.autocomplete-option {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: background 0.1s ease;
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.autocomplete-option:last-child {
-  border-bottom: none;
-}
-
-.autocomplete-option:hover,
-.autocomplete-option.highlighted {
-  background: var(--bg-hover);
-}
-
-.autocomplete-option.highlighted {
-  background: var(--accent-primary-dark);
-}
-
-.autocomplete-option.selected {
-  background: rgba(74, 158, 255, 0.1);
-}
-
-.autocomplete-option.selected.highlighted {
-  background: var(--accent-primary-dark);
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .option-content {
@@ -390,24 +357,6 @@ onUnmounted(() => {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-4px);
-}
-
-/* Scrollbar styling */
-.autocomplete-dropdown::-webkit-scrollbar {
-  width: 6px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb {
-  background: var(--border-secondary);
-  border-radius: 3px;
-}
-
-.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
 }
 </style>
 

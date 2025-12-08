@@ -5,13 +5,13 @@
   >
     <div class="task-type-header">
       <div class="task-type-info">
-        <!-- Clickable color picker -->
-        <div 
-          class="task-type-color-btn"
-          :style="{ background: taskType.color || '#6366f1' }"
-          @click="(e) => $emit('color-click', taskType, e)"
+        <input 
+          type="color" 
+          :value="taskType.color || '#6366f1'"
+          @input="(e) => $emit('color-change', taskType.id, (e.target as HTMLInputElement).value)"
+          class="task-type-color-input"
           title="Click to change color"
-        ></div>
+        />
         <div class="task-type-details">
           <template v-if="isEditing">
             <InputText
@@ -142,7 +142,7 @@ defineEmits<{
   (e: 'save-name', typeId: string): void
   (e: 'cancel-edit'): void
   (e: 'delete', taskType: TaskType): void
-  (e: 'color-click', taskType: TaskType, event: Event): void
+  (e: 'color-change', typeId: string, color: string): void
   (e: 'add-rule', typeId: string): void
   (e: 'remove-rule', ruleId: string): void
   (e: 'update:editingName', value: string): void
@@ -180,20 +180,36 @@ defineEmits<{
   gap: 0.75rem;
 }
 
-.task-type-color-btn {
+.task-type-color-input {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  padding: 0;
   margin-top: 2px;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: all 0.15s ease;
   border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
-.task-type-color-btn:hover {
+.task-type-color-input:hover {
   transform: scale(1.1);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+.task-type-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.task-type-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.task-type-color-input::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
 }
 
 .task-type-details h3 {
@@ -324,4 +340,3 @@ defineEmits<{
   color: var(--accent-primary);
 }
 </style>
-

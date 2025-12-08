@@ -54,6 +54,14 @@
           @rerun-linking="handleRerunProjectLinking"
         />
 
+        <!-- Cost Groups Section -->
+        <CostGroupsSection
+          v-else-if="activeSection === 'cost-groups'"
+          :cost-group-linking-run="costGroupLinkingRun"
+          :is-linking="isCostGroupLinking"
+          @rerun-linking="handleRerunCostGroupLinking"
+        />
+
         <!-- General Section -->
         <GeneralSection
           v-else-if="activeSection === 'general'"
@@ -78,11 +86,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, CostGroupsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
 import { useEmails } from '@/composables/useEmails'
+import { useCostGroups } from '@/composables/useCostGroups'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
@@ -108,11 +117,19 @@ const {
   fetchLatestProjectLinkingRun
 } = useEmails()
 
+const {
+  costGroupLinkingRun,
+  isLinking: isCostGroupLinking,
+  rerunCostGroupLinking,
+  fetchLatestCostGroupLinkingRun
+} = useCostGroups()
+
 // Settings navigation
 const settingsSections = [
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
+  { id: 'cost-groups', label: 'Cost Groups', icon: 'pi pi-dollar' },
   { id: 'general', label: 'General', icon: 'pi pi-cog' },
   { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
   { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' }
@@ -163,13 +180,24 @@ const handleRerunProjectLinking = async () => {
   }
 }
 
+// Cost Group Linking
+const handleRerunCostGroupLinking = async () => {
+  try {
+    const runId = await rerunCostGroupLinking()
+    console.log('Cost group linking started with run ID:', runId)
+  } catch (error) {
+    console.error('Error starting cost group linking:', error)
+  }
+}
+
 // Initialize
 onMounted(async () => {
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
     fetchLatestPersonLinkingRun(),
-    fetchLatestProjectLinkingRun()
+    fetchLatestProjectLinkingRun(),
+    fetchLatestCostGroupLinkingRun()
   ])
 })
 </script>

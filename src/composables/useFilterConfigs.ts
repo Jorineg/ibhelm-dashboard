@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { FilterConfiguration, ColumnFilter, ViewType } from '@/types'
+import type { FilterConfiguration, ColumnFilter, ViewType, SortConfig } from '@/types'
 
 const STORAGE_KEY = 'ibhelm_filter_configurations'
 
@@ -10,7 +10,8 @@ const DEFAULT_ALWAYS_VISIBLE_FILTERS = [
   'building',
   'floor',
   'room',
-  'kostengruppe'
+  'kostengruppe',
+  'tags'
 ]
 
 // Default visible columns per view type
@@ -18,6 +19,13 @@ const DEFAULT_COLUMNS_BY_VIEW: Record<ViewType, string[]> = {
   items: ['type', 'name', 'status', 'project', 'customer', 'due_date', 'created_at'],
   projects: ['name', 'status', 'company_name', 'client_name', 'task_count', 'created_at'],
   people: ['display_name', 'primary_email', 'is_internal', 'tw_company_name', 'db_created_at']
+}
+
+// Default sort config per view type
+const DEFAULT_SORT_BY_VIEW: Record<ViewType, SortConfig> = {
+  items: { field: 'sort_date', order: 'desc' },
+  projects: { field: 'name', order: 'asc' },
+  people: { field: 'display_name', order: 'asc' }
 }
 
 const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
@@ -30,6 +38,7 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     showEmails: true,
     showCraft: true,
     viewMode: 'list',
+    sortConfig: DEFAULT_SORT_BY_VIEW[viewType],
     alwaysVisibleFilters: {},
     dynamicFilters: [],
     visibleColumns: columns,

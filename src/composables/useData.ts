@@ -7,7 +7,7 @@ const PAGE_SIZE = 50
 // Request versioning to handle race conditions when switching configs
 let requestVersion = 0
 
-// Columns needed for list view - excludes large text fields like body, conversation_comments_text
+// Columns needed for list view - excludes conversation_comments_text (used only for search)
 const UNIFIED_ITEMS_LIST_COLUMNS = `
   id,
   type,
@@ -32,9 +32,11 @@ const UNIFIED_ITEMS_LIST_COLUMNS = `
   task_type_color,
   assignees,
   tags,
+  body,
   preview,
   from_name,
   from_email,
+  recipients,
   conversation_subject,
   attachment_count,
   craft_url,
@@ -53,13 +55,49 @@ export function useData() {
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
 
+  // Helper to check if any tag in the tags array contains the search string
+  const itemMatchesTagFilter = (item: any, tagSearch: string): boolean => {
+    if (!item.tags || !Array.isArray(item.tags)) return false
+    const searchLower = tagSearch.toLowerCase()
+    return item.tags.some((tag: any) => 
+      tag.name && String(tag.name).toLowerCase().includes(searchLower)
+    )
+  }
+
+  // Helper to apply hierarchical cost group filter (400 -> 400-499, 45 -> 450-459, 456 -> exact)
+  const applyCostGroupFilter = (query: any, value: string): any => {
+    const trimmed = value.trim()
+    const num = parseInt(trimmed, 10)
+    if (isNaN(num)) return query
+    
+    if (num >= 100 && num <= 999) {
+      // Full 3-digit code - exact match
+      return query.eq('cost_group_code', String(num))
+    } else if (num >= 10 && num <= 99) {
+      // 2-digit code - match range (45 -> 450-459)
+      return query.gte('cost_group_code', String(num * 10)).lte('cost_group_code', String(num * 10 + 9))
+    } else if (num >= 1 && num <= 9) {
+      // 1-digit code - match range (4 -> 400-499)
+      return query.gte('cost_group_code', String(num * 100)).lte('cost_group_code', String(num * 100 + 99))
+    }
+    return query
+  }
+
   // Helper to apply dynamic filters to a query
   const applyDynamicFiltersToQuery = (query: any, filterConfig: FilterConfiguration | null) => {
     // Apply always-visible filters at database level
     if (filterConfig?.alwaysVisibleFilters) {
       Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
         if (value) {
-          query = query.ilike(key, `%${value}%`)
+          // Special handling for kostengruppe (hierarchical cost group filter)
+          if (key === 'kostengruppe') {
+            query = applyCostGroupFilter(query, value)
+          // Skip tags filter - handled client-side (JSONB array filtering not supported in supabase-js)
+          } else if (key === 'tags') {
+            // Tags are filtered client-side after the query
+          } else {
+            query = query.ilike(key, `%${value}%`)
+          }
         }
       })
     }
@@ -120,51 +158,64 @@ export function useData() {
       const sort = sortConfig || currentSort.value
       const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person || ''
       
-      // Call the RPC function for involved person search
+      // Determine effective task type filter
+      // null = show all tasks, empty array = show no tasks, array with values = show only those
+      const taskTypeFilter = selectedTaskTypes && selectedTaskTypes.length === 0 
+        ? [] // User deselected all - will set showTasks to false
+        : selectedTaskTypes
+      
+      const effectiveShowTasks = showTasks && !(selectedTaskTypes && selectedTaskTypes.length === 0)
+      
+      // Call the RPC function - now handles all filtering server-side
       const { data, error } = await supabase.rpc('get_unified_items_by_involved_person', {
-        p_search_text: involvedPersonSearch,
-        p_show_tasks: showTasks,
+        p_involved_person_search: involvedPersonSearch,
+        p_show_tasks: effectiveShowTasks,
         p_show_emails: showEmails,
+        p_show_craft: showCraft,
         p_text_search: search || null,
         p_sort_field: sort.field,
         p_sort_order: sort.order,
         p_limit: PAGE_SIZE,
-        p_offset: page * PAGE_SIZE
+        p_offset: page * PAGE_SIZE,
+        p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null
       })
 
       if (error) throw error
 
       let filteredData = data || []
 
-      // Apply task type filtering client-side (RPC doesn't handle this)
-      if (selectedTaskTypes && selectedTaskTypes.length > 0) {
-        filteredData = filteredData.filter((item: any) => {
-          if (item.type === 'email') return showEmails
-          if (item.type === 'craft') return showCraft
-          if (item.type === 'task') {
-            return item.task_type_id && selectedTaskTypes.includes(item.task_type_id)
-          }
-          return true
-        })
-      } else if (selectedTaskTypes && selectedTaskTypes.length === 0) {
-        // Empty array = user deselected all task types - filter out all tasks
-        filteredData = filteredData.filter((item: any) => item.type !== 'task')
-      }
-      
-      // Filter out craft items if showCraft is false
-      if (!showCraft) {
-        filteredData = filteredData.filter((item: any) => item.type !== 'craft')
-      }
-
-      // Apply other always-visible filters (except involved_person which is handled by RPC)
+      // Apply other always-visible filters client-side (except involved_person which is handled by RPC)
       if (filterConfig?.alwaysVisibleFilters) {
         Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
           if (value && key !== 'involved_person') {
-            filteredData = filteredData.filter((item: any) => {
-              const itemValue = item[key]
-              if (!itemValue) return false
-              return String(itemValue).toLowerCase().includes(String(value).toLowerCase())
-            })
+            // Special handling for kostengruppe (hierarchical cost group filter)
+            if (key === 'kostengruppe') {
+              const trimmed = value.trim()
+              const searchNum = parseInt(trimmed, 10)
+              if (!isNaN(searchNum)) {
+                filteredData = filteredData.filter((item: any) => {
+                  const code = parseInt(item.cost_group_code, 10)
+                  if (isNaN(code)) return false
+                  if (searchNum >= 100 && searchNum <= 999) {
+                    return code === searchNum
+                  } else if (searchNum >= 10 && searchNum <= 99) {
+                    return code >= searchNum * 10 && code <= searchNum * 10 + 9
+                  } else if (searchNum >= 1 && searchNum <= 9) {
+                    return code >= searchNum * 100 && code <= searchNum * 100 + 99
+                  }
+                  return false
+                })
+              }
+            // Special handling for tags (JSONB array filter)
+            } else if (key === 'tags') {
+              filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, value))
+            } else {
+              filteredData = filteredData.filter((item: any) => {
+                const itemValue = item[key]
+                if (!itemValue) return false
+                return String(itemValue).toLowerCase().includes(String(value).toLowerCase())
+              })
+            }
           }
         })
       }
@@ -173,10 +224,12 @@ export function useData() {
       let count: number | null = null
       if (includeCount) {
         const { data: countResult, error: countError } = await supabase.rpc('count_unified_items_by_involved_person', {
-          p_search_text: involvedPersonSearch,
-          p_show_tasks: showTasks,
+          p_involved_person_search: involvedPersonSearch,
+          p_show_tasks: effectiveShowTasks,
           p_show_emails: showEmails,
-          p_text_search: search || null
+          p_show_craft: showCraft,
+          p_text_search: search || null,
+          p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null
         })
         if (!countError) {
           count = countResult
@@ -260,7 +313,15 @@ export function useData() {
       const { data, error, count } = await query
 
       if (error) throw error
-      return { data: data || [], count }
+      
+      // Apply client-side tags filter (JSONB array filtering not supported in supabase-js)
+      let filteredData = data || []
+      const tagsFilter = filterConfig?.alwaysVisibleFilters?.tags
+      if (tagsFilter) {
+        filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, tagsFilter))
+      }
+      
+      return { data: filteredData, count }
     } catch (error) {
       console.error('Error fetching unified items:', error)
       return { data: [], count: null }
@@ -490,16 +551,21 @@ export function useData() {
           // Use RPC for involved person - fetch in batches since RPC has limit
           const allData: ViewDataItem[] = []
           let page = 0
+          const effectiveShowTasks = showTasks && !(selectedTaskTypes && selectedTaskTypes.length === 0)
+          const taskTypeFilter = selectedTaskTypes && selectedTaskTypes.length > 0 ? selectedTaskTypes : null
+          
           while (true) {
             const { data } = await supabase.rpc('get_unified_items_by_involved_person', {
-              p_search_text: involvedPersonSearch,
-              p_show_tasks: showTasks,
+              p_involved_person_search: involvedPersonSearch,
+              p_show_tasks: effectiveShowTasks,
               p_show_emails: showEmails,
+              p_show_craft: showCraft,
               p_text_search: search || null,
               p_sort_field: sort.field,
               p_sort_order: sort.order,
               p_limit: 1000,
-              p_offset: page * 1000
+              p_offset: page * 1000,
+              p_selected_task_types: taskTypeFilter
             })
             if (!data || data.length === 0) break
             allData.push(...data)
@@ -533,9 +599,26 @@ export function useData() {
         
         query = applyDynamicFiltersToQuery(query, filterConfig)
         const { data } = await query
-        return data || []
+        
+        // Apply client-side tags filter
+        let filteredData = data || []
+        const tagsFilter = filterConfig?.alwaysVisibleFilters?.tags
+        if (tagsFilter) {
+          filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, tagsFilter))
+        }
+        
+        return filteredData
       }
     }
+  }
+
+  // Immediately clear items and show loading (used when switching configs to prevent flicker)
+  const clearAndStartLoading = () => {
+    requestVersion++ // Cancel any pending requests
+    items.value = []
+    loading.value = true
+    hasMore.value = true
+    totalCount.value = null
   }
 
   return {
@@ -548,7 +631,8 @@ export function useData() {
     currentViewType,
     loadData,
     loadMore,
-    fetchAllForExport
+    fetchAllForExport,
+    clearAndStartLoading
   }
 }
 

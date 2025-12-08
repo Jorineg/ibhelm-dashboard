@@ -74,14 +74,80 @@
                 <strong>Searches in:</strong>
                 <ul>
                   <li>Unified person names &amp; emails</li>
-                  <li>Teamwork users</li>
+                  <li>Teamwork users &amp; companies</li>
                   <li>Missive contacts</li>
                 </ul>
                 <strong style="margin-top: 0.5rem;">Shows items where person is:</strong>
                 <ul>
-                  <li>Task assignee, creator, or updater</li>
-                  <li>Email sender or recipient</li>
+                  <li><em>Tasks:</em> assignee, creator, or updater</li>
+                  <li><em>Emails:</em> sender, recipient, conversation assignee, author, or commentator</li>
                 </ul>
+              </InfoTooltip>
+            </div>
+            
+            <!-- Cost group autocomplete -->
+            <div v-else-if="filterName === 'kostengruppe'" class="filter-input-with-info">
+              <AutocompleteInput
+                :id="filterName"
+                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :suggestions="costGroupSuggestions"
+                :loading="costGroupLoading"
+                :placeholder="`Filter by ${formatFilterName(filterName)}`"
+                primary-field="code"
+                secondary-field="name"
+                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @search="handleCostGroupSearch"
+                @select="handleCostGroupSelect"
+                @clear="handleCostGroupClear"
+              >
+                <template #option="{ suggestion }">
+                  <div class="cost-group-option">
+                    <span class="cost-group-code">{{ suggestion.code }}</span>
+                    <span v-if="suggestion.name" class="cost-group-name">{{ suggestion.name }}</span>
+                  </div>
+                </template>
+              </AutocompleteInput>
+              <InfoTooltip position="bottom">
+                <strong>Hierarchical search:</strong>
+                <ul>
+                  <li>Enter <code>4</code> to find all 4xx</li>
+                  <li>Enter <code>45</code> to find all 45x</li>
+                  <li>Enter <code>456</code> to find exact match</li>
+                </ul>
+                <strong style="margin-top: 0.5rem;">Or search by name</strong>
+              </InfoTooltip>
+            </div>
+            
+            <!-- Tag autocomplete -->
+            <div v-else-if="filterName === 'tags'" class="filter-input-with-info">
+              <AutocompleteInput
+                :id="filterName"
+                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :suggestions="tagSuggestions"
+                :loading="tagLoading"
+                :placeholder="`Filter by ${formatFilterName(filterName)}`"
+                primary-field="name"
+                secondary-field="source"
+                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @search="handleTagSearch"
+                @select="handleTagSelect"
+                @clear="handleTagClear"
+              >
+                <template #option="{ suggestion }">
+                  <div class="tag-option">
+                    <span v-if="suggestion.color" class="tag-color" :style="{ backgroundColor: suggestion.color }"></span>
+                    <span class="tag-name">{{ suggestion.name }}</span>
+                    <span class="tag-source">{{ suggestion.source }}</span>
+                  </div>
+                </template>
+              </AutocompleteInput>
+              <InfoTooltip position="bottom">
+                <strong>Searches in:</strong>
+                <ul>
+                  <li>Teamwork task tags</li>
+                  <li>Missive conversation labels</li>
+                </ul>
+                <strong style="margin-top: 0.5rem;">Matches items with any tag containing the search text</strong>
               </InfoTooltip>
             </div>
             
@@ -168,8 +234,8 @@ import Button from 'primevue/button'
 import { AutocompleteInput, InfoTooltip } from '@/components/common'
 import type { Column, ColumnFilter, FilterOperator } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
-import { useProjectAutocomplete, usePersonAutocomplete } from '@/composables/useAutocomplete'
-import type { ProjectSuggestion, PersonSuggestion } from '@/composables/useAutocomplete'
+import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
+import type { ProjectSuggestion, PersonSuggestion, CostGroupSuggestion, TagSuggestion } from '@/composables/useAutocomplete'
 
 interface Props {
   availableColumns: Column[]
@@ -202,6 +268,22 @@ const {
   search: searchPersons,
   clear: clearPersonSuggestions
 } = usePersonAutocomplete()
+
+// Cost group autocomplete
+const {
+  suggestions: costGroupSuggestions,
+  loading: costGroupLoading,
+  search: searchCostGroups,
+  clear: clearCostGroupSuggestions
+} = useCostGroupAutocomplete()
+
+// Tag autocomplete
+const {
+  suggestions: tagSuggestions,
+  loading: tagLoading,
+  search: searchTags,
+  clear: clearTagSuggestions
+} = useTagAutocomplete()
 
 const alwaysVisibleFilterNames = DEFAULT_ALWAYS_VISIBLE_FILTERS
 
@@ -256,6 +338,34 @@ const handlePersonSelect = (suggestion: PersonSuggestion) => {
 const handlePersonClear = () => {
   updateAlwaysVisibleFilter('involved_person', '')
   clearPersonSuggestions()
+}
+
+// Cost group autocomplete handlers
+const handleCostGroupSearch = (searchText: string) => {
+  searchCostGroups(searchText)
+}
+
+const handleCostGroupSelect = (suggestion: CostGroupSuggestion) => {
+  updateAlwaysVisibleFilter('kostengruppe', String(suggestion.code))
+}
+
+const handleCostGroupClear = () => {
+  updateAlwaysVisibleFilter('kostengruppe', '')
+  clearCostGroupSuggestions()
+}
+
+// Tag autocomplete handlers
+const handleTagSearch = (searchText: string) => {
+  searchTags(searchText)
+}
+
+const handleTagSelect = (suggestion: TagSuggestion) => {
+  updateAlwaysVisibleFilter('tags', suggestion.name)
+}
+
+const handleTagClear = () => {
+  updateAlwaysVisibleFilter('tags', '')
+  clearTagSuggestions()
 }
 </script>
 
@@ -422,5 +532,56 @@ const handlePersonClear = () => {
 .person-badge.internal {
   background: rgba(74, 158, 255, 0.15);
   color: var(--accent-primary);
+}
+
+/* Cost group option styling */
+.cost-group-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cost-group-code {
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  min-width: 3ch;
+}
+
+.cost-group-name {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Tag option styling */
+.tag-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tag-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tag-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tag-source {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-tertiary);
 }
 </style>

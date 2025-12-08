@@ -1,12 +1,13 @@
 <template>
-  <div class="color-setting" @click.stop>
+  <div class="color-setting">
     <div class="color-preview-row">
       <div class="color-input-wrapper">
-        <div 
-          class="color-preview" 
-          :style="{ background: modelValue }"
-          @click="togglePicker"
-        ></div>
+        <input 
+          type="color" 
+          :value="modelValue"
+          @input="handleInput"
+          class="color-input"
+        />
         <span class="color-value">{{ modelValue }}</span>
       </div>
       
@@ -17,40 +18,20 @@
         </a>
       </div>
     </div>
-    
-    <div v-if="showPicker" class="color-picker-dropdown">
-      <ColorPicker v-model="editingColor" inline />
-      <div class="color-picker-actions">
-        <Button label="Cancel" severity="secondary" size="small" @click="cancelChange" />
-        <Button label="Apply" size="small" @click="applyChange" :loading="saving" />
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import Button from 'primevue/button'
-import ColorPicker from 'primevue/colorpicker'
+import { computed } from 'vue'
 
 interface Props {
   modelValue: string
   badgeLabel: string
   iconClass: string
-  saving?: boolean
 }
 
-interface Emits {
-  (e: 'update:modelValue', value: string): void
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  saving: false
-})
-const emit = defineEmits<Emits>()
-
-const showPicker = ref(false)
-const editingColor = ref('')
+const props = defineProps<Props>()
+const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 
 const badgeStyle = computed(() => ({
   background: `${props.modelValue}20`,
@@ -64,30 +45,13 @@ const linkButtonStyle = computed(() => ({
   borderColor: `${props.modelValue}30`
 }))
 
-const togglePicker = () => {
-  if (!showPicker.value) {
-    editingColor.value = props.modelValue.replace('#', '')
-  }
-  showPicker.value = !showPicker.value
+const handleInput = (e: Event) => {
+  emit('update:modelValue', (e.target as HTMLInputElement).value)
 }
-
-const cancelChange = () => {
-  showPicker.value = false
-  editingColor.value = ''
-}
-
-const applyChange = () => {
-  emit('update:modelValue', `#${editingColor.value}`)
-  showPicker.value = false
-}
-
-// Close picker when clicking outside (parent handles document click)
-defineExpose({ closePicker: () => { showPicker.value = false } })
 </script>
 
 <style scoped>
 .color-setting {
-  position: relative;
   padding: 1.25rem;
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
@@ -106,18 +70,34 @@ defineExpose({ closePicker: () => { showPicker.value = false } })
   gap: 0.75rem;
 }
 
-.color-preview {
+.color-input {
   width: 42px;
   height: 42px;
+  padding: 0;
+  border: 2px solid var(--border-primary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  border: 2px solid var(--border-primary);
+  background: transparent;
   transition: all 0.15s ease;
 }
 
-.color-preview:hover {
+.color-input:hover {
   transform: scale(1.05);
   border-color: var(--border-secondary);
+}
+
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+}
+
+.color-input::-moz-color-swatch {
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
 }
 
 .color-value {
@@ -154,24 +134,4 @@ defineExpose({ closePicker: () => { showPicker.value = false } })
   font-size: 1rem;
   border: 1px solid;
 }
-
-.color-picker-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 1000;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  box-shadow: var(--shadow-lg);
-}
-
-.color-picker-actions {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
 </style>
-

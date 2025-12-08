@@ -51,7 +51,7 @@
         @save-name="saveTypeName"
         @cancel-edit="cancelEditType"
         @delete="confirmDeleteType"
-        @color-click="openColorPicker"
+        @color-change="handleColorChange"
         @add-rule="handleAddRule"
         @remove-rule="handleRemoveRule"
         v-model:new-rule-tag="newRuleTags[taskType.id]"
@@ -81,16 +81,11 @@
           </div>
           <div class="form-group color-group">
             <label>Color</label>
-            <div class="color-input-wrapper">
-              <div 
-                class="color-preview" 
-                :style="{ background: `#${newTypeColor}` }"
-                @click="toggleNewColorPicker"
-              ></div>
-              <div v-if="showNewColorPicker" class="color-picker-dropdown">
-                <ColorPicker v-model="newTypeColor" inline />
-              </div>
-            </div>
+            <input 
+              type="color" 
+              v-model="newTypeColor"
+              class="color-input"
+            />
           </div>
         </div>
         <Button
@@ -102,24 +97,6 @@
         />
       </div>
     </div>
-
-    <!-- Color Picker Overlay -->
-    <OverlayPanel 
-      ref="colorPickerOverlay" 
-      appendTo="body"
-      class="color-picker-overlay"
-    >
-      <div class="color-picker-panel">
-        <label>Choose color:</label>
-        <ColorPicker 
-          v-model="editingColor" 
-          inline 
-        />
-        <div class="color-picker-actions">
-          <Button label="Apply" size="small" @click="applyColorChange" />
-        </div>
-      </div>
-    </OverlayPanel>
 
     <!-- Confirm Delete Dialog -->
     <Dialog
@@ -154,12 +131,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
-import ColorPicker from 'primevue/colorpicker'
 import Dialog from 'primevue/dialog'
-import OverlayPanel from 'primevue/overlaypanel'
 import { SectionCard, InfoBox, StatusBadge } from '@/components/common'
 import TaskTypeCard from './TaskTypeCard.vue'
 import { useTaskTypes } from '@/composables/useTaskTypes'
@@ -191,18 +166,12 @@ const {
 // State
 const newTypeName = ref('')
 const newTypeDescription = ref('')
-const newTypeColor = ref('6366f1')
-const showNewColorPicker = ref(false)
+const newTypeColor = ref('#6366f1')
 const newRuleTags = ref<Record<string, string>>({})
 const editingTypeId = ref<string | null>(null)
 const editingTypeName = ref('')
 const deleteDialogVisible = ref(false)
 const typeToDelete = ref<TaskType | null>(null)
-
-// Color picker for existing types
-const colorPickerOverlay = ref()
-const editingColorTypeId = ref<string | null>(null)
-const editingColor = ref('6366f1')
 
 const getRulesForType = (typeId: string) => getRulesForTaskType(typeId)
 
@@ -212,14 +181,13 @@ const handleAddType = async () => {
   await createTaskType({
     name: newTypeName.value.trim(),
     description: newTypeDescription.value.trim() || undefined,
-    color: `#${newTypeColor.value}`,
+    color: newTypeColor.value,
     is_default: false
   })
   
   newTypeName.value = ''
   newTypeDescription.value = ''
-  newTypeColor.value = '6366f1'
-  showNewColorPicker.value = false
+  newTypeColor.value = '#6366f1'
 }
 
 const startEditType = (taskType: TaskType) => {
@@ -253,23 +221,8 @@ const handleDeleteType = async () => {
   typeToDelete.value = null
 }
 
-const openColorPicker = (taskType: TaskType, event: Event) => {
-  editingColorTypeId.value = taskType.id
-  editingColor.value = taskType.color?.replace('#', '') || '6366f1'
-  colorPickerOverlay.value?.toggle(event)
-}
-
-const applyColorChange = async () => {
-  if (editingColorTypeId.value) {
-    await updateTaskType(editingColorTypeId.value, { color: `#${editingColor.value}` })
-    colorPickerOverlay.value?.hide()
-    editingColorTypeId.value = null
-  }
-}
-
-const toggleNewColorPicker = (event: Event) => {
-  event.stopPropagation()
-  showNewColorPicker.value = !showNewColorPicker.value
+const handleColorChange = async (typeId: string, color: string) => {
+  await updateTaskType(typeId, { color })
 }
 
 const handleAddRule = async (typeId: string) => {
@@ -282,16 +235,6 @@ const handleAddRule = async (typeId: string) => {
 const handleRemoveRule = async (ruleId: string) => {
   await removeTaskTypeRule(ruleId)
 }
-
-const handleDocumentClick = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.color-input-wrapper')) {
-    showNewColorPicker.value = false
-  }
-}
-
-onMounted(() => document.addEventListener('click', handleDocumentClick))
-onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 </script>
 
 <style scoped>
@@ -326,6 +269,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .form-group {
@@ -348,57 +292,34 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
   width: 250px;
 }
 
-.color-group {
-  position: relative;
-}
-
-.color-input-wrapper {
-  position: relative;
-}
-
-.color-preview {
+.color-input {
   width: 38px;
   height: 38px;
+  padding: 0;
+  border: 2px solid var(--border-primary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  border: 2px solid var(--border-primary);
+  background: transparent;
   transition: all 0.15s ease;
 }
 
-.color-preview:hover {
+.color-input:hover {
   transform: scale(1.05);
   border-color: var(--border-secondary);
 }
 
-.color-picker-dropdown {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  z-index: 1000;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  box-shadow: var(--shadow-lg);
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
 }
 
-/* Color Picker Panel */
-.color-picker-panel {
-  padding: 1rem 1.25rem;
+.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
 }
 
-.color-picker-panel label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-}
-
-.color-picker-actions {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: flex-end;
+.color-input::-moz-color-swatch {
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
 }
 
 /* Delete Dialog */

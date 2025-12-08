@@ -8,4 +8,5 @@ export { default as StatsGrid } from './StatsGrid.vue'
 export { default as SectionCard } from './SectionCard.vue'
 export { default as AutocompleteInput } from './AutocompleteInput.vue'
 export { default as ColorPickerField } from './ColorPickerField.vue'
+export { default as TypeLinkButton } from './TypeLinkButton.vue'
 

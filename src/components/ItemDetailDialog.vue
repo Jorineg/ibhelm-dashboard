@@ -2,15 +2,20 @@
   <Dialog
     v-model:visible="isVisible"
     modal
-    :header="dialogTitle"
     :style="{ width: '90vw', maxWidth: '1200px' }"
     :dismissable-mask="true"
     :pt="{
       content: { style: 'padding: 2rem' },
-      header: { style: 'padding: 1.5rem 2rem' },
-      footer: { style: 'padding: 1.5rem 2rem' }
+      header: { style: 'padding: 1.5rem 2rem' }
     }"
   >
+    <template #header>
+      <div class="dialog-header-content">
+        <TypeLinkButton v-if="item" :item="item" :item-type="detectedItemType" />
+        <span class="dialog-title">{{ dialogTitle }}</span>
+      </div>
+    </template>
+
     <div v-if="item" class="detail-content scrollable-list">
       <!-- Toggle for empty fields -->
       <div class="detail-header">
@@ -21,32 +26,6 @@
             :binary="true"
           />
           <label for="show-empty">Show empty fields</label>
-        </div>
-      </div>
-
-      <!-- Type badge and source links -->
-      <div class="detail-section detail-header-row">
-        <Tag
-          :value="itemTypeLabel"
-          :severity="itemTypeSeverity"
-          class="tag-style"
-        />
-        <div class="source-links">
-          <SourceLink
-            v-if="item.teamwork_url"
-            :url="item.teamwork_url"
-            variant="teamwork"
-          />
-          <SourceLink
-            v-if="item.missive_url"
-            :url="item.missive_url"
-            variant="missive"
-          />
-          <SourceLink
-            v-if="item.craft_url"
-            :url="transformedCraftUrl || item.craft_url"
-            variant="craft"
-          />
         </div>
       </div>
 
@@ -61,8 +40,8 @@
           <div class="field-value">
             <template v-if="Array.isArray(value)">
               <div v-if="value.length > 0">
-                <div v-for="(item, idx) in value" :key="idx" class="array-item">
-                  {{ formatValue(item) }}
+                <div v-for="(arrayItem, idx) in value" :key="idx" class="array-item">
+                  {{ formatValue(arrayItem) }}
                 </div>
               </div>
               <span v-else class="empty-value">—</span>
@@ -84,25 +63,16 @@
         </AccordionTab>
       </Accordion>
     </div>
-
-    <template #footer>
-      <div class="dialog-footer">
-        <Button label="Close" @click="isVisible = false" />
-      </div>
-    </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import Dialog from 'primevue/dialog'
-import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
-import Tag from 'primevue/tag'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
-import { SourceLink } from '@/components/common'
-import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { TypeLinkButton } from '@/components/common'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
 
 interface Props {
@@ -116,17 +86,6 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-
-const { craftSpaceId } = useAppearanceSettings()
-
-// Transform craft URL to include space ID
-const transformedCraftUrl = computed(() => {
-  const url = props.item?.craft_url
-  if (!url || !craftSpaceId.value) return url
-  const blockIdMatch = url.match(/blockId=([^&]+)/)
-  if (!blockIdMatch) return url
-  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
-})
 
 const showEmptyFields = ref(false)
 const isVisible = computed({
@@ -166,41 +125,6 @@ const dialogTitle = computed(() => {
   }
 })
 
-// Type badge label
-const itemTypeLabel = computed(() => {
-  if (!props.item) return 'UNKNOWN'
-  
-  switch (detectedItemType.value) {
-    case 'person':
-      const person = props.item as PersonItem
-      if (person.is_company) return 'COMPANY'
-      if (person.is_internal) return 'INTERNAL'
-      return 'PERSON'
-    case 'project':
-      return 'PROJECT'
-    default:
-      const dataItem = props.item as DataItem
-      return dataItem.type?.toUpperCase() || 'ITEM'
-  }
-})
-
-// Type badge severity
-const itemTypeSeverity = computed<'success' | 'info' | 'warning' | 'danger' | 'secondary' | 'contrast' | undefined>(() => {
-  switch (detectedItemType.value) {
-    case 'person':
-      const person = props.item as PersonItem
-      if (person.is_company) return 'warning'
-      if (person.is_internal) return 'success'
-      return 'info'
-    case 'project':
-      return 'warning'
-    default:
-      const dataItem = props.item as DataItem
-      if (dataItem.type === 'task') return 'success'
-      if (dataItem.type === 'craft') return 'secondary'
-      return 'info'
-  }
-})
 
 // Fields to exclude from display
 const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url']
@@ -285,12 +209,6 @@ watch(isVisible, (visible) => {
   overflow-y: auto;
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
 .detail-header {
   margin-bottom: 1.5rem;
 }
@@ -307,20 +225,16 @@ watch(isVisible, (visible) => {
   cursor: pointer;
 }
 
-.detail-section {
-  margin-bottom: 1.5rem;
-}
-
-.detail-header-row {
+.dialog-header-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
 }
 
-.source-links {
-  display: flex;
-  gap: 0.75rem;
+.dialog-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .detail-fields {

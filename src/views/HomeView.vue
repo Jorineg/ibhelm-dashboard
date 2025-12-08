@@ -70,7 +70,7 @@
           :show-emails="activeConfig?.showEmails ?? true"
           :show-craft="activeConfig?.showCraft ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
-          :sort-config="currentSort"
+          :sort-config="activeConfig?.sortConfig || { field: 'sort_date', order: 'desc' }"
           :view-type="activeView"
           :selected-task-types="selectedTaskTypes"
           :selected-row="selectedRow"
@@ -165,10 +165,10 @@ const {
   loading,
   hasMore,
   totalCount,
-  currentSort,
   loadData,
   loadMore,
-  fetchAllForExport
+  fetchAllForExport,
+  clearAndStartLoading
 } = useData()
 
 const exporting = ref(false)
@@ -197,8 +197,7 @@ const selectedTaskTypes = computed(() => {
 const itemColumns: Column[] = [
   { field: 'name', header: 'Name', sortable: true, width: '300px' },
   { field: 'description', header: 'Description', sortable: false, width: '400px' },
-  { field: 'body', header: 'Email Content', sortable: false, width: '400px' },
-  { field: 'preview', header: 'Email Preview', sortable: false, width: '300px' },
+  { field: 'body', header: 'Body', sortable: false, width: '400px' },
   { field: 'status', header: 'Status', sortable: true, width: '120px' },
   { field: 'project', header: 'Project', sortable: true, width: '200px' },
   { field: 'customer', header: 'Customer', sortable: true, width: '200px' },
@@ -214,6 +213,7 @@ const itemColumns: Column[] = [
   { field: 'tags', header: 'Tags', sortable: false, width: '200px' },
   { field: 'from_name', header: 'From', sortable: true, width: '200px' },
   { field: 'from_email', header: 'From Email', sortable: true, width: '200px' },
+  { field: 'recipients', header: 'Recipients', sortable: false, width: '250px' },
   { field: 'conversation_subject', header: 'Conversation', sortable: true, width: '250px' },
   { field: 'attachment_count', header: 'Attachments', sortable: true, width: '120px' },
   { field: 'created_at', header: 'Created', sortable: true, width: '150px' },
@@ -325,6 +325,14 @@ const dataFetchConfigKey = computed(() => {
 let initialLoadDone = false
 let filterTimeout: number | null = null
 
+// Watch for config ID changes to immediately clear data (prevents flicker when switching configs)
+watch(() => activeConfig.value?.id, (newId, oldId) => {
+  if (oldId && newId !== oldId) {
+    // Immediately clear items and show loading to prevent new config being applied to old data
+    clearAndStartLoading()
+  }
+})
+
 watch(dataFetchConfigKey, async (newKey, oldKey) => {
   if (filterTimeout) clearTimeout(filterTimeout)
   
@@ -343,7 +351,7 @@ watch(dataFetchConfigKey, async (newKey, oldKey) => {
         activeConfig.value.showCraft ?? true,
         searchQuery.value,
         activeConfig.value,
-        undefined,
+        activeConfig.value.sortConfig,
         currentViewType.value,
         selectedTaskTypes.value
       )
@@ -364,7 +372,7 @@ watch(searchQuery, () => {
         activeConfig.value.showCraft ?? true,
         searchQuery.value,
         activeConfig.value,
-        undefined,
+        activeConfig.value.sortConfig,
         currentViewType.value,
         selectedTaskTypes.value
       )
@@ -488,6 +496,9 @@ const handleUpdateSelectedTaskTypes = (types: string[]) => {
 
 const handleSort = async (sortConfig: SortConfig) => {
   if (activeConfig.value) {
+    // Save sort config to filter configuration for persistence
+    updateConfiguration(activeConfig.value.id, { sortConfig })
+    
     await loadData(
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,

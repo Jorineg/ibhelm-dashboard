@@ -7,11 +7,9 @@
       <h4>Email Color</h4>
       <p class="section-hint">Color for email type badges, link buttons, and color bars.</p>
       <ColorPickerField
-        ref="emailPicker"
         :model-value="emailColor"
         badge-label="EMAIL"
         icon-class="pi pi-envelope"
-        :saving="saving"
         @update:model-value="updateEmailColor"
       />
     </div>
@@ -20,43 +18,49 @@
       <h4>Craft Document Color</h4>
       <p class="section-hint">Color for Craft document badges, link buttons, and color bars.</p>
       <ColorPickerField
-        ref="craftPicker"
         :model-value="craftColor"
         badge-label="CRAFT"
         icon-class="pi pi-file-edit"
-        :saving="saving"
         @update:model-value="updateCraftColor"
+      />
+    </div>
+
+    <div class="appearance-section">
+      <h4>Person Color</h4>
+      <p class="section-hint">Color for person type badges and link buttons in the People view.</p>
+      <ColorPickerField
+        :model-value="personColor"
+        badge-label="PERSON"
+        icon-class="pi pi-user"
+        @update:model-value="updatePersonColor"
+      />
+    </div>
+
+    <div class="appearance-section">
+      <h4>Project Color</h4>
+      <p class="section-hint">Color for project type badges and link buttons in the Projects view.</p>
+      <ColorPickerField
+        :model-value="projectColor"
+        badge-label="PROJECT"
+        icon-class="pi pi-folder"
+        @update:model-value="updateProjectColor"
       />
     </div>
   </SectionCard>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted } from 'vue'
 import { SectionCard, ColorPickerField } from '@/components/common'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
-const { emailColor, craftColor, saving, initialize, updateEmailColor, updateCraftColor } = useAppearanceSettings()
+const {
+  emailColor, craftColor, personColor, projectColor,
+  initialize,
+  updateEmailColor, updateCraftColor, updatePersonColor, updateProjectColor
+} = useAppearanceSettings()
 
-const emailPicker = ref<InstanceType<typeof ColorPickerField> | null>(null)
-const craftPicker = ref<InstanceType<typeof ColorPickerField> | null>(null)
-
-const handleDocumentClick = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.color-setting')) {
-    emailPicker.value?.closePicker()
-    craftPicker.value?.closePicker()
-  }
-}
-
-onMounted(async () => {
-  await initialize()
-  document.addEventListener('click', handleDocumentClick)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleDocumentClick)
-})
+onMounted(() => initialize())
 </script>
 
 <style scoped>

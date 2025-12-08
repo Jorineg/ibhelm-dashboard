@@ -157,8 +157,6 @@
         :paginator="false"
         :rows="displayedItems.length"
         :reorderable-columns="true"
-        :sort-field="props.sortConfig?.field"
-        :sort-order="props.sortConfig?.order === 'asc' ? 1 : -1"
         removable-sort
         :row-class="getRowClass"
         @row-click="handleRowClick"
@@ -179,21 +177,20 @@
         </template>
 
 
-        <!-- Type Column (frozen on left, only for items view) -->
+        <!-- Type Column (frozen on left, all views) -->
         <Column
-          v-if="props.viewType === 'items' || !props.viewType"
           field="type"
           header="Type"
           frozen
-          :sortable="true"
+          :sortable="false"
           :reorderable-column="false"
-          :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
+          :style="{ width: '90px', minWidth: '90px', maxWidth: '90px' }"
           class="type-column"
         >
           <template #body="{ data }">
             <a
-              :href="getItemPrimaryUrl(data)"
-              target="_blank"
+              :href="getRowPrimaryUrl(data)"
+              :target="getRowLinkTarget(data)"
               rel="noopener noreferrer"
               class="type-badge-link"
               :style="getTypeBadgeStyle(data)"
@@ -209,10 +206,19 @@
           v-for="col in orderedVisibleColumnsWithoutType"
           :key="col.field"
           :field="col.field"
-          :header="col.header"
-          :sortable="col.sortable !== false"
+          :sortable="false"
           :style="getColumnStyle(col)"
         >
+          <template #header>
+            <div 
+              class="custom-sort-header" 
+              :class="{ sortable: col.sortable !== false }"
+              @click="col.sortable !== false && handleHeaderClick(col.field)"
+            >
+              <span class="column-header-text">{{ col.header }}</span>
+              <i v-if="col.sortable !== false" :class="['sort-icon', getSortIcon(col.field)]" />
+            </div>
+          </template>
           <template #body="{ data }">
             <component
               :is="getCellComponent(col.field, data)"
@@ -238,9 +244,8 @@
         >
           <div class="gallery-item-header">
             <a
-              v-if="props.viewType === 'items' || !props.viewType"
-              :href="getItemPrimaryUrl(item)"
-              target="_blank"
+              :href="getRowPrimaryUrl(item)"
+              :target="getRowLinkTarget(item)"
               rel="noopener noreferrer"
               class="gallery-type-badge-link"
               :style="getTypeBadgeStyle(item)"
@@ -249,18 +254,6 @@
             >
               {{ getTypeBadgeText(item) }}
             </a>
-            <Tag
-              v-else-if="props.viewType === 'projects'"
-              :value="item.status || 'active'"
-              severity="success"
-              class="tag-style"
-            />
-            <Tag
-              v-else-if="props.viewType === 'people'"
-              :value="item.is_company ? 'Company' : 'Person'"
-              :severity="item.is_internal ? 'warning' : 'info'"
-              class="tag-style"
-            />
           </div>
           <div class="gallery-item-thumbnail">
             <i
@@ -322,7 +315,6 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import Tag from 'primevue/tag'
 import { InfoTooltip } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
@@ -380,7 +372,7 @@ const emit = defineEmits<Emits>()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
-const { emailColor, craftColor, craftSpaceId, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, initialize: initAppearance } = useAppearanceSettings()
 
 // Transform craft URL to include space ID
 const transformCraftUrl = (url: string): string => {
@@ -650,6 +642,28 @@ const handleSort = (event: any) => {
   }
 }
 
+// Custom header click handler for sorting (bypasses PrimeVue's internal sorting)
+const handleHeaderClick = (field: string) => {
+  if (isResizing.value) return
+  
+  // Toggle sort order: if same field, flip direction; if different field, start with asc
+  const currentField = props.sortConfig?.field
+  const currentOrder = props.sortConfig?.order
+  
+  if (currentField === field) {
+    // Same field - toggle or remove
+    if (currentOrder === 'asc') {
+      emit('sort', { field, order: 'desc' })
+    } else {
+      // Was desc, remove sort (default to sort_date desc)
+      emit('sort', { field: 'sort_date', order: 'desc' })
+    }
+  } else {
+    // New field - start with asc
+    emit('sort', { field, order: 'asc' })
+  }
+}
+
 // Track column resize to prevent sort trigger
 const handleResizeStart = () => {
   isResizing.value = true
@@ -662,6 +676,12 @@ const handleResizeEnd = () => {
   resizeTimeout = window.setTimeout(() => {
     isResizing.value = false
   }, 200)
+}
+
+// Sort icon helper for custom header templates
+const getSortIcon = (field: string) => {
+  if (props.sortConfig?.field !== field) return 'pi pi-sort-alt'
+  return props.sortConfig.order === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'
 }
 
 const getCellComponent = (field: string, data: DataItem) => {
@@ -682,6 +702,17 @@ const getCellComponent = (field: string, data: DataItem) => {
       }),
       h('span', value)
     ])
+  }
+
+  // Recipients column - render as email tags
+  if (field === 'recipients' && Array.isArray(value) && value.length > 0) {
+    const emails = value
+      .map(r => r.contact?.email)
+      .filter((email): email is string => !!email)
+    if (emails.length === 0) return h('span', '—')
+    return h('div', { class: 'recipients-tags' }, 
+      emails.map((email, idx) => h('span', { key: idx, class: 'recipient-tag' }, email))
+    )
   }
 
   if (Array.isArray(value)) {
@@ -720,6 +751,8 @@ const truncateText = (text: string, maxLength: number): string => {
 
 // Type badge helpers for clickable badges
 const getTypeBadgeText = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') return 'PERSON'
+  if (props.viewType === 'projects') return 'PROJECT'
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'EMAIL'
   if (itemType === 'craft') return 'CRAFT'
@@ -727,26 +760,51 @@ const getTypeBadgeText = (item: ViewDataItem): string => {
 }
 
 const getTypeBadgeStyle = (item: ViewDataItem) => {
+  if (props.viewType === 'people') {
+    const color = personColor.value
+    return { background: `${color}20`, color, borderColor: `${color}40` }
+  }
+  if (props.viewType === 'projects') {
+    const color = projectColor.value
+    return { background: `${color}20`, color, borderColor: `${color}40` }
+  }
   const itemType = item.type?.toLowerCase()
   const isEmail = itemType === 'email'
   const isCraft = itemType === 'craft'
   const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
-  return {
-    background: `${color}20`,
-    color: color,
-    borderColor: `${color}40`
-  }
+  return { background: `${color}20`, color, borderColor: `${color}40` }
 }
 
-const getItemPrimaryUrl = (item: ViewDataItem): string => {
-  // Return the most relevant URL for this item type
+const getRowPrimaryUrl = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') {
+    const email = item.primary_email
+    return email ? `mailto:${email}` : '#'
+  }
+  if (props.viewType === 'projects') {
+    const baseUrl = teamworkBaseUrl.value
+    const projectId = item.id
+    return baseUrl && projectId ? `${baseUrl.replace(/\/$/, '')}/app/projects/${projectId}` : '#'
+  }
+  // Items view
   if (item.teamwork_url) return item.teamwork_url
   if (item.missive_url) return item.missive_url
   if (item.craft_url) return transformCraftUrl(item.craft_url)
   return '#'
 }
 
+const getRowLinkTarget = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') return '_self' // mailto opens in same context
+  return '_blank'
+}
+
 const getTypeBadgeTooltip = (item: ViewDataItem): string => {
+  if (props.viewType === 'people') {
+    const email = item.primary_email
+    return email ? `Send email to ${email}` : 'No email available'
+  }
+  if (props.viewType === 'projects') {
+    return teamworkBaseUrl.value ? 'Open in Teamwork' : 'Set Teamwork Base URL in Settings'
+  }
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'Open in Missive'
   if (itemType === 'craft') return 'Open in Craft'
@@ -1170,6 +1228,27 @@ onUnmounted(() => {
   margin-bottom: 0.25rem;
 }
 
+/* Recipients tags */
+.recipients-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.recipient-tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
 /* Type Badge Link - clickable badge */
 .type-badge-link {
   display: inline-block;
@@ -1335,6 +1414,35 @@ onUnmounted(() => {
 
 .data-table :deep(.p-datatable-tbody > tr.keyboard-selected > td) {
   background: inherit !important;
+}
+
+/* Custom sort header */
+.custom-sort-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.custom-sort-header.sortable {
+  cursor: pointer;
+}
+
+.custom-sort-header.sortable:hover .sort-icon {
+  color: var(--text-secondary);
+}
+
+.column-header-text {
+  margin-right: 0.5rem;
+}
+
+.sort-icon {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+
+.sort-icon.pi-sort-amount-up-alt,
+.sort-icon.pi-sort-amount-down {
+  color: var(--accent-primary);
 }
 
 </style>

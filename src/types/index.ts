@@ -157,11 +157,16 @@ export interface TaskTypeRule {
 export type { ExtractionRun } from '@/composables/useTaskTypes'
 export type { PersonLinkingRun } from '@/composables/usePeople'
 export type { ProjectLinkingRun } from '@/composables/useEmails'
+export type { CostGroupLinkingRun } from '@/composables/useCostGroups'
 
 export interface AppSettings {
   email_color: string
   craft_color: string
   craft_space_id?: string
+  person_color: string
+  project_color: string
+  teamwork_base_url?: string
+  cost_group_prefixes?: string[]
 }
 
 export interface DataItem {
@@ -267,6 +272,7 @@ export interface FilterConfiguration {
   showCraft: boolean
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
+  sortConfig?: SortConfig
   alwaysVisibleFilters: {
     project?: string
     involved_person?: string
@@ -274,6 +280,7 @@ export interface FilterConfiguration {
     floor?: string
     room?: string
     kostengruppe?: string
+    tags?: string
   }
   dynamicFilters: ColumnFilter[]
   visibleColumns: string[]

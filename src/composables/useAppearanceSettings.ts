@@ -2,7 +2,16 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import type { AppSettings } from '@/types'
 
-const settings = ref<AppSettings>({ email_color: '#3b82f6', craft_color: '#8b5cf6', craft_space_id: '' })
+const defaults: AppSettings = {
+  email_color: '#3b82f6',
+  craft_color: '#8b5cf6',
+  craft_space_id: '',
+  person_color: '#10b981',
+  project_color: '#f59e0b',
+  teamwork_base_url: '',
+  cost_group_prefixes: ['KGR']
+}
+const settings = ref<AppSettings>({ ...defaults })
 const loading = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
@@ -17,7 +26,7 @@ export function useAppearanceSettings() {
         .single()
 
       if (error) throw error
-      settings.value = { ...settings.value, ...data.body }
+      settings.value = { ...defaults, ...data.body }
     } catch (error) {
       console.error('Error fetching app settings:', error)
     } finally {
@@ -54,10 +63,18 @@ export function useAppearanceSettings() {
   const updateEmailColor = (color: string) => updateSetting('email_color', color)
   const updateCraftColor = (color: string) => updateSetting('craft_color', color)
   const updateCraftSpaceId = (id: string) => updateSetting('craft_space_id', id)
+  const updatePersonColor = (color: string) => updateSetting('person_color', color)
+  const updateProjectColor = (color: string) => updateSetting('project_color', color)
+  const updateTeamworkBaseUrl = (url: string) => updateSetting('teamwork_base_url', url)
+  const updateCostGroupPrefixes = (prefixes: string[]) => updateSetting('cost_group_prefixes', prefixes)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
   const craftSpaceId = computed(() => settings.value.craft_space_id || '')
+  const personColor = computed(() => settings.value.person_color)
+  const projectColor = computed(() => settings.value.project_color)
+  const teamworkBaseUrl = computed(() => settings.value.teamwork_base_url || '')
+  const costGroupPrefixes = computed(() => settings.value.cost_group_prefixes || ['KGR'])
 
   return {
     settings,
@@ -66,11 +83,19 @@ export function useAppearanceSettings() {
     emailColor,
     craftColor,
     craftSpaceId,
+    personColor,
+    projectColor,
+    teamworkBaseUrl,
+    costGroupPrefixes,
     initialize,
     fetchSettings,
     updateEmailColor,
     updateCraftColor,
-    updateCraftSpaceId
+    updateCraftSpaceId,
+    updatePersonColor,
+    updateProjectColor,
+    updateTeamworkBaseUrl,
+    updateCostGroupPrefixes
   }
 }
 

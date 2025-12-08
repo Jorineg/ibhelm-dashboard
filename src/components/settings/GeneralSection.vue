@@ -4,6 +4,43 @@
     description="General application settings."
   >
     <div class="general-section">
+      <h4>Cost Group Prefixes</h4>
+      <p class="section-hint">
+        Tag prefixes used for cost group extraction. Tags matching the pattern "PREFIX CODE NAME" 
+        (e.g., "KGR 456 Demo Kostengruppe") will be auto-linked to cost groups.
+      </p>
+      <div class="prefixes-container">
+        <div class="prefix-tags">
+          <span 
+            v-for="(prefix, index) in localPrefixes" 
+            :key="index"
+            class="prefix-tag"
+          >
+            {{ prefix }}
+            <button type="button" class="prefix-remove" @click="removePrefix(index)">
+              <i class="pi pi-times"></i>
+            </button>
+          </span>
+        </div>
+        <div class="prefix-input-row">
+          <input
+            v-model="newPrefix"
+            type="text"
+            class="text-input prefix-input"
+            placeholder="Add prefix..."
+            @keyup.enter="addPrefix"
+          />
+          <button type="button" class="add-prefix-btn" @click="addPrefix" :disabled="!newPrefix.trim()">
+            <i class="pi pi-plus"></i>
+          </button>
+        </div>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
+
+    <div class="general-section">
       <h4>Craft Space ID</h4>
       <p class="section-hint">
         Space ID for Craft document links. Find it in Craft app settings or from a document URL.
@@ -14,8 +51,28 @@
           type="text"
           class="text-input"
           placeholder="e.g. abc123-def456-..."
-          @blur="handleSave"
-          @keyup.enter="handleSave"
+          @blur="handleSaveSpaceId"
+          @keyup.enter="handleSaveSpaceId"
+        />
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
+
+    <div class="general-section">
+      <h4>Teamwork Base URL</h4>
+      <p class="section-hint">
+        Base URL for Teamwork project links (e.g., https://yourcompany.teamwork.com).
+      </p>
+      <div class="input-row">
+        <input
+          v-model="localTeamworkUrl"
+          type="text"
+          class="text-input"
+          placeholder="https://yourcompany.teamwork.com"
+          @blur="handleSaveTeamworkUrl"
+          @keyup.enter="handleSaveTeamworkUrl"
         />
         <span v-if="saving" class="saving-indicator">
           <i class="pi pi-spin pi-spinner"></i>
@@ -30,23 +87,65 @@ import { ref, onMounted, watch } from 'vue'
 import { SectionCard } from '@/components/common'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
-const { craftSpaceId, saving, initialize, updateCraftSpaceId } = useAppearanceSettings()
+const { 
+  craftSpaceId, 
+  teamworkBaseUrl, 
+  costGroupPrefixes,
+  saving, 
+  initialize, 
+  updateCraftSpaceId, 
+  updateTeamworkBaseUrl,
+  updateCostGroupPrefixes
+} = useAppearanceSettings()
 
 const localSpaceId = ref('')
+const localTeamworkUrl = ref('')
+const localPrefixes = ref<string[]>([])
+const newPrefix = ref('')
 
-const handleSave = async () => {
+const handleSaveSpaceId = async () => {
   if (localSpaceId.value !== craftSpaceId.value) {
     await updateCraftSpaceId(localSpaceId.value)
   }
+}
+
+const handleSaveTeamworkUrl = async () => {
+  if (localTeamworkUrl.value !== teamworkBaseUrl.value) {
+    await updateTeamworkBaseUrl(localTeamworkUrl.value)
+  }
+}
+
+const addPrefix = async () => {
+  const prefix = newPrefix.value.trim().toUpperCase()
+  if (prefix && !localPrefixes.value.includes(prefix)) {
+    localPrefixes.value = [...localPrefixes.value, prefix]
+    await updateCostGroupPrefixes(localPrefixes.value)
+  }
+  newPrefix.value = ''
+}
+
+const removePrefix = async (index: number) => {
+  localPrefixes.value = localPrefixes.value.filter((_, i) => i !== index)
+  await updateCostGroupPrefixes(localPrefixes.value)
 }
 
 watch(craftSpaceId, (newValue) => {
   localSpaceId.value = newValue
 }, { immediate: true })
 
+watch(teamworkBaseUrl, (newValue) => {
+  localTeamworkUrl.value = newValue
+}, { immediate: true })
+
+watch(costGroupPrefixes, (newValue) => {
+  localPrefixes.value = [...newValue]
+}, { immediate: true })
+
 onMounted(async () => {
   await initialize()
   localSpaceId.value = craftSpaceId.value
+  localTeamworkUrl.value = teamworkBaseUrl.value
+  localPrefixes.value = [...costGroupPrefixes.value]
 })
 </script>
 
@@ -103,6 +202,89 @@ onMounted(async () => {
 .saving-indicator {
   color: var(--accent-primary);
   font-size: 1rem;
+}
+
+/* Prefixes */
+.prefixes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.prefix-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.prefix-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--accent-primary-dark);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  color: var(--accent-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.prefix-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-primary);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.prefix-remove:hover {
+  opacity: 1;
+}
+
+.prefix-remove i {
+  font-size: 0.7rem;
+}
+
+.prefix-input-row {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 300px;
+}
+
+.prefix-input {
+  flex: 1;
+  max-width: none;
+}
+
+.add-prefix-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.add-prefix-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-secondary);
+}
+
+.add-prefix-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
 
