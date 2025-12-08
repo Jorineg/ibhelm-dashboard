@@ -532,9 +532,9 @@ const handleExport = async () => {
     )
     
     // Create worksheet
-    const ws = XLSX.utils.aoa_to_array([headers, ...rows])
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), activeView.value)
+    XLSX.utils.book_append_sheet(wb, ws, activeView.value)
     
     // Download
     const filename = `${activeView.value}_export_${new Date().toISOString().slice(0, 10)}.xlsx`

@@ -794,6 +794,8 @@ onUnmounted(() => {
   flex-shrink: 0;
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
+  position: relative;
+  z-index: 150;
 }
 
 .toolbar-left {
