@@ -55,15 +55,6 @@ export function useData() {
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
 
-  // Helper to check if any tag in the tags array contains the search string
-  const itemMatchesTagFilter = (item: any, tagSearch: string): boolean => {
-    if (!item.tags || !Array.isArray(item.tags)) return false
-    const searchLower = tagSearch.toLowerCase()
-    return item.tags.some((tag: any) => 
-      tag.name && String(tag.name).toLowerCase().includes(searchLower)
-    )
-  }
-
   // Helper to apply hierarchical cost group filter (400 -> 400-499, 45 -> 450-459, 456 -> exact)
   const applyCostGroupFilter = (query: any, value: string): any => {
     const trimmed = value.trim()
@@ -92,9 +83,9 @@ export function useData() {
           // Special handling for kostengruppe (hierarchical cost group filter)
           if (key === 'kostengruppe') {
             query = applyCostGroupFilter(query, value)
-          // Skip tags filter - handled client-side (JSONB array filtering not supported in supabase-js)
+          // Skip tags filter - handled via RPC function server-side
           } else if (key === 'tags') {
-            // Tags are filtered client-side after the query
+            // Tags are filtered server-side by the RPC function
           } else {
             query = query.ilike(key, `%${value}%`)
           }
@@ -142,8 +133,8 @@ export function useData() {
     return query
   }
 
-  // Fetch unified items using the involved_person RPC function when that filter is set
-  const fetchUnifiedItemsWithInvolvedPerson = async (
+  // Fetch unified items using RPC function (handles involved_person and tags filters server-side)
+  const fetchUnifiedItemsWithRPC = async (
     page = 0,
     search = '',
     showTasks = true,
@@ -157,6 +148,7 @@ export function useData() {
     try {
       const sort = sortConfig || currentSort.value
       const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person || ''
+      const tagSearch = filterConfig?.alwaysVisibleFilters?.tags || ''
       
       // Determine effective task type filter
       // null = show all tasks, empty array = show no tasks, array with values = show only those
@@ -166,9 +158,9 @@ export function useData() {
       
       const effectiveShowTasks = showTasks && !(selectedTaskTypes && selectedTaskTypes.length === 0)
       
-      // Call the RPC function - now handles all filtering server-side
+      // Call the RPC function - handles involved_person and tags filtering server-side
       const { data, error } = await supabase.rpc('get_unified_items_by_involved_person', {
-        p_involved_person_search: involvedPersonSearch,
+        p_involved_person_search: involvedPersonSearch || null,
         p_show_tasks: effectiveShowTasks,
         p_show_emails: showEmails,
         p_show_craft: showCraft,
@@ -177,17 +169,18 @@ export function useData() {
         p_sort_order: sort.order,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
-        p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null
+        p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null,
+        p_tag_search: tagSearch || null
       })
 
       if (error) throw error
 
       let filteredData = data || []
 
-      // Apply other always-visible filters client-side (except involved_person which is handled by RPC)
+      // Apply other always-visible filters client-side (except involved_person and tags which are handled by RPC)
       if (filterConfig?.alwaysVisibleFilters) {
         Object.entries(filterConfig.alwaysVisibleFilters).forEach(([key, value]) => {
-          if (value && key !== 'involved_person') {
+          if (value && key !== 'involved_person' && key !== 'tags') {
             // Special handling for kostengruppe (hierarchical cost group filter)
             if (key === 'kostengruppe') {
               const trimmed = value.trim()
@@ -206,9 +199,6 @@ export function useData() {
                   return false
                 })
               }
-            // Special handling for tags (JSONB array filter)
-            } else if (key === 'tags') {
-              filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, value))
             } else {
               filteredData = filteredData.filter((item: any) => {
                 const itemValue = item[key]
@@ -224,12 +214,13 @@ export function useData() {
       let count: number | null = null
       if (includeCount) {
         const { data: countResult, error: countError } = await supabase.rpc('count_unified_items_by_involved_person', {
-          p_involved_person_search: involvedPersonSearch,
+          p_involved_person_search: involvedPersonSearch || null,
           p_show_tasks: effectiveShowTasks,
           p_show_emails: showEmails,
           p_show_craft: showCraft,
           p_text_search: search || null,
-          p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null
+          p_selected_task_types: taskTypeFilter && taskTypeFilter.length > 0 ? taskTypeFilter : null,
+          p_tag_search: tagSearch || null
         })
         if (!countError) {
           count = countResult
@@ -238,12 +229,12 @@ export function useData() {
 
       return { data: filteredData, count }
     } catch (error) {
-      console.error('Error fetching unified items with involved person:', error)
+      console.error('Error fetching unified items with RPC:', error)
       return { data: [], count: null }
     }
   }
 
-  // Fetch unified items from the database view (original method, used when no involved_person filter)
+  // Fetch unified items from the database view (original method, used when no server-side filters needed)
   const fetchUnifiedItems = async (
     page = 0,
     search = '',
@@ -255,10 +246,11 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null
   ) => {
-    // Check if involved_person filter is set - if so, use the RPC function
+    // Check if involved_person or tags filter is set - if so, use the RPC function for server-side filtering
     const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person
-    if (involvedPersonSearch) {
-      return fetchUnifiedItemsWithInvolvedPerson(
+    const tagSearch = filterConfig?.alwaysVisibleFilters?.tags
+    if (involvedPersonSearch || tagSearch) {
+      return fetchUnifiedItemsWithRPC(
         page, search, showTasks, showEmails, showCraft, includeCount, filterConfig, sortConfig, selectedTaskTypes
       )
     }
@@ -314,14 +306,7 @@ export function useData() {
 
       if (error) throw error
       
-      // Apply client-side tags filter (JSONB array filtering not supported in supabase-js)
-      let filteredData = data || []
-      const tagsFilter = filterConfig?.alwaysVisibleFilters?.tags
-      if (tagsFilter) {
-        filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, tagsFilter))
-      }
-      
-      return { data: filteredData, count }
+      return { data: data || [], count }
     } catch (error) {
       console.error('Error fetching unified items:', error)
       return { data: [], count: null }
@@ -545,10 +530,12 @@ export function useData() {
         return data || []
       }
       default: {
-        // Items view - need to handle involved_person filter
+        // Items view - need to handle involved_person and tags filter via RPC
         const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person
-        if (involvedPersonSearch) {
-          // Use RPC for involved person - fetch in batches since RPC has limit
+        const tagSearch = filterConfig?.alwaysVisibleFilters?.tags
+        
+        if (involvedPersonSearch || tagSearch) {
+          // Use RPC for server-side filtering - fetch in batches since RPC has limit
           const allData: ViewDataItem[] = []
           let page = 0
           const effectiveShowTasks = showTasks && !(selectedTaskTypes && selectedTaskTypes.length === 0)
@@ -556,7 +543,7 @@ export function useData() {
           
           while (true) {
             const { data } = await supabase.rpc('get_unified_items_by_involved_person', {
-              p_involved_person_search: involvedPersonSearch,
+              p_involved_person_search: involvedPersonSearch || null,
               p_show_tasks: effectiveShowTasks,
               p_show_emails: showEmails,
               p_show_craft: showCraft,
@@ -565,7 +552,8 @@ export function useData() {
               p_sort_order: sort.order,
               p_limit: 1000,
               p_offset: page * 1000,
-              p_selected_task_types: taskTypeFilter
+              p_selected_task_types: taskTypeFilter,
+              p_tag_search: tagSearch || null
             })
             if (!data || data.length === 0) break
             allData.push(...data)
@@ -575,7 +563,7 @@ export function useData() {
           return allData
         }
         
-        // Standard unified_items query
+        // Standard unified_items query (no involved_person or tags filter)
         let query = supabase
           .from('unified_items')
           .select('*')
@@ -600,14 +588,7 @@ export function useData() {
         query = applyDynamicFiltersToQuery(query, filterConfig)
         const { data } = await query
         
-        // Apply client-side tags filter
-        let filteredData = data || []
-        const tagsFilter = filterConfig?.alwaysVisibleFilters?.tags
-        if (tagsFilter) {
-          filteredData = filteredData.filter((item: any) => itemMatchesTagFilter(item, tagsFilter))
-        }
-        
-        return filteredData
+        return data || []
       }
     }
   }

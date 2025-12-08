@@ -3,16 +3,12 @@ import type { FilterConfiguration, ColumnFilter, ViewType, SortConfig } from '@/
 
 const STORAGE_KEY = 'ibhelm_filter_configurations'
 
-// Default always-visible filters (can be easily changed here)
-const DEFAULT_ALWAYS_VISIBLE_FILTERS = [
-  'project',
-  'involved_person',
-  'building',
-  'floor',
-  'room',
-  'kostengruppe',
-  'tags'
-]
+// Default always-visible filters per view type
+const DEFAULT_ALWAYS_VISIBLE_FILTERS_BY_VIEW: Record<ViewType, string[]> = {
+  items: ['project', 'involved_person', 'building', 'floor', 'room', 'kostengruppe', 'tags'],
+  projects: [], // No filters for projects view
+  people: ['project']
+}
 
 // Default visible columns per view type
 const DEFAULT_COLUMNS_BY_VIEW: Record<ViewType, string[]> = {
@@ -270,12 +266,15 @@ export function useFilterConfigs() {
     }
   }
 
+  // Computed always-visible filters based on current view
+  const alwaysVisibleFilters = computed(() => DEFAULT_ALWAYS_VISIBLE_FILTERS_BY_VIEW[currentViewType.value])
+
   return {
     configurations,
     activeConfig,
     activeConfigId,
     currentViewType,
-    DEFAULT_ALWAYS_VISIBLE_FILTERS,
+    alwaysVisibleFilters,
     setCurrentView,
     createConfiguration,
     duplicateConfiguration,

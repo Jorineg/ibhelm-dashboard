@@ -48,12 +48,12 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <!-- Config Panel (left side) -->
-      <ConfigurationPanel />
+      <!-- Config Panel (left side) - hidden for projects view -->
+      <ConfigurationPanel v-if="activeView !== 'projects'" />
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
-        <FilterBar :available-columns="availableColumns" class="filters-section" />
+        <FilterBar v-if="activeView !== 'projects'" :available-columns="availableColumns" class="filters-section" />
         <DataTable
           ref="dataTableRef"
           :search-query="searchQuery"

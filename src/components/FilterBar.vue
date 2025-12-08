@@ -245,7 +245,7 @@ const props = defineProps<Props>()
 
 const {
   activeConfig,
-  DEFAULT_ALWAYS_VISIBLE_FILTERS,
+  alwaysVisibleFilters,
   addDynamicFilter,
   removeDynamicFilter,
   updateDynamicFilter,
@@ -285,7 +285,7 @@ const {
   clear: clearTagSuggestions
 } = useTagAutocomplete()
 
-const alwaysVisibleFilterNames = DEFAULT_ALWAYS_VISIBLE_FILTERS
+const alwaysVisibleFilterNames = alwaysVisibleFilters
 
 const filterOperators = [
   { label: 'Equals', value: 'eq' },
