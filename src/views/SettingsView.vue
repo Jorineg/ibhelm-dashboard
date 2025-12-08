@@ -1,17 +1,18 @@
 <template>
-  <div class="settings-view">
-    <!-- Header -->
-    <PageHeader
-      title="Settings"
-      :show-back="true"
-      :user-email="user?.email"
-      :show-sign-out="true"
-      @back="goBack"
-      @sign-out="handleSignOut"
-    />
+  <div class="settings-view" ref="viewRef">
+    <div class="settings-inner">
+      <!-- Header -->
+      <PageHeader
+        title="Settings"
+        :show-back="true"
+        :user-email="user?.email"
+        :show-sign-out="true"
+        @back="goBack"
+        @sign-out="handleSignOut"
+      />
 
-    <!-- Main Content with Sidebar -->
-    <div class="settings-layout">
+      <!-- Main Content with Sidebar -->
+      <div class="settings-layout">
       <!-- Sidebar Navigation -->
       <nav class="settings-sidebar">
         <ul class="sidebar-menu">
@@ -72,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
@@ -83,6 +84,17 @@ import { useEmails } from '@/composables/useEmails'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
+const viewRef = ref<HTMLElement | null>(null)
+const scrollbarWidth = ref(0)
+let resizeObserver: ResizeObserver | null = null
+
+const updateScrollbarWidth = () => {
+  if (viewRef.value) {
+    const sbWidth = viewRef.value.offsetWidth - viewRef.value.clientWidth
+    scrollbarWidth.value = Math.max(0, sbWidth)
+  }
+}
+
 const {
   extractionRun,
   initialize,
@@ -103,13 +115,6 @@ const {
   rerunProjectLinking,
   fetchLatestProjectLinkingRun
 } = useEmails()
-
-// Scrollbar width -> used to reduce right padding when scrollbar is visible
-const setScrollbarVar = () => {
-  const rawWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
-  const clampedWidth = Math.min(rawWidth, 32) // keep a sensible clamp so padding never goes negative
-  document.documentElement.style.setProperty('--settings-scrollbar-width', `${clampedWidth}px`)
-}
 
 // Settings navigation
 const settingsSections = [
@@ -167,8 +172,14 @@ const handleRerunProjectLinking = async () => {
 
 // Initialize
 onMounted(async () => {
-  setScrollbarVar()
-  window.addEventListener('resize', setScrollbarVar)
+  if (viewRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      // Wrap in requestAnimationFrame to avoid "ResizeObserver loop limit exceeded"
+      requestAnimationFrame(updateScrollbarWidth)
+    })
+    resizeObserver.observe(viewRef.value)
+    updateScrollbarWidth()
+  }
 
   await initialize()
   await Promise.all([
@@ -179,17 +190,24 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', setScrollbarVar)
-  document.documentElement.style.removeProperty('--settings-scrollbar-width')
+  if (resizeObserver) resizeObserver.disconnect()
 })
 </script>
 
 <style scoped>
 .settings-view {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
+  overflow-y: auto;
+  /* Remove default padding here, move to inner */
+  padding: 0; 
+}
+
+.settings-inner {
+  min-height: 100%;
   padding: 2rem;
-  padding-right: calc(2rem - var(--settings-scrollbar-width, 0px));
+  /* Dynamic padding adjustment */
+  padding-right: calc(2rem - v-bind('scrollbarWidth + "px"'));
 }
 
 /* Settings Layout */
