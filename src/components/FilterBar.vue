@@ -298,13 +298,24 @@ const handlePersonClear = () => {
 }
 
 .filter-input-with-info {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  position: relative;
 }
 
-.filter-input-with-info > :first-child {
-  flex: 1;
+.filter-input-with-info > :deep(.info-tooltip-wrapper) {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.filter-input-with-info :deep(.autocomplete-input) {
+  padding-right: 3.25rem !important;
+}
+
+.filter-input-with-info :deep(.autocomplete-clear),
+.filter-input-with-info :deep(.autocomplete-loading) {
+  right: 1.75rem;
 }
 
 .filter-actions-inline {

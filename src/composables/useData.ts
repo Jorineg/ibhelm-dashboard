@@ -446,6 +446,98 @@ export function useData() {
     }
   }
 
+  // Fetch ALL data for export (no pagination)
+  const fetchAllForExport = async (
+    showTasks = true,
+    showEmails = true,
+    showCraft = true,
+    search = '',
+    filterConfig: FilterConfiguration | null = null,
+    viewType: ViewType = 'items',
+    selectedTaskTypes: string[] | null = null
+  ): Promise<ViewDataItem[]> => {
+    const sort = currentSort.value
+    
+    switch (viewType) {
+      case 'projects': {
+        let query = supabase
+          .from('project_overview')
+          .select('*')
+          .order(sort.field, { ascending: sort.order === 'asc' })
+        if (search) {
+          query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
+        }
+        query = applyDynamicFiltersToQuery(query, filterConfig)
+        const { data } = await query
+        return data || []
+      }
+      case 'people': {
+        let query = supabase
+          .from('unified_person_details')
+          .select('*')
+          .order(sort.field, { ascending: sort.order === 'asc' })
+        if (search) {
+          query = query.or(`display_name.ilike.%${search}%,primary_email.ilike.%${search}%,tw_company_name.ilike.%${search}%`)
+        }
+        query = applyDynamicFiltersToQuery(query, filterConfig)
+        const { data } = await query
+        return data || []
+      }
+      default: {
+        // Items view - need to handle involved_person filter
+        const involvedPersonSearch = filterConfig?.alwaysVisibleFilters?.involved_person
+        if (involvedPersonSearch) {
+          // Use RPC for involved person - fetch in batches since RPC has limit
+          const allData: ViewDataItem[] = []
+          let page = 0
+          while (true) {
+            const { data } = await supabase.rpc('get_unified_items_by_involved_person', {
+              p_search_text: involvedPersonSearch,
+              p_show_tasks: showTasks,
+              p_show_emails: showEmails,
+              p_text_search: search || null,
+              p_sort_field: sort.field,
+              p_sort_order: sort.order,
+              p_limit: 1000,
+              p_offset: page * 1000
+            })
+            if (!data || data.length === 0) break
+            allData.push(...data)
+            if (data.length < 1000) break
+            page++
+          }
+          return allData
+        }
+        
+        // Standard unified_items query
+        let query = supabase
+          .from('unified_items')
+          .select('*')
+          .order(sort.field, { ascending: sort.order === 'asc' })
+        
+        const typeFilters: string[] = []
+        if (showEmails) typeFilters.push('type.eq.email')
+        if (showCraft) typeFilters.push('type.eq.craft')
+        if (selectedTaskTypes && selectedTaskTypes.length > 0) {
+          typeFilters.push(`and(type.eq.task,task_type_id.in.(${selectedTaskTypes.join(',')}))`)
+        } else if (showTasks && selectedTaskTypes == null) {
+          typeFilters.push('type.eq.task')
+        }
+        
+        if (typeFilters.length === 0) return []
+        query = query.or(typeFilters.join(','))
+        
+        if (search) {
+          query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,body.ilike.%${search}%,preview.ilike.%${search}%,conversation_comments_text.ilike.%${search}%`)
+        }
+        
+        query = applyDynamicFiltersToQuery(query, filterConfig)
+        const { data } = await query
+        return data || []
+      }
+    }
+  }
+
   return {
     dataItems,
     loading,
@@ -455,7 +547,8 @@ export function useData() {
     currentSort,
     currentViewType,
     loadData,
-    loadMore
+    loadMore,
+    fetchAllForExport
   }
 }
 

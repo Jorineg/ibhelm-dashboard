@@ -75,6 +75,7 @@
           :selected-task-types="selectedTaskTypes"
           :selected-row="selectedRow"
           :selected-col="selectedCol"
+          :exporting="exporting"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -88,6 +89,7 @@
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
           @sort="handleSort"
+          @export="handleExport"
         />
       </main>
     </div>
@@ -102,6 +104,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import * as XLSX from 'xlsx'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
@@ -163,8 +166,11 @@ const {
   totalCount,
   currentSort,
   loadData,
-  loadMore
+  loadMore,
+  fetchAllForExport
 } = useData()
+
+const exporting = ref(false)
 
 const searchQuery = ref('')
 const detailDialogVisible = ref(false)
@@ -491,6 +497,52 @@ const handleSort = async (sortConfig: SortConfig) => {
       currentViewType.value,
       selectedTaskTypes.value
     )
+  }
+}
+
+const handleExport = async () => {
+  if (exporting.value) return
+  exporting.value = true
+  
+  try {
+    const allData = await fetchAllForExport(
+      activeConfig.value?.showTasks ?? true,
+      activeConfig.value?.showEmails ?? true,
+      activeConfig.value?.showCraft ?? true,
+      searchQuery.value,
+      activeConfig.value || null,
+      currentViewType.value,
+      selectedTaskTypes.value
+    )
+    
+    // Get all column fields from the current view's columns
+    const columns = availableColumns.value
+    const headers = columns.map(c => c.header)
+    const fields = columns.map(c => c.field)
+    
+    // Convert data to rows
+    const rows = allData.map(item => 
+      fields.map(field => {
+        const value = item[field]
+        if (value === null || value === undefined) return ''
+        if (Array.isArray(value)) return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ')
+        if (typeof value === 'object') return JSON.stringify(value)
+        return value
+      })
+    )
+    
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_array([headers, ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), activeView.value)
+    
+    // Download
+    const filename = `${activeView.value}_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, filename)
+  } catch (error) {
+    console.error('Export failed:', error)
+  } finally {
+    exporting.value = false
   }
 }
 

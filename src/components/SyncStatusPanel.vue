@@ -20,20 +20,16 @@
             <span 
               class="detail-value time" 
               :class="{ warning: isSourceOutdated(source.data) }"
-              :title="formatFullDate(source.data.lastScanned)"
             >
-              {{ formatTime(source.data.lastScanned) }}
+              {{ formatDateTime(source.data.lastScanned) }}
               <i v-if="isSourceOutdated(source.data)" class="pi pi-exclamation-triangle warning-icon"></i>
             </span>
           </div>
           
           <div class="detail-row">
             <span class="detail-label">Last change:</span>
-            <span 
-              class="detail-value time" 
-              :title="formatFullDate(source.data.lastChange)"
-            >
-              {{ formatTime(source.data.lastChange) }}
+            <span class="detail-value time">
+              {{ formatDateTime(source.data.lastChange) }}
             </span>
           </div>
           
@@ -55,6 +51,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SyncStatus, SyncSourceStatus } from '@/composables/useSyncStatus'
+import { formatDateTime } from '@/lib/formatDate'
 
 interface Props {
   syncStatus: SyncStatus
@@ -79,27 +76,6 @@ const getSourceStatusIcon = (source: SyncSourceStatus): string => {
   if (source.pendingCount > 0) return 'pi pi-download'
   if (props.isSourceOutdated(source)) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
-}
-
-const formatTime = (date: Date | null): string => {
-  if (!date) return '--:--:--'
-  return date.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
-const formatFullDate = (date: Date | null): string => {
-  if (!date) return 'No data available'
-  return date.toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 }
 </script>
 

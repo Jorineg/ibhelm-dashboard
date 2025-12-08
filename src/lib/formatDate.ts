@@ -1,17 +1,20 @@
-const dateOptions: Intl.DateTimeFormatOptions = {
-  day: '2-digit',
-  month: '2-digit',
-  year: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit'
+const pad = (n: number) => n.toString().padStart(2, '0')
+
+// Fixed format: dd.mm.yy, hh:mm:ss (independent of locale)
+export const formatDateTime = (date: Date | string | null): string => {
+  if (!date) return '--.--.-- --:--:--'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '--.--.-- --:--:--'
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${pad(d.getFullYear() % 100)}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-export const formatDateDE = (dateStr: string) =>
-  new Date(dateStr).toLocaleString('de-DE', dateOptions)
+// Fixed format: mm/dd/yy, hh:mm:ss (US style)
+export const formatDateTimeUS = (date: Date | string | null): string => {
+  if (!date) return '--/--/-- --:--:--'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '--/--/-- --:--:--'
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${pad(d.getFullYear() % 100)}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 
-export const formatDateUS = (dateStr: string) =>
-  new Date(dateStr).toLocaleString('en-US', { ...dateOptions, hour12: false })
-
-// Default export for backwards compatibility
-export const formatDate = formatDateDE
+// Backwards compatibility
+export const formatDate = (dateStr: string) => formatDateTime(dateStr)

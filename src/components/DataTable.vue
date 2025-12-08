@@ -118,6 +118,15 @@
       </div>
 
       <div class="toolbar-right">
+        <Button
+          icon="pi pi-download"
+          text
+          rounded
+          class="export-btn"
+          :loading="props.exporting"
+          @click="emit('export')"
+          title="Export to Excel"
+        />
         <SelectButton
           v-model="localViewMode"
           :options="viewModeOptions"
@@ -339,6 +348,8 @@ interface Props {
   // Keyboard navigation
   selectedRow?: number
   selectedCol?: number
+  // Export state
+  exporting?: boolean
 }
 
 interface Emits {
@@ -357,6 +368,7 @@ interface Emits {
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
   (e: 'sort', sortConfig: SortConfig): void
+  (e: 'export'): void
 }
 
 const props = defineProps<Props>()
@@ -795,7 +807,15 @@ onUnmounted(() => {
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
+}
+
+.export-btn {
+  color: var(--text-secondary) !important;
+}
+
+.export-btn:hover {
+  color: var(--text-primary) !important;
 }
 
 /* Match toolbar inputs to filter bar inputs (34px / 2.125rem) */
@@ -906,13 +926,13 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  width: 270px;
-  gap: 0.25rem;
+  width: 250px;
 }
 
-.search-wrapper > .autocomplete-container,
-.search-wrapper > .p-inputtext {
-  flex: 1;
+.search-wrapper > :deep(.info-tooltip-wrapper) {
+  position: absolute;
+  right: 0.5rem;
+  z-index: 1;
 }
 
 .search-icon {
@@ -927,12 +947,12 @@ onUnmounted(() => {
   width: 100%;
   font-size: 0.95rem !important;
   padding-left: 2.5rem !important;
-  padding-right: 2.75rem !important;
+  padding-right: 3.25rem !important;
 }
 
 .clear-search {
   position: absolute;
-  right: 0.25rem;
+  right: 1.5rem;
 }
 
 /* Table scroll container - handles both horizontal and vertical scroll */
