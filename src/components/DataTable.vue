@@ -168,7 +168,7 @@
           frozen
           :sortable="true"
           :reorderable-column="false"
-          :style="{ width: '100px', minWidth: '100px', maxWidth: '100px' }"
+          :style="{ width: '70px', minWidth: '70px', maxWidth: '70px' }"
           class="type-column"
         >
           <template #body="{ data }">
@@ -441,10 +441,10 @@ const hiddenEmptyColumnsCount = computed(() => {
   return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
 })
 
-// Get column style with width
+// Get column style with width - use maxWidth to prevent columns from expanding with few columns
 const getColumnStyle = (col: ColumnType) => {
   const width = props.columnWidths[col.field] || col.width || '150px'
-  return { width }
+  return { width, maxWidth: width }
 }
 
 // Check if column should be shown based on data
@@ -857,12 +857,12 @@ onUnmounted(() => {
 }
 
 .data-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
 }
 
 .data-table :deep(.p-datatable-wrapper) {
-  overflow-x: auto !important;
-  overflow-y: visible !important;
+  overflow: visible !important;
 }
 
 .data-table :deep(.p-datatable) {
@@ -871,8 +871,6 @@ onUnmounted(() => {
 
 .data-table :deep(.p-datatable-table) {
   table-layout: fixed;
-  /* Width is determined by sum of column widths */
-  width: auto;
   min-width: 100%;
 }
 
