@@ -349,7 +349,16 @@ const emit = defineEmits<Emits>()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
-const { emailColor, craftColor, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, craftSpaceId, initialize: initAppearance } = useAppearanceSettings()
+
+// Transform craft URL to include space ID
+const transformCraftUrl = (url: string): string => {
+  if (!url || !craftSpaceId.value) return url
+  // URL format: craftdocs://open?blockId=xxx → craftdocs://open?spaceId=yyy&blockId=xxx
+  const blockIdMatch = url.match(/blockId=([^&]+)/)
+  if (!blockIdMatch) return url
+  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
+}
 
 // Initialize task types and appearance settings on mount
 onMounted(async () => {
@@ -589,7 +598,7 @@ const getItemPrimaryUrl = (item: ViewDataItem): string => {
   // Return the most relevant URL for this item type
   if (item.teamwork_url) return item.teamwork_url
   if (item.missive_url) return item.missive_url
-  if (item.craft_url) return item.craft_url
+  if (item.craft_url) return transformCraftUrl(item.craft_url)
   return '#'
 }
 

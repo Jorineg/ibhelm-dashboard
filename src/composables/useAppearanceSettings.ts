@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import type { AppSettings } from '@/types'
 
-const settings = ref<AppSettings>({ email_color: '#3b82f6', craft_color: '#8b5cf6' })
+const settings = ref<AppSettings>({ email_color: '#3b82f6', craft_color: '#8b5cf6', craft_space_id: '' })
 const loading = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
@@ -53,9 +53,11 @@ export function useAppearanceSettings() {
 
   const updateEmailColor = (color: string) => updateSetting('email_color', color)
   const updateCraftColor = (color: string) => updateSetting('craft_color', color)
+  const updateCraftSpaceId = (id: string) => updateSetting('craft_space_id', id)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
+  const craftSpaceId = computed(() => settings.value.craft_space_id || '')
 
   return {
     settings,
@@ -63,10 +65,12 @@ export function useAppearanceSettings() {
     saving,
     emailColor,
     craftColor,
+    craftSpaceId,
     initialize,
     fetchSettings,
     updateEmailColor,
-    updateCraftColor
+    updateCraftColor,
+    updateCraftSpaceId
   }
 }
 

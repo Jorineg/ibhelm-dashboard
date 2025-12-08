@@ -161,6 +161,7 @@ export type { ProjectLinkingRun } from '@/composables/useEmails'
 export interface AppSettings {
   email_color: string
   craft_color: string
+  craft_space_id?: string
 }
 
 export interface DataItem {

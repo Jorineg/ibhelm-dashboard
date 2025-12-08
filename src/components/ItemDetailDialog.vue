@@ -44,7 +44,7 @@
           />
           <SourceLink
             v-if="item.craft_url"
-            :url="item.craft_url"
+            :url="transformedCraftUrl || item.craft_url"
             variant="craft"
           />
         </div>
@@ -102,6 +102,7 @@ import Tag from 'primevue/tag'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
 import { SourceLink } from '@/components/common'
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
 
 interface Props {
@@ -115,6 +116,17 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const { craftSpaceId } = useAppearanceSettings()
+
+// Transform craft URL to include space ID
+const transformedCraftUrl = computed(() => {
+  const url = props.item?.craft_url
+  if (!url || !craftSpaceId.value) return url
+  const blockIdMatch = url.match(/blockId=([^&]+)/)
+  if (!blockIdMatch) return url
+  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
+})
 
 const showEmptyFields = ref(false)
 const isVisible = computed({

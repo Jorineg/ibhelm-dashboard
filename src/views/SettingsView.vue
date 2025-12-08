@@ -54,13 +54,9 @@
           @rerun-linking="handleRerunProjectLinking"
         />
 
-        <!-- Placeholder sections -->
-        <PlaceholderSection
+        <!-- General Section -->
+        <GeneralSection
           v-else-if="activeSection === 'general'"
-          title="General"
-          description="General application settings."
-          icon="pi pi-cog"
-          message="General settings will be available soon."
         />
 
         <!-- Appearance Section -->
@@ -77,7 +73,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, GeneralSection } from '@/components/settings'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
