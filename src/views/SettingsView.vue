@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
@@ -83,24 +83,6 @@ import { useEmails } from '@/composables/useEmails'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-
-// Layout & Scrollbar handling
-const scrollbarWidth = ref(0)
-const paddingRight = computed(() => {
-  // Base padding is 2rem (32px). We subtract scrollbar width to keep content stable.
-  // If scrollbar is 0 (overlay or no scroll), padding is 2rem.
-  // If scrollbar is 15px, padding becomes ~17px.
-  // We ensure it doesn't go below a safe minimum (e.g. 1rem) to avoid touching the edge too closely if scrollbar is huge.
-  const basePadding = 32 // 2rem
-  const effectivePadding = Math.max(16, basePadding - scrollbarWidth.value)
-  return `${effectivePadding}px`
-})
-
-const checkScrollbar = () => {
-  scrollbarWidth.value = window.innerWidth - document.documentElement.clientWidth
-}
-
-let resizeObserver: ResizeObserver | null = null
 const {
   extractionRun,
   initialize,
@@ -178,12 +160,6 @@ const handleRerunProjectLinking = async () => {
 
 // Initialize
 onMounted(async () => {
-  // Setup scrollbar detection
-  checkScrollbar()
-  resizeObserver = new ResizeObserver(checkScrollbar)
-  resizeObserver.observe(document.documentElement)
-  window.addEventListener('resize', checkScrollbar)
-
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
@@ -191,19 +167,15 @@ onMounted(async () => {
     fetchLatestProjectLinkingRun()
   ])
 })
-
-onUnmounted(() => {
-  if (resizeObserver) resizeObserver.disconnect()
-  window.removeEventListener('resize', checkScrollbar)
-})
 </script>
 
 <style scoped>
 .settings-view {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
   padding: 2rem;
-  padding-right: v-bind('paddingRight');
+  overflow-y: auto;
+  overflow-y: overlay; /* scrollbar overlays content, doesn't take layout space */
 }
 
 /* Settings Layout */
