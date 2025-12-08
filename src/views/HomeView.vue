@@ -272,10 +272,10 @@ const switchView = async (view: ViewType) => {
 // Filtered items (server-side filtering is primary)
 const filteredAndSearchedItems = computed(() => dataItems.value)
 
-// Watch for config changes - computed key for change detection
-const dataFetchConfig = computed(() => {
+// Watch for config changes - use JSON string comparison to avoid deep reactivity issues
+const dataFetchConfigKey = computed(() => {
   if (!activeConfig.value) return null
-  return {
+  return JSON.stringify({
     id: activeConfig.value.id,
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
@@ -283,22 +283,25 @@ const dataFetchConfig = computed(() => {
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
     alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
     dynamicFilters: activeConfig.value.dynamicFilters
-  }
+  })
 })
 
-// Track last loaded config ID to prevent duplicate loads on same config
-let lastLoadedConfigId: string | null = null
+// Track if initial load has been done to prevent double loading on page reload
+let initialLoadDone = false
 let filterTimeout: number | null = null
 
-watch(dataFetchConfig, async (newConfig, oldConfig) => {
+watch(dataFetchConfigKey, async (newKey, oldKey) => {
   if (filterTimeout) clearTimeout(filterTimeout)
   
   // Skip if no config
-  if (!newConfig || !activeConfig.value) return
+  if (!newKey || !activeConfig.value) return
+  
+  // Skip if this is the same config key (prevents duplicate loads)
+  if (initialLoadDone && newKey === oldKey) return
   
   filterTimeout = window.setTimeout(async () => {
     if (activeConfig.value) {
-      lastLoadedConfigId = activeConfig.value.id
+      initialLoadDone = true
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
@@ -311,7 +314,7 @@ watch(dataFetchConfig, async (newConfig, oldConfig) => {
       )
     }
   }, 300)
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 // Search debouncing
 let searchTimeout: number | null = null

@@ -441,9 +441,10 @@ const hiddenEmptyColumnsCount = computed(() => {
   return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
 })
 
-// Get column style with width
+// Get column style with width - with table-layout: fixed, columns need explicit widths
 const getColumnStyle = (col: ColumnType) => {
-  return { width: props.columnWidths[col.field] || col.width || 'auto' }
+  const width = props.columnWidths[col.field] || col.width || '150px'
+  return { width, minWidth: width, maxWidth: width }
 }
 
 // Check if column should be shown based on data
@@ -869,7 +870,7 @@ onUnmounted(() => {
 }
 
 .data-table :deep(.p-datatable-table) {
-  table-layout: auto;
+  table-layout: fixed;
   min-width: 100%;
 }
 
