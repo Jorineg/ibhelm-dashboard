@@ -55,6 +55,7 @@
       <main class="center-content">
         <FilterBar :available-columns="availableColumns" class="filters-section" />
         <DataTable
+          ref="dataTableRef"
           :search-query="searchQuery"
           @update:search-query="searchQuery = $event"
           @clear-search="clearSearch"
@@ -72,6 +73,8 @@
           :sort-config="currentSort"
           :view-type="activeView"
           :selected-task-types="selectedTaskTypes"
+          :selected-row="selectedRow"
+          :selected-col="selectedCol"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -80,6 +83,8 @@
           @update:show-craft="handleUpdateShowCraft"
           @update:view-mode="handleUpdateViewMode"
           @update:selected-task-types="handleUpdateSelectedTaskTypes"
+          @update:selected-row="selectedRow = $event"
+          @update:selected-col="selectedCol = $event"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
           @sort="handleSort"
@@ -96,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
@@ -110,13 +115,15 @@ import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
+import { useKeyBindings } from '@/composables/useKeyBindings'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const { activeConfig, updateConfiguration, setCurrentView, currentViewType } = useFilterConfigs()
+const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
+const { keyBindings } = useKeyBindings()
 
 // Sync popup state
 const syncPopupVisible = ref(false)
@@ -152,6 +159,11 @@ const {
 const searchQuery = ref('')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
+
+// Keyboard navigation
+const selectedRow = ref(-1)
+const selectedCol = ref(0)
+const dataTableRef = ref<{ focusSearch: () => void; scrollToSelectedCell: () => void } | null>(null)
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -466,9 +478,127 @@ const handleSort = async (sortConfig: SortConfig) => {
   }
 }
 
+// Keyboard shortcut handlers
+const handleKeyDown = (event: KeyboardEvent) => {
+  // Ignore if user is typing in an input (except Escape)
+  const target = event.target as HTMLElement
+  const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+  
+  if (isTyping && event.key !== 'Escape') return
+  
+  const bindings = keyBindings.value
+  const key = event.key
+  
+  // Close dialog with Escape
+  if (key === bindings.closeDialog.key && detailDialogVisible.value) {
+    event.preventDefault()
+    detailDialogVisible.value = false
+    return
+  }
+  
+  // Don't process other shortcuts if dialog is open
+  if (detailDialogVisible.value) return
+  
+  // Filter config shortcuts 1-9
+  const configNumber = parseInt(key)
+  if (configNumber >= 1 && configNumber <= 9) {
+    const configBindingKey = `filterConfig${configNumber}` as keyof typeof bindings
+    if (key === bindings[configBindingKey].key) {
+      event.preventDefault()
+      const configs = configurations.value
+      if (configNumber <= configs.length) {
+        setActiveConfiguration(configs[configNumber - 1].id)
+      }
+      return
+    }
+  }
+  
+  // Navigation shortcuts
+  if (key === bindings.navigateDown.key) {
+    event.preventDefault()
+    const maxRow = filteredAndSearchedItems.value.length - 1
+    if (selectedRow.value < maxRow) {
+      selectedRow.value++
+      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    } else if (selectedRow.value === -1 && maxRow >= 0) {
+      selectedRow.value = 0
+      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    }
+    return
+  }
+  
+  if (key === bindings.navigateUp.key) {
+    event.preventDefault()
+    if (selectedRow.value > 0) {
+      selectedRow.value--
+      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    } else if (selectedRow.value === -1 && filteredAndSearchedItems.value.length > 0) {
+      selectedRow.value = 0
+      nextTick(() => dataTableRef.value?.scrollToSelectedCell())
+    }
+    return
+  }
+  
+  // Open link (Enter)
+  if (key === bindings.openLink.key && selectedRow.value >= 0) {
+    event.preventDefault()
+    const item = filteredAndSearchedItems.value[selectedRow.value]
+    if (item) {
+      const url = item.teamwork_url || item.missive_url || item.craft_url
+      if (url) window.open(url, '_blank')
+    }
+    return
+  }
+  
+  // Open detail popup (o)
+  if (key === bindings.openDetail.key && selectedRow.value >= 0) {
+    event.preventDefault()
+    const item = filteredAndSearchedItems.value[selectedRow.value]
+    if (item) {
+      selectedItem.value = item
+      detailDialogVisible.value = true
+    }
+    return
+  }
+  
+  // New config (n)
+  if (key === bindings.newConfig.key) {
+    event.preventDefault()
+    createConfiguration()
+    return
+  }
+  
+  // Delete config (d)
+  if (key === bindings.deleteConfig.key) {
+    event.preventDefault()
+    if (activeConfig.value && configurations.value.length > 1) {
+      deleteConfiguration(activeConfig.value.id)
+    }
+    return
+  }
+  
+  // Focus search (s)
+  if (key === bindings.focusSearch.key) {
+    event.preventDefault()
+    dataTableRef.value?.focusSearch()
+    return
+  }
+}
+
+// Reset selection when data changes
+watch(() => filteredAndSearchedItems.value.length, () => {
+  if (selectedRow.value >= filteredAndSearchedItems.value.length) {
+    selectedRow.value = Math.max(0, filteredAndSearchedItems.value.length - 1)
+  }
+})
+
 onMounted(async () => {
   await initTaskTypes()
-  // The dataFetchConfig watch will trigger the initial data load
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 

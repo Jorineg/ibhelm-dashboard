@@ -136,6 +136,7 @@
         :sort-field="props.sortConfig?.field"
         :sort-order="props.sortConfig?.order === 'asc' ? 1 : -1"
         removable-sort
+        :row-class="getRowClass"
         @row-click="handleRowClick"
         @column-reorder="handleColumnReorder"
         @sort="handleSort"
@@ -324,6 +325,9 @@ interface Props {
   viewType?: ViewType
   // Task type filters
   selectedTaskTypes?: string[]
+  // Keyboard navigation
+  selectedRow?: number
+  selectedCol?: number
 }
 
 interface Emits {
@@ -336,6 +340,8 @@ interface Emits {
   (e: 'update:viewMode', value: 'list' | 'gallery'): void
   (e: 'update:searchQuery', value: string): void
   (e: 'update:selectedTaskTypes', value: string[]): void
+  (e: 'update:selectedRow', value: number): void
+  (e: 'update:selectedCol', value: number): void
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
@@ -389,8 +395,25 @@ const scrollTrigger = ref<HTMLElement | null>(null)
 const galleryScrollTrigger = ref<HTMLElement | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTablePrime> | null>(null)
+const searchInputRef = ref<HTMLElement | null>(null)
 const isResizing = ref(false)
 let resizeTimeout: number | null = null
+
+// Expose methods for parent component
+const focusSearch = () => {
+  const input = document.querySelector('.search-input input') as HTMLInputElement
+  input?.focus()
+}
+
+const scrollToSelectedCell = () => {
+  if (props.selectedRow === undefined || props.selectedRow < 0) return
+  const rows = scrollContainerRef.value?.querySelectorAll('.p-datatable-tbody > tr')
+  if (rows && rows[props.selectedRow]) {
+    rows[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+defineExpose({ focusSearch, scrollToSelectedCell })
 
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,
@@ -483,6 +506,13 @@ const itemCountDisplay = computed(() => {
 
 const handleRowClick = (event: { data: DataItem }) => {
   emit('rowClick', event.data)
+}
+
+// Row class for keyboard selection
+const getRowClass = (data: ViewDataItem) => {
+  if (props.selectedRow === undefined || props.selectedRow < 0) return ''
+  const index = displayedItems.value.indexOf(data)
+  return index === props.selectedRow ? 'keyboard-selected' : ''
 }
 
 const handleColumnReorder = (event: any) => {
@@ -742,7 +772,7 @@ onUnmounted(() => {
 }
 
 .column-selector {
-  min-width: 280px;
+  min-width: 200px;
 }
 
 .hidden-columns-hint {
@@ -834,7 +864,7 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  width: 350px;
+  width: 250px;
 }
 
 .search-icon {
@@ -1145,6 +1175,17 @@ onUnmounted(() => {
 .scroll-trigger {
   height: 20px;
   margin: 1rem 0;
+}
+
+/* Keyboard navigation selection */
+.data-table :deep(.p-datatable-tbody > tr.keyboard-selected) {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+  background: var(--accent-primary-dark) !important;
+}
+
+.data-table :deep(.p-datatable-tbody > tr.keyboard-selected > td) {
+  background: inherit !important;
 }
 
 </style>

@@ -5,5 +5,6 @@ export { default as PeopleSection } from './PeopleSection.vue'
 export { default as EmailsSection } from './EmailsSection.vue'
 export { default as AppearanceSection } from './AppearanceSection.vue'
 export { default as GeneralSection } from './GeneralSection.vue'
+export { default as KeyBindingsSection } from './KeyBindingsSection.vue'
 export { default as PlaceholderSection } from './PlaceholderSection.vue'
 

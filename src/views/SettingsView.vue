@@ -63,6 +63,11 @@
         <AppearanceSection
           v-else-if="activeSection === 'appearance'"
         />
+
+        <!-- Key Bindings Section -->
+        <KeyBindingsSection
+          v-else-if="activeSection === 'keybindings'"
+        />
       </div>
     </div>
   </div>
@@ -73,7 +78,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, GeneralSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
@@ -109,7 +114,8 @@ const settingsSections = [
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
   { id: 'general', label: 'General', icon: 'pi pi-cog' },
-  { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' }
+  { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
+  { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' }
 ]
 const activeSection = ref('task-types')
 const isExtracting = ref(false)
