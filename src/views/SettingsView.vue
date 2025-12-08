@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-view" ref="viewRef">
+  <div class="settings-view">
     <div class="settings-inner">
       <!-- Header -->
       <PageHeader
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, AppearanceSection, PlaceholderSection } from '@/components/settings'
@@ -85,16 +85,6 @@ import { useEmails } from '@/composables/useEmails'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const viewRef = ref<HTMLElement | null>(null)
-const scrollbarWidth = ref(0)
-let resizeObserver: ResizeObserver | null = null
-
-const updateScrollbarWidth = () => {
-  if (viewRef.value) {
-    const sbWidth = viewRef.value.offsetWidth - viewRef.value.clientWidth
-    scrollbarWidth.value = Math.max(0, sbWidth)
-  }
-}
 
 const {
   extractionRun,
@@ -173,25 +163,12 @@ const handleRerunProjectLinking = async () => {
 
 // Initialize
 onMounted(async () => {
-  if (viewRef.value) {
-    resizeObserver = new ResizeObserver(() => {
-      // Wrap in requestAnimationFrame to avoid "ResizeObserver loop limit exceeded"
-      requestAnimationFrame(updateScrollbarWidth)
-    })
-    resizeObserver.observe(viewRef.value)
-    updateScrollbarWidth()
-  }
-
   await initialize()
   await Promise.all([
     fetchLatestExtractionRun(),
     fetchLatestPersonLinkingRun(),
     fetchLatestProjectLinkingRun()
   ])
-})
-
-onUnmounted(() => {
-  if (resizeObserver) resizeObserver.disconnect()
 })
 </script>
 
@@ -207,8 +184,8 @@ onUnmounted(() => {
 .settings-inner {
   min-height: 100%;
   padding: 2rem;
-  /* Dynamic padding adjustment */
-  padding-right: calc(2rem - v-bind('scrollbarWidth + "px"'));
+  /* Scrollbar eats padding: 100vw = viewport, 100% = parent content width (shrinks when scrollbar present) */
+  padding-right: calc(2rem - (100vw - 100%));
 }
 
 /* Settings Layout */
