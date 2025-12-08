@@ -441,10 +441,10 @@ const hiddenEmptyColumnsCount = computed(() => {
   return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
 })
 
-// Get column style with width - with table-layout: fixed, columns need explicit widths
+// Get column style with width
 const getColumnStyle = (col: ColumnType) => {
   const width = props.columnWidths[col.field] || col.width || '150px'
-  return { width, minWidth: width, maxWidth: width }
+  return { width }
 }
 
 // Check if column should be shown based on data
@@ -857,12 +857,12 @@ onUnmounted(() => {
 }
 
 .data-table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
 }
 
 .data-table :deep(.p-datatable-wrapper) {
-  overflow: visible !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
 .data-table :deep(.p-datatable) {
@@ -871,14 +871,18 @@ onUnmounted(() => {
 
 .data-table :deep(.p-datatable-table) {
   table-layout: fixed;
+  /* Width is determined by sum of column widths */
+  width: auto;
   min-width: 100%;
 }
 
+/* Ensure columns respect their set widths */
 .data-table :deep(.p-datatable-thead > tr > th),
 .data-table :deep(.p-datatable-tbody > tr > td) {
   overflow: hidden;
   text-overflow: ellipsis;
   word-wrap: break-word;
+  box-sizing: border-box;
 }
 
 .data-table :deep(.p-datatable-thead) {
