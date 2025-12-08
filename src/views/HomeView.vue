@@ -531,14 +531,17 @@ const handleExport = async () => {
       return ''
     }
     
+    // Excel cell limit is 32767 chars
+    const truncate = (val: string) => val.length > 32000 ? val.slice(0, 32000) + '...' : val
+    
     // Convert data to rows
     const rows = allData.map(item => {
       const rowData = fields.map(field => {
         const value = item[field]
         if (value === null || value === undefined) return ''
-        if (Array.isArray(value)) return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ')
-        if (typeof value === 'object') return JSON.stringify(value)
-        return value
+        if (Array.isArray(value)) return truncate(value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', '))
+        if (typeof value === 'object') return truncate(JSON.stringify(value))
+        return typeof value === 'string' ? truncate(value) : value
       })
       rowData.push(getLink(item))
       return rowData

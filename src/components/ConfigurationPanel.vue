@@ -178,6 +178,7 @@ const handleUpdateName = (name: string) => {
 
 <style scoped>
 .config-panel-wrapper {
+  padding-right: 1rem;
   position: relative;
   flex-shrink: 0;
 }
@@ -221,8 +222,7 @@ const handleUpdateName = (name: string) => {
 }
 
 .mini-expand-btn {
-  width: 2rem;
-  height: 2rem;
+  height: 3rem;
   background: transparent;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
