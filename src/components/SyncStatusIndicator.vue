@@ -56,9 +56,6 @@ const statusTitle = computed(() => {
   padding: 0.35rem 0.6rem;
   border-radius: var(--radius-sm);
   transition: background 0.15s ease;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .sync-indicator:hover {

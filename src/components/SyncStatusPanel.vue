@@ -163,10 +163,10 @@ const formatFullDate = (date: Date | null): string => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
 }
 
 .source-status.ok {

@@ -523,7 +523,10 @@ onMounted(async () => {
 
 /* Sync Status Wrapper */
 .sync-status-wrapper {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .sync-popup-container {
