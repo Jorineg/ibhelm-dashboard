@@ -116,6 +116,7 @@ import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
@@ -124,6 +125,15 @@ const { activeConfig, configurations, updateConfiguration, setCurrentView, curre
 const { syncStatus, overallStatus, isSourceOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
+const { craftSpaceId } = useAppearanceSettings()
+
+// Transform craft URL to include space ID (same as DataTable)
+const transformCraftUrl = (url: string): string => {
+  if (!url || !craftSpaceId.value) return url
+  const blockIdMatch = url.match(/blockId=([^&]+)/)
+  if (!blockIdMatch) return url
+  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
+}
 
 // Sync popup state
 const syncPopupVisible = ref(false)
@@ -480,24 +490,47 @@ const handleSort = async (sortConfig: SortConfig) => {
 
 // Keyboard shortcut handlers
 const handleKeyDown = (event: KeyboardEvent) => {
-  // Ignore if user is typing in an input (except Escape)
   const target = event.target as HTMLElement
   const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
-  
-  if (isTyping && event.key !== 'Escape') return
   
   const bindings = keyBindings.value
   const key = event.key
   
-  // Close dialog with Escape
-  if (key === bindings.closeDialog.key && detailDialogVisible.value) {
+  // Escape: blur input, or close dialog, or deselect
+  if (key === bindings.closeDialog.key) {
     event.preventDefault()
-    detailDialogVisible.value = false
+    if (isTyping) {
+      (target as HTMLInputElement).blur()
+      return
+    }
+    if (detailDialogVisible.value) {
+      detailDialogVisible.value = false
+      return
+    }
+    // Deselect row if nothing else to close
+    if (selectedRow.value >= 0) {
+      selectedRow.value = -1
+    }
     return
   }
   
-  // Don't process other shortcuts if dialog is open
-  if (detailDialogVisible.value) return
+  // Toggle detail popup with 'o' (works even when dialog is open)
+  if (key === bindings.openDetail.key && !isTyping) {
+    event.preventDefault()
+    if (detailDialogVisible.value) {
+      detailDialogVisible.value = false
+    } else if (selectedRow.value >= 0) {
+      const item = filteredAndSearchedItems.value[selectedRow.value]
+      if (item) {
+        selectedItem.value = item
+        detailDialogVisible.value = true
+      }
+    }
+    return
+  }
+  
+  // Ignore other shortcuts if typing or dialog is open
+  if (isTyping || detailDialogVisible.value) return
   
   // Filter config shortcuts 1-9
   const configNumber = parseInt(key)
@@ -560,23 +593,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
     event.preventDefault()
     const item = filteredAndSearchedItems.value[selectedRow.value]
     if (item) {
-      const url = item.teamwork_url || item.missive_url || item.craft_url
-      if (url) window.open(url, '_blank')
-    }
-    return
-  }
-  
-  // Toggle detail popup (o)
-  if (key === bindings.openDetail.key) {
-    event.preventDefault()
-    if (detailDialogVisible.value) {
-      detailDialogVisible.value = false
-    } else if (selectedRow.value >= 0) {
-      const item = filteredAndSearchedItems.value[selectedRow.value]
-      if (item) {
-        selectedItem.value = item
-        detailDialogVisible.value = true
+      let url = item.teamwork_url || item.missive_url
+      if (!url && item.craft_url) {
+        url = transformCraftUrl(item.craft_url)
       }
+      if (url) window.open(url, '_blank')
     }
     return
   }
