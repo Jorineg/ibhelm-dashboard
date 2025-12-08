@@ -4,6 +4,9 @@ import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/
 
 const PAGE_SIZE = 50
 
+// Request versioning to handle race conditions when switching configs
+let requestVersion = 0
+
 // Columns needed for list view - excludes large text fields like body, conversation_comments_text
 const UNIFIED_ITEMS_LIST_COLUMNS = `
   id,
@@ -344,6 +347,9 @@ export function useData() {
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null
   ) => {
+    // Increment version and capture it for this request
+    const thisRequestVersion = ++requestVersion
+    
     loading.value = true
     currentPage.value = 0
     items.value = []
@@ -371,13 +377,22 @@ export function useData() {
           break
       }
       
+      // Only update state if this is still the current request
+      if (thisRequestVersion !== requestVersion) return
+      
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (error) {
-      console.error('Error loading data:', error)
+      // Only log error if this is still the current request
+      if (thisRequestVersion === requestVersion) {
+        console.error('Error loading data:', error)
+      }
     } finally {
-      loading.value = false
+      // Only update loading state if this is still the current request
+      if (thisRequestVersion === requestVersion) {
+        loading.value = false
+      }
     }
   }
 
@@ -393,6 +408,9 @@ export function useData() {
   ) => {
     if (loading.value || !hasMore.value) return
 
+    // Capture current version - loadMore should not bump version, but should respect it
+    const thisRequestVersion = requestVersion
+    
     loading.value = true
     currentPage.value++
 
@@ -412,12 +430,19 @@ export function useData() {
           break
       }
       
+      // Only update state if no new loadData has started (version unchanged)
+      if (thisRequestVersion !== requestVersion) return
+      
       items.value.push(...result.data)
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (error) {
-      console.error('Error loading more data:', error)
+      if (thisRequestVersion === requestVersion) {
+        console.error('Error loading more data:', error)
+      }
     } finally {
-      loading.value = false
+      if (thisRequestVersion === requestVersion) {
+        loading.value = false
+      }
     }
   }
 

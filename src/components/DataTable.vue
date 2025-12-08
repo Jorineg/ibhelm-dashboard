@@ -870,7 +870,7 @@ onUnmounted(() => {
 }
 
 .data-table :deep(.p-datatable-table) {
-  table-layout: fixed;
+  table-layout: auto;
   min-width: 100%;
 }
 
