@@ -167,6 +167,7 @@ export interface AppSettings {
   project_color: string
   teamwork_base_url?: string
   cost_group_prefixes?: string[]
+  location_prefix?: string
 }
 
 export interface DataItem {
@@ -177,10 +178,10 @@ export interface DataItem {
   status?: string
   project?: string
   customer?: string  // Company from project (kept for display)
-  building?: string
-  floor?: string
-  room?: string
-  kostengruppe?: string
+  location?: string
+  location_path?: string
+  cost_group?: string
+  cost_group_code?: string
   due_date?: string
   created_at?: string
   updated_at?: string
@@ -253,9 +254,7 @@ export type ViewDataItem = DataItem | ProjectItem | PersonItem
 export interface QuickFilters {
   project?: string
   involved_person?: string
-  building?: string
-  floor?: string
-  room?: string
+  location?: string
   kostengruppe?: string
   tags?: string
 }

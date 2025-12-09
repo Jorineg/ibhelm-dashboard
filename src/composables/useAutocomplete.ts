@@ -30,6 +30,14 @@ export interface TagSuggestion {
   source: 'teamwork' | 'missive'
 }
 
+export interface LocationSuggestion {
+  id: string
+  name: string
+  type: 'building' | 'level' | 'room'
+  path: string | null
+  depth: number
+}
+
 export function useProjectAutocomplete() {
   const suggestions = ref<ProjectSuggestion[]>([])
   const loading = ref(false)
@@ -133,6 +141,47 @@ export function useCostGroupAutocomplete() {
     } catch (err) {
       console.error('Error searching cost groups:', err)
       error.value = err instanceof Error ? err.message : 'Failed to search cost groups'
+      suggestions.value = []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const clear = () => {
+    suggestions.value = []
+    error.value = null
+  }
+
+  return {
+    suggestions,
+    loading,
+    error,
+    search,
+    clear
+  }
+}
+
+export function useLocationAutocomplete() {
+  const suggestions = ref<LocationSuggestion[]>([])
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  const search = async (searchText: string, limit = 10) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const { data, error: rpcError } = await supabase.rpc('search_locations_autocomplete', {
+        p_search_text: searchText || '',
+        p_limit: limit
+      })
+      
+      if (rpcError) throw rpcError
+      
+      suggestions.value = data || []
+    } catch (err) {
+      console.error('Error searching locations:', err)
+      error.value = err instanceof Error ? err.message : 'Failed to search locations'
       suggestions.value = []
     } finally {
       loading.value = false

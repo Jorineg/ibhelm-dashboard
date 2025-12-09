@@ -9,7 +9,8 @@ const defaults: AppSettings = {
   person_color: '#10b981',
   project_color: '#f59e0b',
   teamwork_base_url: '',
-  cost_group_prefixes: ['KGR']
+  cost_group_prefixes: ['KGR'],
+  location_prefix: 'O-'
 }
 const settings = ref<AppSettings>({ ...defaults })
 const loading = ref(false)
@@ -67,6 +68,7 @@ export function useAppearanceSettings() {
   const updateProjectColor = (color: string) => updateSetting('project_color', color)
   const updateTeamworkBaseUrl = (url: string) => updateSetting('teamwork_base_url', url)
   const updateCostGroupPrefixes = (prefixes: string[]) => updateSetting('cost_group_prefixes', prefixes)
+  const updateLocationPrefix = (prefix: string) => updateSetting('location_prefix', prefix)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -75,6 +77,7 @@ export function useAppearanceSettings() {
   const projectColor = computed(() => settings.value.project_color)
   const teamworkBaseUrl = computed(() => settings.value.teamwork_base_url || '')
   const costGroupPrefixes = computed(() => settings.value.cost_group_prefixes || ['KGR'])
+  const locationPrefix = computed(() => settings.value.location_prefix || 'O-')
 
   return {
     settings,
@@ -87,6 +90,7 @@ export function useAppearanceSettings() {
     projectColor,
     teamworkBaseUrl,
     costGroupPrefixes,
+    locationPrefix,
     initialize,
     fetchSettings,
     updateEmailColor,
@@ -95,7 +99,8 @@ export function useAppearanceSettings() {
     updatePersonColor,
     updateProjectColor,
     updateTeamworkBaseUrl,
-    updateCostGroupPrefixes
+    updateCostGroupPrefixes,
+    updateLocationPrefix
   }
 }
 

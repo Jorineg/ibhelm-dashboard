@@ -118,6 +118,39 @@
               </InfoTooltip>
             </div>
             
+            <!-- Location autocomplete -->
+            <div v-else-if="filterName === 'location'" class="filter-input-with-info">
+              <AutocompleteInput
+                :id="filterName"
+                :model-value="activeConfig?.quickFilters[filterName] || ''"
+                :suggestions="locationSuggestions"
+                :loading="locationLoading"
+                :placeholder="`Filter by ${formatFilterName(filterName)}`"
+                primary-field="name"
+                secondary-field="path"
+                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @search="handleLocationSearch"
+                @select="handleLocationSelect"
+                @clear="handleLocationClear"
+              >
+                <template #option="{ suggestion }">
+                  <div class="location-option">
+                    <span class="location-name">{{ suggestion.name }}</span>
+                    <span class="location-type" :class="suggestion.type">{{ suggestion.type }}</span>
+                    <span v-if="suggestion.path && suggestion.path !== suggestion.name" class="location-path">{{ suggestion.path }}</span>
+                  </div>
+                </template>
+              </AutocompleteInput>
+              <InfoTooltip position="bottom">
+                <strong>Hierarchical search:</strong>
+                <ul>
+                  <li>Search for a building to find all items in that building</li>
+                  <li>Search for a level to find all items on that level</li>
+                  <li>Search for a room for exact match</li>
+                </ul>
+              </InfoTooltip>
+            </div>
+            
             <!-- Tag autocomplete -->
             <div v-else-if="filterName === 'tags'" class="filter-input-with-info">
               <AutocompleteInput
@@ -318,8 +351,8 @@ import { AutocompleteInput, InfoTooltip } from '@/components/common'
 import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
 import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
-import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
-import type { ProjectSuggestion, PersonSuggestion, CostGroupSuggestion, TagSuggestion } from '@/composables/useAutocomplete'
+import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
+import type { ProjectSuggestion, PersonSuggestion, CostGroupSuggestion, LocationSuggestion, TagSuggestion } from '@/composables/useAutocomplete'
 
 const {
   activeConfig,
@@ -345,6 +378,7 @@ const activeBaseFields = computed(() => {
 const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
 const { suggestions: personSuggestions, loading: personLoading, search: searchPersons, clear: clearPersonSuggestions } = usePersonAutocomplete()
 const { suggestions: costGroupSuggestions, loading: costGroupLoading, search: searchCostGroups, clear: clearCostGroupSuggestions } = useCostGroupAutocomplete()
+const { suggestions: locationSuggestions, loading: locationLoading, search: searchLocations, clear: clearLocationSuggestions } = useLocationAutocomplete()
 const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, clear: clearTagSuggestions } = useTagAutocomplete()
 
 const addFilterMenu = ref()
@@ -353,9 +387,7 @@ const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
     project: 'Project',
     involved_person: 'Involved Person',
-    building: 'Building',
-    floor: 'Floor',
-    room: 'Room',
+    location: 'Ort',
     kostengruppe: 'Cost Group',
     tags: 'Tags'
   }
@@ -582,6 +614,10 @@ const handleCostGroupSearch = (searchText: string) => searchCostGroups(searchTex
 const handleCostGroupSelect = (suggestion: CostGroupSuggestion) => updateQuickFilter('kostengruppe', String(suggestion.code))
 const handleCostGroupClear = () => { updateQuickFilter('kostengruppe', ''); clearCostGroupSuggestions() }
 
+const handleLocationSearch = (searchText: string) => searchLocations(searchText)
+const handleLocationSelect = (suggestion: LocationSuggestion) => updateQuickFilter('location', suggestion.name)
+const handleLocationClear = () => { updateQuickFilter('location', ''); clearLocationSuggestions() }
+
 const handleTagSearch = (searchText: string) => searchTags(searchText)
 const handleTagSelect = (suggestion: TagSuggestion) => updateQuickFilter('tags', suggestion.name)
 const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestions() }
@@ -609,7 +645,7 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, 200px);
   gap: 1.5rem;
   flex: 1;
 }
@@ -830,5 +866,48 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* Location option styling */
+.location-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.location-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.location-type {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.location-type.building {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.location-type.level {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.location-type.room {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.location-path {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  flex-basis: 100%;
 }
 </style>

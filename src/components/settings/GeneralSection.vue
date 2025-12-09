@@ -41,6 +41,27 @@
     </div>
 
     <div class="general-section">
+      <h4>Location Prefix</h4>
+      <p class="section-hint">
+        Tag prefix used for location extraction. Tags matching patterns like "O-Gebäude-Raum", "O-Raum", 
+        or "O-Gebäude-Level-Raum" will be auto-linked to locations.
+      </p>
+      <div class="input-row">
+        <input
+          v-model="localLocationPrefix"
+          type="text"
+          class="text-input prefix-input-single"
+          placeholder="O-"
+          @blur="handleSaveLocationPrefix"
+          @keyup.enter="handleSaveLocationPrefix"
+        />
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
+
+    <div class="general-section">
       <h4>Craft Space ID</h4>
       <p class="section-hint">
         Space ID for Craft document links. Find it in Craft app settings or from a document URL.
@@ -91,16 +112,19 @@ const {
   craftSpaceId, 
   teamworkBaseUrl, 
   costGroupPrefixes,
+  locationPrefix,
   saving, 
   initialize, 
   updateCraftSpaceId, 
   updateTeamworkBaseUrl,
-  updateCostGroupPrefixes
+  updateCostGroupPrefixes,
+  updateLocationPrefix
 } = useAppearanceSettings()
 
 const localSpaceId = ref('')
 const localTeamworkUrl = ref('')
 const localPrefixes = ref<string[]>([])
+const localLocationPrefix = ref('')
 const newPrefix = ref('')
 
 const handleSaveSpaceId = async () => {
@@ -112,6 +136,12 @@ const handleSaveSpaceId = async () => {
 const handleSaveTeamworkUrl = async () => {
   if (localTeamworkUrl.value !== teamworkBaseUrl.value) {
     await updateTeamworkBaseUrl(localTeamworkUrl.value)
+  }
+}
+
+const handleSaveLocationPrefix = async () => {
+  if (localLocationPrefix.value !== locationPrefix.value) {
+    await updateLocationPrefix(localLocationPrefix.value)
   }
 }
 
@@ -141,11 +171,16 @@ watch(costGroupPrefixes, (newValue) => {
   localPrefixes.value = [...newValue]
 }, { immediate: true })
 
+watch(locationPrefix, (newValue) => {
+  localLocationPrefix.value = newValue
+}, { immediate: true })
+
 onMounted(async () => {
   await initialize()
   localSpaceId.value = craftSpaceId.value
   localTeamworkUrl.value = teamworkBaseUrl.value
   localPrefixes.value = [...costGroupPrefixes.value]
+  localLocationPrefix.value = locationPrefix.value
 })
 </script>
 
@@ -261,6 +296,10 @@ onMounted(async () => {
 .prefix-input {
   flex: 1;
   max-width: none;
+}
+
+.prefix-input-single {
+  max-width: 120px;
 }
 
 .add-prefix-btn {

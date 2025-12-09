@@ -5,7 +5,7 @@ const STORAGE_KEY = 'ibhelm_filter_configurations_v2'
 
 // Default quick filter fields per view type
 const DEFAULT_QUICK_FILTERS_BY_VIEW: Record<ViewType, (keyof QuickFilters)[]> = {
-  items: ['project', 'involved_person', 'building', 'floor', 'room', 'kostengruppe', 'tags'],
+  items: ['project', 'involved_person', 'location', 'kostengruppe', 'tags'],
   projects: [],
   people: ['project']
 }

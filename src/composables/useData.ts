@@ -42,9 +42,7 @@ function buildUnifiedItemsParams(
     
     // Simple text contains (quick + column filters)
     p_project_search: quick.project || null,
-    p_location_building: quick.building || null,
-    p_location_floor: quick.floor || null,
-    p_location_room: quick.room || null,
+    p_location_search: quick.location || null,
     p_name_contains: col.name_contains || null,
     p_description_contains: col.description_contains || null,
     p_customer_contains: col.customer_contains || null,
