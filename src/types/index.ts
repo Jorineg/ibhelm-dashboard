@@ -158,6 +158,7 @@ export type { ExtractionRun } from '@/composables/useTaskTypes'
 export type { PersonLinkingRun } from '@/composables/usePeople'
 export type { ProjectLinkingRun } from '@/composables/useEmails'
 export type { CostGroupLinkingRun } from '@/composables/useCostGroups'
+export type { LocationLinkingRun } from '@/composables/useLocations'
 
 export interface AppSettings {
   email_color: string

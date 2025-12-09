@@ -644,10 +644,16 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 }
 
 .filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 200px);
+  display: flex;
+  flex-wrap: nowrap;
   gap: 1.5rem;
   flex: 1;
+  min-width: 0;
+}
+
+.filters-grid > .filter-item {
+  flex: 0 1 200px;
+  min-width: 120px;
 }
 
 .filter-item {
@@ -682,12 +688,12 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   gap: 1rem;
   align-items: center;
   padding-bottom: 0.25rem;
+  flex-shrink: 0;
 }
 
 .filter-action-btn {
   font-size: 0.875rem !important;
   white-space: nowrap;
-  min-width: 120px;
 }
 
 /* Column filters */
