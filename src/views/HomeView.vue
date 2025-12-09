@@ -316,8 +316,8 @@ const dataFetchConfigKey = computed(() => {
     showEmails: activeConfig.value.showEmails,
     showCraft: activeConfig.value.showCraft,
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
-    alwaysVisibleFilters: activeConfig.value.alwaysVisibleFilters,
-    dynamicFilters: activeConfig.value.dynamicFilters
+    quickFilters: activeConfig.value.quickFilters,
+    columnFilters: activeConfig.value.columnFilters
   })
 })
 

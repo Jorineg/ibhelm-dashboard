@@ -246,22 +246,87 @@ export interface PersonItem {
 
 export type ViewDataItem = DataItem | ProjectItem | PersonItem
 
-export type FilterOperator = 
-  | 'eq' 
-  | 'neq' 
-  | 'contains' 
-  | 'not_contains' 
-  | 'is_empty' 
-  | 'is_not_empty' 
-  | 'before' 
-  | 'after'
+// ===== UNIFIED FILTER TYPES =====
+// All filters use explicit typed parameters - no dynamic JSONB
 
-export interface ColumnFilter {
-  id: string
-  column: string
-  operator: FilterOperator
-  value: string
+// Quick filters (always visible in UI, text inputs)
+export interface QuickFilters {
+  project?: string
+  involved_person?: string
+  building?: string
+  floor?: string
+  room?: string
+  kostengruppe?: string
+  tags?: string
 }
+
+// Typed column filters (from "Add Filter" UI)
+export interface ColumnFilters {
+  // Text contains filters
+  name_contains?: string
+  description_contains?: string
+  customer_contains?: string
+  tasklist_contains?: string
+  from_name_contains?: string
+  from_email_contains?: string
+  
+  // Enum filters (in/not in)
+  status_in?: string[]
+  status_not_in?: string[]
+  priority_in?: string[]
+  priority_not_in?: string[]
+  
+  // Date range filters
+  due_date_min?: string
+  due_date_max?: string
+  due_date_is_null?: boolean
+  created_at_min?: string
+  created_at_max?: string
+  updated_at_min?: string
+  updated_at_max?: string
+  
+  // Number range filters
+  progress_min?: number
+  progress_max?: number
+  attachment_count_min?: number
+  attachment_count_max?: number
+}
+
+// Column type determines which filter controls to show in UI
+export type FilterColumnType = 'text' | 'enum' | 'date' | 'number'
+
+// Definition for a filterable column
+export interface FilterableColumn {
+  field: string
+  label: string
+  type: FilterColumnType
+  // For enum types: list of possible values
+  enumValues?: string[]
+  // For text: whether it's a contains filter or exact match
+  // For number/date: default min/max bounds if any
+}
+
+// All filterable columns for unified_items view
+// Field is the base name - actual filter keys are derived: {field}_contains, {field}_in, etc.
+export const FILTERABLE_COLUMNS: FilterableColumn[] = [
+  // Text contains filters
+  { field: 'name', label: 'Name', type: 'text' },
+  { field: 'description', label: 'Description', type: 'text' },
+  { field: 'customer', label: 'Customer', type: 'text' },
+  { field: 'tasklist', label: 'Tasklist', type: 'text' },
+  { field: 'from_name', label: 'From Name', type: 'text' },
+  { field: 'from_email', label: 'From Email', type: 'text' },
+  // Enum filters (in/not_in)
+  { field: 'status', label: 'Status', type: 'enum', enumValues: ['new', 'active', 'completed', 'reopened', 'deleted'] },
+  { field: 'priority', label: 'Priority', type: 'enum', enumValues: ['none', 'low', 'medium', 'high'] },
+  // Date range filters (min/max/is_null)
+  { field: 'due_date', label: 'Due Date', type: 'date' },
+  { field: 'created_at', label: 'Created', type: 'date' },
+  { field: 'updated_at', label: 'Updated', type: 'date' },
+  // Number range filters (min/max)
+  { field: 'progress', label: 'Progress', type: 'number' },
+  { field: 'attachment_count', label: 'Attachments', type: 'number' },
+]
 
 export interface FilterConfiguration {
   id: string
@@ -273,16 +338,10 @@ export interface FilterConfiguration {
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   sortConfig?: SortConfig
-  alwaysVisibleFilters: {
-    project?: string
-    involved_person?: string
-    building?: string
-    floor?: string
-    room?: string
-    kostengruppe?: string
-    tags?: string
-  }
-  dynamicFilters: ColumnFilter[]
+  // Quick filters (always visible text inputs)
+  quickFilters: QuickFilters
+  // Typed column filters
+  columnFilters: ColumnFilters
   visibleColumns: string[]
   columnOrder: string[]
   columnWidths?: Record<string, string>

@@ -1,12 +1,12 @@
 import { ref, computed } from 'vue'
-import type { FilterConfiguration, ColumnFilter, ViewType, SortConfig } from '@/types'
+import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
 
-const STORAGE_KEY = 'ibhelm_filter_configurations'
+const STORAGE_KEY = 'ibhelm_filter_configurations_v2'
 
-// Default always-visible filters per view type
-const DEFAULT_ALWAYS_VISIBLE_FILTERS_BY_VIEW: Record<ViewType, string[]> = {
+// Default quick filter fields per view type
+const DEFAULT_QUICK_FILTERS_BY_VIEW: Record<ViewType, (keyof QuickFilters)[]> = {
   items: ['project', 'involved_person', 'building', 'floor', 'room', 'kostengruppe', 'tags'],
-  projects: [], // No filters for projects view
+  projects: [],
   people: ['project']
 }
 
@@ -35,8 +35,8 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     showCraft: true,
     viewMode: 'list',
     sortConfig: DEFAULT_SORT_BY_VIEW[viewType],
-    alwaysVisibleFilters: {},
-    dynamicFilters: [],
+    quickFilters: {},
+    columnFilters: {},
     visibleColumns: columns,
     columnOrder: columns,
     columnWidths: {},
@@ -127,13 +127,10 @@ let moduleInitialized = false
 function initializeModule() {
   if (moduleInitialized) return
   moduleInitialized = true
-  
-  // Load configurations from storage
   loadConfigurations()
 }
 
 export function useFilterConfigs() {
-  // Initialize module (only runs once)
   initializeModule()
 
   const setCurrentView = (viewType: ViewType) => {
@@ -154,7 +151,7 @@ export function useFilterConfigs() {
     if (!original) return null
 
     const duplicate: FilterConfiguration = {
-      ...JSON.parse(JSON.stringify(original)), // Deep clone
+      ...JSON.parse(JSON.stringify(original)),
       id: crypto.randomUUID(),
       name: `${original.name} (copy)`,
       createdAt: new Date().toISOString(),
@@ -176,13 +173,11 @@ export function useFilterConfigs() {
 
     allConfigurations.value.splice(index, 1)
 
-    // If we deleted the active config for this view, switch to first available for same view
     if (activeConfigIds.value[viewType] === id) {
       const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
       if (viewConfigs.length > 0) {
         activeConfigIds.value[viewType] = viewConfigs[0].id
       } else {
-        // If no configs left for this view, create a default one
         const newConfig = defaultConfig(viewType)
         allConfigurations.value.push(newConfig)
         activeConfigIds.value[viewType] = newConfig.id
@@ -204,9 +199,7 @@ export function useFilterConfigs() {
       updatedAt: new Date().toISOString()
     }
     
-    // Replace the config in the array
     allConfigurations.value.splice(index, 1, updatedConfig)
-    // Explicit save - deep watch on arrays can be unreliable with splice
     saveConfigurations()
     return true
   }
@@ -214,7 +207,6 @@ export function useFilterConfigs() {
   const setActiveConfiguration = (id: string) => {
     const config = allConfigurations.value.find(c => c.id === id)
     if (config) {
-      // Set active config for the view the config belongs to
       activeConfigIds.value[config.viewType] = id
       saveConfigurations()
       return true
@@ -222,69 +214,84 @@ export function useFilterConfigs() {
     return false
   }
 
-  const addDynamicFilter = (filter: ColumnFilter) => {
+  // Quick filter helpers
+  const updateQuickFilter = (filterName: keyof QuickFilters, value: string) => {
     if (activeConfig.value) {
-      const newFilters = [...activeConfig.value.dynamicFilters, filter]
-      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
-    }
-  }
-
-  const removeDynamicFilter = (filterId: string) => {
-    if (activeConfig.value) {
-      const newFilters = activeConfig.value.dynamicFilters.filter(f => f.id !== filterId)
-      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
-    }
-  }
-
-  const updateDynamicFilter = (filterId: string, updates: Partial<ColumnFilter>) => {
-    if (activeConfig.value) {
-      const newFilters = activeConfig.value.dynamicFilters.map(f => 
-        f.id === filterId ? { ...f, ...updates } : f
-      )
-      updateConfiguration(activeConfig.value.id, { dynamicFilters: newFilters })
-    }
-  }
-
-  const updateAlwaysVisibleFilter = (filterName: string, value: string) => {
-    if (activeConfig.value) {
-      const newFilters = { ...activeConfig.value.alwaysVisibleFilters }
+      const newFilters = { ...activeConfig.value.quickFilters }
       if (value) {
-        newFilters[filterName as keyof typeof newFilters] = value
+        newFilters[filterName] = value
       } else {
-        delete newFilters[filterName as keyof typeof newFilters]
+        delete newFilters[filterName]
       }
-      updateConfiguration(activeConfig.value.id, { alwaysVisibleFilters: newFilters })
+      updateConfiguration(activeConfig.value.id, { quickFilters: newFilters })
+    }
+  }
+
+  // Column filter helpers
+  const updateColumnFilter = <K extends keyof ColumnFilters>(filterName: K, value: ColumnFilters[K]) => {
+    if (activeConfig.value) {
+      const newFilters = { ...activeConfig.value.columnFilters }
+      if (value === undefined || value === null || value === '' || 
+          (Array.isArray(value) && value.length === 0)) {
+        delete newFilters[filterName]
+      } else {
+        newFilters[filterName] = value
+      }
+      updateConfiguration(activeConfig.value.id, { columnFilters: newFilters })
+    }
+  }
+
+  const removeColumnFilter = (filterName: keyof ColumnFilters) => {
+    if (activeConfig.value) {
+      const newFilters = { ...activeConfig.value.columnFilters }
+      delete newFilters[filterName]
+      updateConfiguration(activeConfig.value.id, { columnFilters: newFilters })
     }
   }
 
   const clearAllFilters = () => {
     if (activeConfig.value) {
       updateConfiguration(activeConfig.value.id, { 
-        alwaysVisibleFilters: {}, 
-        dynamicFilters: [] 
+        quickFilters: {}, 
+        columnFilters: {} 
       })
     }
   }
 
-  // Computed always-visible filters based on current view
-  const alwaysVisibleFilters = computed(() => DEFAULT_ALWAYS_VISIBLE_FILTERS_BY_VIEW[currentViewType.value])
+  // Check if any filters are active
+  const hasActiveFilters = computed(() => {
+    if (!activeConfig.value) return false
+    const quick = activeConfig.value.quickFilters
+    const col = activeConfig.value.columnFilters
+    return Object.keys(quick).length > 0 || Object.keys(col).length > 0
+  })
+
+  // Get active column filter keys (for UI display)
+  const activeColumnFilterKeys = computed(() => {
+    if (!activeConfig.value) return []
+    return Object.keys(activeConfig.value.columnFilters) as (keyof ColumnFilters)[]
+  })
+
+  // Computed quick filter fields based on current view
+  const quickFilterFields = computed(() => DEFAULT_QUICK_FILTERS_BY_VIEW[currentViewType.value])
 
   return {
     configurations,
     activeConfig,
     activeConfigId,
     currentViewType,
-    alwaysVisibleFilters,
+    quickFilterFields,
+    hasActiveFilters,
+    activeColumnFilterKeys,
     setCurrentView,
     createConfiguration,
     duplicateConfiguration,
     deleteConfiguration,
     updateConfiguration,
     setActiveConfiguration,
-    addDynamicFilter,
-    removeDynamicFilter,
-    updateDynamicFilter,
-    updateAlwaysVisibleFilter,
+    updateQuickFilter,
+    updateColumnFilter,
+    removeColumnFilter,
     clearAllFilters
   }
 }

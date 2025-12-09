@@ -2,11 +2,11 @@
   <div class="filter-bar">
     <div class="filter-section">
 
-      <!-- Always-visible filters with action buttons in same row -->
+      <!-- Quick filters with action buttons -->
       <div class="filters-with-actions">
         <div class="filters-grid">
           <div 
-            v-for="filterName in alwaysVisibleFilterNames" 
+            v-for="filterName in quickFilterFields" 
             :key="filterName"
             class="filter-item"
           >
@@ -16,13 +16,13 @@
             <div v-if="filterName === 'project'" class="filter-input-with-info">
               <AutocompleteInput
                 :id="filterName"
-                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :model-value="activeConfig?.quickFilters[filterName] || ''"
                 :suggestions="projectSuggestions"
                 :loading="projectLoading"
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="name"
                 secondary-field="company_name"
-                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
                 @search="handleProjectSearch"
                 @select="handleProjectSelect"
                 @clear="handleProjectClear"
@@ -49,13 +49,13 @@
             <div v-else-if="filterName === 'involved_person'" class="filter-input-with-info">
               <AutocompleteInput
                 :id="filterName"
-                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :model-value="activeConfig?.quickFilters[filterName] || ''"
                 :suggestions="personSuggestions"
                 :loading="personLoading"
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="display_name"
                 secondary-field="primary_email"
-                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
                 @search="handlePersonSearch"
                 @select="handlePersonSelect"
                 @clear="handlePersonClear"
@@ -89,13 +89,13 @@
             <div v-else-if="filterName === 'kostengruppe'" class="filter-input-with-info">
               <AutocompleteInput
                 :id="filterName"
-                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :model-value="activeConfig?.quickFilters[filterName] || ''"
                 :suggestions="costGroupSuggestions"
                 :loading="costGroupLoading"
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="code"
                 secondary-field="name"
-                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
                 @search="handleCostGroupSearch"
                 @select="handleCostGroupSelect"
                 @clear="handleCostGroupClear"
@@ -122,13 +122,13 @@
             <div v-else-if="filterName === 'tags'" class="filter-input-with-info">
               <AutocompleteInput
                 :id="filterName"
-                :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
+                :model-value="activeConfig?.quickFilters[filterName] || ''"
                 :suggestions="tagSuggestions"
                 :loading="tagLoading"
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="name"
                 secondary-field="source"
-                @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
                 @search="handleTagSearch"
                 @select="handleTagSelect"
                 @clear="handleTagClear"
@@ -155,26 +155,27 @@
             <InputText
               v-else
               :id="filterName"
-              :model-value="activeConfig?.alwaysVisibleFilters[filterName as keyof typeof activeConfig.alwaysVisibleFilters] || ''"
-              @update:model-value="(value: string) => updateAlwaysVisibleFilter(filterName, value)"
+              :model-value="activeConfig?.quickFilters[filterName] || ''"
+              @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
               :placeholder="`Filter by ${formatFilterName(filterName)}`"
               size="large"
             />
           </div>
         </div>
         
-        <!-- Filter action buttons in same grid row -->
+        <!-- Filter action buttons -->
         <div class="filter-actions-inline">
           <Button
             label="Add Filter"
             icon="pi pi-plus"
             outlined
             size="small"
-            @click="addNewFilter"
+            @click="showAddFilterMenu"
             class="filter-action-btn"
           />
 
           <Button
+            v-if="hasActiveFilters"
             label="Clear All"
             icon="pi pi-filter-slash"
             outlined
@@ -186,40 +187,118 @@
         </div>
       </div>
 
-      <!-- Dynamic filters -->
-      <div v-if="activeConfig?.dynamicFilters?.length" class="dynamic-filters">
-        <div v-for="filter in activeConfig?.dynamicFilters" :key="filter.id" class="dynamic-filter">
-          <Dropdown
-            v-model="filter.column"
-            :options="availableColumns"
-            option-label="header"
-            option-value="field"
-            placeholder="Select column"
-            @change="updateDynamicFilter(filter.id, { column: filter.column })"
-          />
+      <!-- Add filter menu -->
+      <Menu ref="addFilterMenu" :model="availableFiltersMenu" :popup="true" />
+
+      <!-- Column filters (typed) - grouped by base field -->
+      <div v-if="activeBaseFields.length > 0" class="column-filters">
+        <div v-for="baseField in activeBaseFields" :key="baseField" class="column-filter">
+          <div class="column-filter-header">
+            <span class="column-filter-label">{{ getColumnLabelByBase(baseField) }}</span>
+            <Button
+              icon="pi pi-times"
+              severity="danger"
+              text
+              rounded
+              size="small"
+              @click="removeAllColumnFilters(baseField)"
+            />
+          </div>
           
-          <Dropdown
-            v-model="filter.operator"
-            :options="filterOperators"
-            option-label="label"
-            option-value="value"
-            @change="updateDynamicFilter(filter.id, { operator: filter.operator })"
-          />
+          <!-- Text filter -->
+          <div v-if="getColumnTypeByBase(baseField) === 'text'" class="column-filter-control">
+            <InputText
+              :model-value="getTextFilterValue(baseField)"
+              @update:model-value="(v: string) => setTextFilter(baseField, v)"
+              placeholder="Contains..."
+              size="small"
+            />
+          </div>
           
-          <InputText
-            v-if="!['is_empty', 'is_not_empty'].includes(filter.operator)"
-            v-model="filter.value"
-            placeholder="Value"
-            @update:model-value="updateDynamicFilter(filter.id, { value: filter.value })"
-          />
+          <!-- Enum filter (in/not in) -->
+          <div v-else-if="getColumnTypeByBase(baseField) === 'enum'" class="column-filter-control enum-control">
+            <div class="enum-section">
+              <label>Include:</label>
+              <MultiSelect
+                :model-value="getEnumInValues(baseField)"
+                :options="getEnumOptions(baseField)"
+                @update:model-value="(v: string[]) => setEnumInFilter(baseField, v)"
+                placeholder="Any"
+                display="chip"
+                :max-selected-labels="3"
+                class="enum-select"
+              />
+            </div>
+            <div class="enum-section">
+              <label>Exclude:</label>
+              <MultiSelect
+                :model-value="getEnumNotInValues(baseField)"
+                :options="getEnumOptions(baseField)"
+                @update:model-value="(v: string[]) => setEnumNotInFilter(baseField, v)"
+                placeholder="None"
+                display="chip"
+                :max-selected-labels="3"
+                class="enum-select"
+              />
+            </div>
+          </div>
           
-          <Button
-            icon="pi pi-times"
-            severity="danger"
-            text
-            rounded
-            @click="removeDynamicFilter(filter.id)"
-          />
+          <!-- Date filter (range + null) -->
+          <div v-else-if="getColumnTypeByBase(baseField) === 'date'" class="column-filter-control date-control">
+            <div class="date-range">
+              <div class="date-field">
+                <label>From:</label>
+                <Calendar
+                  :model-value="getDateMin(baseField)"
+                  @update:model-value="(v: Date | null) => setDateMin(baseField, v)"
+                  dateFormat="yy-mm-dd"
+                  :show-icon="true"
+                  :show-button-bar="true"
+                  placeholder="Any"
+                />
+              </div>
+              <div class="date-field">
+                <label>To:</label>
+                <Calendar
+                  :model-value="getDateMax(baseField)"
+                  @update:model-value="(v: Date | null) => setDateMax(baseField, v)"
+                  dateFormat="yy-mm-dd"
+                  :show-icon="true"
+                  :show-button-bar="true"
+                  placeholder="Any"
+                />
+              </div>
+            </div>
+            <div class="date-null-option">
+              <TriStateCheckbox
+                :model-value="getDateIsNull(baseField)"
+                @update:model-value="(v: boolean | null) => setDateIsNull(baseField, v)"
+              />
+              <span>{{ getDateNullLabel(baseField) }}</span>
+            </div>
+          </div>
+          
+          <!-- Number filter (range) -->
+          <div v-else-if="getColumnTypeByBase(baseField) === 'number'" class="column-filter-control number-control">
+            <div class="number-field">
+              <label>Min:</label>
+              <InputNumber
+                :model-value="getNumberMin(baseField)"
+                @update:model-value="(v: number | null) => setNumberMin(baseField, v)"
+                placeholder="Any"
+                :min="0"
+              />
+            </div>
+            <div class="number-field">
+              <label>Max:</label>
+              <InputNumber
+                :model-value="getNumberMax(baseField)"
+                @update:model-value="(v: number | null) => setNumberMax(baseField, v)"
+                placeholder="Any"
+                :min="0"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -227,146 +306,285 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import InputText from 'primevue/inputtext'
-import Dropdown from 'primevue/dropdown'
+import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
+import Menu from 'primevue/menu'
+import MultiSelect from 'primevue/multiselect'
+import Calendar from 'primevue/calendar'
+import TriStateCheckbox from 'primevue/tristatecheckbox'
 import { AutocompleteInput, InfoTooltip } from '@/components/common'
-import type { Column, ColumnFilter, FilterOperator } from '@/types'
+import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
+import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
 import type { ProjectSuggestion, PersonSuggestion, CostGroupSuggestion, TagSuggestion } from '@/composables/useAutocomplete'
 
-interface Props {
-  availableColumns: Column[]
-}
-
-const props = defineProps<Props>()
-
 const {
   activeConfig,
-  alwaysVisibleFilters,
-  addDynamicFilter,
-  removeDynamicFilter,
-  updateDynamicFilter,
-  updateAlwaysVisibleFilter,
+  quickFilterFields,
+  hasActiveFilters,
+  activeColumnFilterKeys,
+  updateQuickFilter,
+  updateColumnFilter,
+  removeColumnFilter,
   clearAllFilters
 } = useFilterConfigs()
 
-// Project autocomplete
-const {
-  suggestions: projectSuggestions,
-  loading: projectLoading,
-  search: searchProjects,
-  clear: clearProjectSuggestions
-} = useProjectAutocomplete()
+// Computed: unique base fields that have active filters
+const activeBaseFields = computed(() => {
+  const fields = new Set<string>()
+  activeColumnFilterKeys.value.forEach(key => {
+    fields.add(getBaseField(key))
+  })
+  return Array.from(fields)
+})
 
-// Person autocomplete
-const {
-  suggestions: personSuggestions,
-  loading: personLoading,
-  search: searchPersons,
-  clear: clearPersonSuggestions
-} = usePersonAutocomplete()
+// Autocomplete composables
+const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
+const { suggestions: personSuggestions, loading: personLoading, search: searchPersons, clear: clearPersonSuggestions } = usePersonAutocomplete()
+const { suggestions: costGroupSuggestions, loading: costGroupLoading, search: searchCostGroups, clear: clearCostGroupSuggestions } = useCostGroupAutocomplete()
+const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, clear: clearTagSuggestions } = useTagAutocomplete()
 
-// Cost group autocomplete
-const {
-  suggestions: costGroupSuggestions,
-  loading: costGroupLoading,
-  search: searchCostGroups,
-  clear: clearCostGroupSuggestions
-} = useCostGroupAutocomplete()
-
-// Tag autocomplete
-const {
-  suggestions: tagSuggestions,
-  loading: tagLoading,
-  search: searchTags,
-  clear: clearTagSuggestions
-} = useTagAutocomplete()
-
-const alwaysVisibleFilterNames = alwaysVisibleFilters
-
-const filterOperators = [
-  { label: 'Equals', value: 'eq' },
-  { label: 'Not Equals', value: 'neq' },
-  { label: 'Contains', value: 'contains' },
-  { label: 'Does Not Contain', value: 'not_contains' },
-  { label: 'Is Empty', value: 'is_empty' },
-  { label: 'Is Not Empty', value: 'is_not_empty' },
-  { label: 'Before', value: 'before' },
-  { label: 'After', value: 'after' }
-]
+const addFilterMenu = ref()
 
 const formatFilterName = (name: string) => {
-  return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ')
-}
-
-const addNewFilter = () => {
-  const newFilter: ColumnFilter = {
-    id: crypto.randomUUID(),
-    column: props.availableColumns[0]?.field || 'name',
-    operator: 'contains' as FilterOperator,
-    value: ''
+  const labels: Record<string, string> = {
+    project: 'Project',
+    involved_person: 'Involved Person',
+    building: 'Building',
+    floor: 'Floor',
+    room: 'Room',
+    kostengruppe: 'Cost Group',
+    tags: 'Tags'
   }
-  addDynamicFilter(newFilter)
+  return labels[name] || name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ')
 }
 
-// Project autocomplete handlers
-const handleProjectSearch = (searchText: string) => {
-  searchProjects(searchText)
+// Column filter helpers
+const getBaseField = (filterKey: keyof ColumnFilters): string => {
+  return filterKey
+    .replace(/_contains$/, '')
+    .replace(/_in$/, '')
+    .replace(/_not_in$/, '')
+    .replace(/_min$/, '')
+    .replace(/_max$/, '')
+    .replace(/_is_null$/, '')
 }
 
-const handleProjectSelect = (suggestion: ProjectSuggestion) => {
-  updateAlwaysVisibleFilter('project', suggestion.name)
+const getColumnDef = (filterKey: keyof ColumnFilters): FilterableColumn | undefined => {
+  const baseField = getBaseField(filterKey)
+  return FILTERABLE_COLUMNS.find(c => c.field === baseField)
 }
 
-const handleProjectClear = () => {
-  updateAlwaysVisibleFilter('project', '')
-  clearProjectSuggestions()
+const getColumnLabel = (filterKey: keyof ColumnFilters): string => {
+  const def = getColumnDef(filterKey)
+  return def?.label || getBaseField(filterKey)
 }
 
-// Person autocomplete handlers
-const handlePersonSearch = (searchText: string) => {
-  searchPersons(searchText)
+const getColumnLabelByBase = (baseField: string): string => {
+  const def = FILTERABLE_COLUMNS.find(c => c.field === baseField)
+  return def?.label || baseField
 }
 
-const handlePersonSelect = (suggestion: PersonSuggestion) => {
-  updateAlwaysVisibleFilter('involved_person', suggestion.display_name)
+const getColumnType = (filterKey: keyof ColumnFilters): string => {
+  const def = getColumnDef(filterKey)
+  return def?.type || 'text'
 }
 
-const handlePersonClear = () => {
-  updateAlwaysVisibleFilter('involved_person', '')
-  clearPersonSuggestions()
+const getColumnTypeByBase = (baseField: string): string => {
+  const def = FILTERABLE_COLUMNS.find(c => c.field === baseField)
+  return def?.type || 'text'
 }
 
-// Cost group autocomplete handlers
-const handleCostGroupSearch = (searchText: string) => {
-  searchCostGroups(searchText)
+// Remove all filter keys for a base field
+const removeAllColumnFilters = (baseField: string) => {
+  const def = FILTERABLE_COLUMNS.find(c => c.field === baseField)
+  if (!def) return
+  
+  switch (def.type) {
+    case 'text':
+      removeColumnFilter(`${baseField}_contains` as keyof ColumnFilters)
+      break
+    case 'enum':
+      removeColumnFilter(`${baseField}_in` as keyof ColumnFilters)
+      removeColumnFilter(`${baseField}_not_in` as keyof ColumnFilters)
+      break
+    case 'date':
+      removeColumnFilter(`${baseField}_min` as keyof ColumnFilters)
+      removeColumnFilter(`${baseField}_max` as keyof ColumnFilters)
+      removeColumnFilter(`${baseField}_is_null` as keyof ColumnFilters)
+      break
+    case 'number':
+      removeColumnFilter(`${baseField}_min` as keyof ColumnFilters)
+      removeColumnFilter(`${baseField}_max` as keyof ColumnFilters)
+      break
+  }
 }
 
-const handleCostGroupSelect = (suggestion: CostGroupSuggestion) => {
-  updateAlwaysVisibleFilter('kostengruppe', String(suggestion.code))
+// Text filter helpers (work with base field name)
+const getTextFilterValue = (baseField: string): string => {
+  const key = `${baseField}_contains` as keyof ColumnFilters
+  return (activeConfig.value?.columnFilters[key] as string) || ''
 }
 
-const handleCostGroupClear = () => {
-  updateAlwaysVisibleFilter('kostengruppe', '')
-  clearCostGroupSuggestions()
+const setTextFilter = (baseField: string, value: string) => {
+  const key = `${baseField}_contains` as keyof ColumnFilters
+  updateColumnFilter(key, value || undefined)
 }
 
-// Tag autocomplete handlers
-const handleTagSearch = (searchText: string) => {
-  searchTags(searchText)
+// Enum filter helpers (work with base field name)
+const getEnumOptions = (baseField: string): string[] => {
+  const def = FILTERABLE_COLUMNS.find(c => c.field === baseField)
+  return def?.enumValues || []
 }
 
-const handleTagSelect = (suggestion: TagSuggestion) => {
-  updateAlwaysVisibleFilter('tags', suggestion.name)
+const getEnumInValues = (baseField: string): string[] => {
+  const inKey = `${baseField}_in` as keyof ColumnFilters
+  return (activeConfig.value?.columnFilters[inKey] as string[]) || []
 }
 
-const handleTagClear = () => {
-  updateAlwaysVisibleFilter('tags', '')
-  clearTagSuggestions()
+const getEnumNotInValues = (baseField: string): string[] => {
+  const notInKey = `${baseField}_not_in` as keyof ColumnFilters
+  return (activeConfig.value?.columnFilters[notInKey] as string[]) || []
 }
+
+const setEnumInFilter = (baseField: string, values: string[]) => {
+  const inKey = `${baseField}_in` as keyof ColumnFilters
+  updateColumnFilter(inKey, values.length > 0 ? values : undefined)
+}
+
+const setEnumNotInFilter = (baseField: string, values: string[]) => {
+  const notInKey = `${baseField}_not_in` as keyof ColumnFilters
+  updateColumnFilter(notInKey, values.length > 0 ? values : undefined)
+}
+
+// Date filter helpers (work with base field name)
+const getDateMin = (baseField: string): Date | null => {
+  const minKey = `${baseField}_min` as keyof ColumnFilters
+  const val = activeConfig.value?.columnFilters[minKey] as string | undefined
+  return val ? new Date(val) : null
+}
+
+const getDateMax = (baseField: string): Date | null => {
+  const maxKey = `${baseField}_max` as keyof ColumnFilters
+  const val = activeConfig.value?.columnFilters[maxKey] as string | undefined
+  return val ? new Date(val) : null
+}
+
+const getDateIsNull = (baseField: string): boolean | null => {
+  const nullKey = `${baseField}_is_null` as keyof ColumnFilters
+  return activeConfig.value?.columnFilters[nullKey] as boolean | undefined ?? null
+}
+
+const setDateMin = (baseField: string, value: Date | null) => {
+  const minKey = `${baseField}_min` as keyof ColumnFilters
+  updateColumnFilter(minKey, value ? value.toISOString() : undefined)
+}
+
+const setDateMax = (baseField: string, value: Date | null) => {
+  const maxKey = `${baseField}_max` as keyof ColumnFilters
+  updateColumnFilter(maxKey, value ? value.toISOString() : undefined)
+}
+
+const setDateIsNull = (baseField: string, value: boolean | null) => {
+  const nullKey = `${baseField}_is_null` as keyof ColumnFilters
+  updateColumnFilter(nullKey, value ?? undefined)
+}
+
+const getDateNullLabel = (baseField: string): string => {
+  const isNull = getDateIsNull(baseField)
+  if (isNull === true) return 'Only empty'
+  if (isNull === false) return 'Only non-empty'
+  return 'Include empty'
+}
+
+// Number filter helpers (work with base field name)
+const getNumberMin = (baseField: string): number | null => {
+  const minKey = `${baseField}_min` as keyof ColumnFilters
+  return activeConfig.value?.columnFilters[minKey] as number | undefined ?? null
+}
+
+const getNumberMax = (baseField: string): number | null => {
+  const maxKey = `${baseField}_max` as keyof ColumnFilters
+  return activeConfig.value?.columnFilters[maxKey] as number | undefined ?? null
+}
+
+const setNumberMin = (baseField: string, value: number | null) => {
+  const minKey = `${baseField}_min` as keyof ColumnFilters
+  updateColumnFilter(minKey, value ?? undefined)
+}
+
+const setNumberMax = (baseField: string, value: number | null) => {
+  const maxKey = `${baseField}_max` as keyof ColumnFilters
+  updateColumnFilter(maxKey, value ?? undefined)
+}
+
+// Add filter menu
+const showAddFilterMenu = (event: Event) => {
+  addFilterMenu.value.toggle(event)
+}
+
+const availableFiltersMenu = computed(() => {
+  // Get the base fields that are already active
+  const activeBaseFields = new Set(
+    activeColumnFilterKeys.value.map(key => getBaseField(key))
+  )
+  
+  return FILTERABLE_COLUMNS
+    .filter(col => !activeBaseFields.has(col.field))
+    .map(col => ({
+      label: col.label,
+      icon: getTypeIcon(col.type),
+      command: () => addColumnFilter(col)
+    }))
+})
+
+const getTypeIcon = (type: string): string => {
+  switch (type) {
+    case 'text': return 'pi pi-align-left'
+    case 'enum': return 'pi pi-list'
+    case 'date': return 'pi pi-calendar'
+    case 'number': return 'pi pi-hashtag'
+    default: return 'pi pi-filter'
+  }
+}
+
+const addColumnFilter = (col: FilterableColumn) => {
+  // Add the appropriate filter key based on type
+  switch (col.type) {
+    case 'text':
+      updateColumnFilter(`${col.field}_contains` as keyof ColumnFilters, '')
+      break
+    case 'enum':
+      updateColumnFilter(`${col.field}_in` as keyof ColumnFilters, [])
+      break
+    case 'date':
+      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, undefined)
+      break
+    case 'number':
+      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, undefined)
+      break
+  }
+}
+
+// Autocomplete handlers
+const handleProjectSearch = (searchText: string) => searchProjects(searchText)
+const handleProjectSelect = (suggestion: ProjectSuggestion) => updateQuickFilter('project', suggestion.name)
+const handleProjectClear = () => { updateQuickFilter('project', ''); clearProjectSuggestions() }
+
+const handlePersonSearch = (searchText: string) => searchPersons(searchText)
+const handlePersonSelect = (suggestion: PersonSuggestion) => updateQuickFilter('involved_person', suggestion.display_name)
+const handlePersonClear = () => { updateQuickFilter('involved_person', ''); clearPersonSuggestions() }
+
+const handleCostGroupSearch = (searchText: string) => searchCostGroups(searchText)
+const handleCostGroupSelect = (suggestion: CostGroupSuggestion) => updateQuickFilter('kostengruppe', String(suggestion.code))
+const handleCostGroupClear = () => { updateQuickFilter('kostengruppe', ''); clearCostGroupSuggestions() }
+
+const handleTagSearch = (searchText: string) => searchTags(searchText)
+const handleTagSelect = (suggestion: TagSuggestion) => updateQuickFilter('tags', suggestion.name)
+const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestions() }
 </script>
 
 <style scoped>
@@ -381,13 +599,6 @@ const handleTagClear = () => {
 
 .filter-section {
   flex: 1;
-}
-
-.filter-section h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--text-primary);
 }
 
 .filters-with-actions {
@@ -437,46 +648,135 @@ const handleTagClear = () => {
   padding-bottom: 0.25rem;
 }
 
-.dynamic-filters {
+.filter-action-btn {
+  font-size: 0.875rem !important;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+/* Column filters */
+.column-filters {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-primary);
 }
 
-.dynamic-filter {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.5fr auto;
-  gap: 0.75rem;
+.column-filter {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  min-width: 250px;
+  max-width: 350px;
+}
+
+.column-filter-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 0.75rem;
 }
 
-.filter-action-btn {
-  font-size: 0.875rem !important;
-  white-space: nowrap;
-  min-width: 140px;
+.column-filter-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
 }
 
-/* Project option styling */
-.project-option {
+.column-filter-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Enum filter */
+.enum-control {
+  gap: 0.75rem;
+}
+
+.enum-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.enum-section label {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.enum-select {
+  width: 100%;
+}
+
+/* Date filter */
+.date-control {
+  gap: 0.75rem;
+}
+
+.date-range {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.date-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.date-field label {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.date-null-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Number filter */
+.number-control {
+  flex-direction: row;
+  gap: 0.75rem;
+}
+
+.number-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.number-field label {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+/* Autocomplete option styling */
+.project-option, .person-option, .cost-group-option, .tag-option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.project-name {
+.project-name, .person-name, .tag-name {
   color: var(--text-primary);
   font-weight: 500;
 }
 
-.project-company {
+.project-company, .person-email {
   color: var(--text-tertiary);
   font-size: 0.85rem;
 }
 
-.project-status {
+.project-status, .person-badge, .tag-source {
   margin-left: auto;
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-sm);
@@ -496,49 +796,20 @@ const handleTagClear = () => {
   color: var(--text-tertiary);
 }
 
-/* Person option styling */
-.person-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+.person-badge.internal {
+  background: rgba(74, 158, 255, 0.15);
+  color: var(--accent-primary);
+}
+
+.tag-source {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-tertiary);
 }
 
 .person-info {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-}
-
-.person-name {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.person-email {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-}
-
-.person-badge {
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.person-badge.internal {
-  background: rgba(74, 158, 255, 0.15);
-  color: var(--accent-primary);
-}
-
-/* Cost group option styling */
-.cost-group-option {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
 }
 
 .cost-group-code {
@@ -554,34 +825,10 @@ const handleTagClear = () => {
   font-size: 0.9rem;
 }
 
-/* Tag option styling */
-.tag-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .tag-color {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.tag-name {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.tag-source {
-  margin-left: auto;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--text-tertiary);
 }
 </style>
