@@ -33,6 +33,7 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     showTasks: true,
     showEmails: true,
     showCraft: true,
+    showFiles: true,
     viewMode: 'list',
     sortConfig: DEFAULT_SORT_BY_VIEW[viewType],
     quickFilters: {},

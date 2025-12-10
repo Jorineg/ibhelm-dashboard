@@ -5,6 +5,7 @@ import type { AppSettings } from '@/types'
 const defaults: AppSettings = {
   email_color: '#3b82f6',
   craft_color: '#8b5cf6',
+  file_color: '#ef4444',
   craft_space_id: '',
   person_color: '#10b981',
   project_color: '#f59e0b',
@@ -63,6 +64,7 @@ export function useAppearanceSettings() {
 
   const updateEmailColor = (color: string) => updateSetting('email_color', color)
   const updateCraftColor = (color: string) => updateSetting('craft_color', color)
+  const updateFileColor = (color: string) => updateSetting('file_color', color)
   const updateCraftSpaceId = (id: string) => updateSetting('craft_space_id', id)
   const updatePersonColor = (color: string) => updateSetting('person_color', color)
   const updateProjectColor = (color: string) => updateSetting('project_color', color)
@@ -72,6 +74,7 @@ export function useAppearanceSettings() {
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
+  const fileColor = computed(() => settings.value.file_color)
   const craftSpaceId = computed(() => settings.value.craft_space_id || '')
   const personColor = computed(() => settings.value.person_color)
   const projectColor = computed(() => settings.value.project_color)
@@ -85,6 +88,7 @@ export function useAppearanceSettings() {
     saving,
     emailColor,
     craftColor,
+    fileColor,
     craftSpaceId,
     personColor,
     projectColor,
@@ -95,6 +99,7 @@ export function useAppearanceSettings() {
     fetchSettings,
     updateEmailColor,
     updateCraftColor,
+    updateFileColor,
     updateCraftSpaceId,
     updatePersonColor,
     updateProjectColor,

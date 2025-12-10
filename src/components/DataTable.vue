@@ -92,6 +92,21 @@
                 :style="{ backgroundColor: craftColor }"
               ></span>
             </div>
+            
+            <div class="checkbox-group file-checkbox">
+              <div class="file-checkbox-inner">
+                <Checkbox
+                  v-model="localShowFiles"
+                  input-id="show-files"
+                  :binary="true"
+                />
+                <label for="show-files" class="toggle-item-label">Files</label>
+              </div>
+              <span 
+                class="file-color-bar"
+                :style="{ backgroundColor: fileColor }"
+              ></span>
+            </div>
           </template>
           
           <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
@@ -330,6 +345,7 @@ interface Props {
   showTasks: boolean
   showEmails: boolean
   showCraft: boolean
+  showFiles: boolean
   viewMode: 'list' | 'gallery'
   searchQuery: string
   totalCount?: number | null
@@ -353,6 +369,7 @@ interface Emits {
   (e: 'update:showTasks', value: boolean): void
   (e: 'update:showEmails', value: boolean): void
   (e: 'update:showCraft', value: boolean): void
+  (e: 'update:showFiles', value: boolean): void
   (e: 'update:viewMode', value: 'list' | 'gallery'): void
   (e: 'update:searchQuery', value: string): void
   (e: 'update:selectedTaskTypes', value: string[]): void
@@ -372,7 +389,7 @@ const emit = defineEmits<Emits>()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
-const { emailColor, craftColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, initialize: initAppearance } = useAppearanceSettings()
 
 // Transform craft URL to include space ID
 const transformCraftUrl = (url: string): string => {
@@ -480,6 +497,11 @@ const localShowEmails = computed({
 const localShowCraft = computed({
   get: () => props.showCraft,
   set: (value) => emit('update:showCraft', value)
+})
+
+const localShowFiles = computed({
+  get: () => props.showFiles,
+  set: (value) => emit('update:showFiles', value)
 })
 
 const localViewMode = computed({
@@ -756,6 +778,7 @@ const getTypeBadgeText = (item: ViewDataItem): string => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'EMAIL'
   if (itemType === 'craft') return 'CRAFT'
+  if (itemType === 'file') return 'FILE'
   return item.task_type_name?.toUpperCase() || 'TASK'
 }
 
@@ -771,7 +794,8 @@ const getTypeBadgeStyle = (item: ViewDataItem) => {
   const itemType = item.type?.toLowerCase()
   const isEmail = itemType === 'email'
   const isCraft = itemType === 'craft'
-  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
+  const isFile = itemType === 'file'
+  const color = isEmail ? emailColor.value : isCraft ? craftColor.value : isFile ? fileColor.value : (item.task_type_color || '#4ade80')
   return { background: `${color}20`, color, borderColor: `${color}40` }
 }
 
@@ -808,6 +832,7 @@ const getTypeBadgeTooltip = (item: ViewDataItem): string => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'Open in Missive'
   if (itemType === 'craft') return 'Open in Craft'
+  if (itemType === 'file') return 'View file'
   return 'Open in Teamwork'
 }
 
@@ -823,6 +848,7 @@ const getGalleryIcon = (item: ViewDataItem): string => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'pi pi-envelope'
   if (itemType === 'craft') return 'pi pi-file-edit'
+  if (itemType === 'file') return 'pi pi-file'
   return 'pi pi-check-square'
 }
 
@@ -1011,7 +1037,8 @@ onUnmounted(() => {
 /* Unified item type checkbox styling */
 .task-type-checkbox,
 .email-checkbox,
-.craft-checkbox {
+.craft-checkbox,
+.file-checkbox {
   flex-direction: column;
   align-items: stretch;
   gap: 0.25rem;
@@ -1019,7 +1046,8 @@ onUnmounted(() => {
 
 .task-type-checkbox-inner,
 .email-checkbox-inner,
-.craft-checkbox-inner {
+.craft-checkbox-inner,
+.file-checkbox-inner {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1027,7 +1055,8 @@ onUnmounted(() => {
 
 .task-type-color-bar,
 .email-color-bar,
-.craft-color-bar {
+.craft-color-bar,
+.file-color-bar {
   display: block;
   height: 3px;
   width: 100%;

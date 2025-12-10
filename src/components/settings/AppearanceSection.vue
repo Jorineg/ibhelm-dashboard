@@ -26,6 +26,17 @@
     </div>
 
     <div class="appearance-section">
+      <h4>File Color</h4>
+      <p class="section-hint">Color for file type badges, link buttons, and color bars.</p>
+      <ColorPickerField
+        :model-value="fileColor"
+        badge-label="FILE"
+        icon-class="pi pi-file"
+        @update:model-value="updateFileColor"
+      />
+    </div>
+
+    <div class="appearance-section">
       <h4>Person Color</h4>
       <p class="section-hint">Color for person type badges and link buttons in the People view.</p>
       <ColorPickerField
@@ -55,9 +66,9 @@ import { SectionCard, ColorPickerField } from '@/components/common'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
 const {
-  emailColor, craftColor, personColor, projectColor,
+  emailColor, craftColor, fileColor, personColor, projectColor,
   initialize,
-  updateEmailColor, updateCraftColor, updatePersonColor, updateProjectColor
+  updateEmailColor, updateCraftColor, updateFileColor, updatePersonColor, updateProjectColor
 } = useAppearanceSettings()
 
 onMounted(() => initialize())

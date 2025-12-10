@@ -69,6 +69,7 @@
           :show-tasks="activeConfig?.showTasks ?? true"
           :show-emails="activeConfig?.showEmails ?? true"
           :show-craft="activeConfig?.showCraft ?? true"
+          :show-files="activeConfig?.showFiles ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
           :sort-config="activeConfig?.sortConfig || { field: 'sort_date', order: 'desc' }"
           :view-type="activeView"
@@ -83,6 +84,7 @@
           @update:show-tasks="handleUpdateShowTasks"
           @update:show-emails="handleUpdateShowEmails"
           @update:show-craft="handleUpdateShowCraft"
+          @update:show-files="handleUpdateShowFiles"
           @update:view-mode="handleUpdateViewMode"
           @update:selected-task-types="handleUpdateSelectedTaskTypes"
           @update:selected-row="selectedRow = $event"
@@ -290,6 +292,7 @@ const switchView = async (view: ViewType) => {
     activeConfig.value?.showTasks ?? true,
     activeConfig.value?.showEmails ?? true,
     activeConfig.value?.showCraft ?? true,
+    activeConfig.value?.showFiles ?? true,
     '',
     activeConfig.value || null,
     defaultSort,
@@ -315,6 +318,7 @@ const dataFetchConfigKey = computed(() => {
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
     showCraft: activeConfig.value.showCraft,
+    showFiles: activeConfig.value.showFiles,
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters
@@ -349,6 +353,7 @@ watch(dataFetchConfigKey, async (newKey, oldKey) => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         activeConfig.value.showCraft ?? true,
+        activeConfig.value.showFiles ?? true,
         searchQuery.value,
         activeConfig.value,
         activeConfig.value.sortConfig,
@@ -370,6 +375,7 @@ watch(searchQuery, () => {
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
         activeConfig.value.showCraft ?? true,
+        activeConfig.value.showFiles ?? true,
         searchQuery.value,
         activeConfig.value,
         activeConfig.value.sortConfig,
@@ -427,6 +433,7 @@ const handleLoadMore = async () => {
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
       activeConfig.value.showCraft ?? true,
+      activeConfig.value.showFiles ?? true,
       searchQuery.value,
       activeConfig.value,
       currentViewType.value,
@@ -481,6 +488,12 @@ const handleUpdateShowCraft = (show: boolean) => {
   }
 }
 
+const handleUpdateShowFiles = (show: boolean) => {
+  if (activeConfig.value) {
+    updateConfiguration(activeConfig.value.id, { showFiles: show })
+  }
+}
+
 const handleUpdateViewMode = (mode: 'list' | 'gallery') => {
   if (activeConfig.value) {
     updateConfiguration(activeConfig.value.id, { viewMode: mode })
@@ -503,6 +516,7 @@ const handleSort = async (sortConfig: SortConfig) => {
       activeConfig.value.showTasks,
       activeConfig.value.showEmails,
       activeConfig.value.showCraft ?? true,
+      activeConfig.value.showFiles ?? true,
       searchQuery.value,
       activeConfig.value,
       sortConfig,
@@ -521,6 +535,7 @@ const handleExport = async () => {
       activeConfig.value?.showTasks ?? true,
       activeConfig.value?.showEmails ?? true,
       activeConfig.value?.showCraft ?? true,
+      activeConfig.value?.showFiles ?? true,
       searchQuery.value,
       activeConfig.value || null,
       currentViewType.value,

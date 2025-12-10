@@ -129,7 +129,7 @@ export interface Attachment {
 }
 
 // UI types
-export type ItemType = 'task' | 'email' | 'craft'
+export type ItemType = 'task' | 'email' | 'craft' | 'file'
 export type ViewType = 'items' | 'projects' | 'people'
 
 // Task Types (configurable categories)
@@ -163,6 +163,7 @@ export type { LocationLinkingRun } from '@/composables/useLocations'
 export interface AppSettings {
   email_color: string
   craft_color: string
+  file_color: string
   craft_space_id?: string
   person_color: string
   project_color: string
@@ -335,6 +336,7 @@ export interface FilterConfiguration {
   showTasks: boolean
   showEmails: boolean
   showCraft: boolean
+  showFiles: boolean
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   sortConfig?: SortConfig

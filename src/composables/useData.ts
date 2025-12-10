@@ -14,6 +14,7 @@ function buildUnifiedItemsParams(
   showTasks: boolean,
   showEmails: boolean,
   showCraft: boolean,
+  showFiles: boolean,
   selectedTaskTypes: string[] | null,
   sortConfig: SortConfig,
   page: number
@@ -26,6 +27,7 @@ function buildUnifiedItemsParams(
   if (showTasks && !(selectedTaskTypes && selectedTaskTypes.length === 0)) types.push('task')
   if (showEmails) types.push('email')
   if (showCraft) types.push('craft')
+  if (showFiles) types.push('file')
   
   return {
     // Type filters
@@ -96,6 +98,7 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     showCraft = true,
+    showFiles = true,
     includeCount = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
@@ -105,14 +108,14 @@ export function useData() {
       const sort = sortConfig || currentSort.value
       
       // Check if any type is selected
-      const hasTypes = showTasks || showEmails || showCraft || 
+      const hasTypes = showTasks || showEmails || showCraft || showFiles || 
         (selectedTaskTypes && selectedTaskTypes.length > 0)
       if (!hasTypes) {
         return { data: [], count: 0 }
       }
       
       const params = buildUnifiedItemsParams(
-        filterConfig, search, showTasks, showEmails, showCraft,
+        filterConfig, search, showTasks, showEmails, showCraft, showFiles,
         selectedTaskTypes, sort, page
       )
       
@@ -213,6 +216,7 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     showCraft = true,
+    showFiles = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
@@ -245,7 +249,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, true, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, true, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
@@ -273,6 +277,7 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     showCraft = true,
+    showFiles = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
     viewType: ViewType = 'items',
@@ -298,7 +303,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, false, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, false, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
@@ -323,6 +328,7 @@ export function useData() {
     showTasks = true,
     showEmails = true,
     showCraft = true,
+    showFiles = true,
     search = '',
     filterConfig: FilterConfiguration | null = null,
     viewType: ViewType = 'items',
@@ -360,7 +366,7 @@ export function useData() {
         
         while (true) {
           const params = buildUnifiedItemsParams(
-            filterConfig, search, showTasks, showEmails, showCraft,
+            filterConfig, search, showTasks, showEmails, showCraft, showFiles,
             selectedTaskTypes, sort, page
           )
           // Use larger batch for export
