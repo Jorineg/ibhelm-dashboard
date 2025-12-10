@@ -123,6 +123,7 @@ import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
@@ -131,7 +132,7 @@ const { activeConfig, configurations, updateConfiguration, setCurrentView, curre
 const { syncStatus, overallStatus, isSourceOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
-const { craftSpaceId } = useAppearanceSettings()
+const { craftSpaceId, filesBucket } = useAppearanceSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -550,11 +551,12 @@ const handleExport = async () => {
     const headers = ['Type', ...columns.map(c => c.header), 'Link']
     const fields = ['type', ...columns.map(c => c.field)]
     
-    // Helper to get primary URL
+    // Helper to get primary URL (for files, export storage path since signed URLs expire)
     const getLink = (item: ViewDataItem): string => {
       if (item.teamwork_url) return item.teamwork_url
       if (item.missive_url) return item.missive_url
       if (item.craft_url) return transformCraftUrl(item.craft_url)
+      if (item.storage_path) return `storage:${item.storage_path}`
       return ''
     }
     
@@ -753,6 +755,19 @@ const handleKeyDown = (event: KeyboardEvent) => {
     event.preventDefault()
     const item = filteredAndSearchedItems.value[selectedRow.value]
     if (item) {
+      // Handle files with signed URL
+      if (item.type === 'file' && item.storage_path) {
+        supabase.storage
+          .from(filesBucket.value)
+          .createSignedUrl(item.storage_path, 300)
+          .then(({ data, error }) => {
+            if (!error && data?.signedUrl) {
+              window.open(data.signedUrl, '_blank')
+            }
+          })
+        return
+      }
+      // Other item types
       let url = item.teamwork_url || item.missive_url
       if (!url && item.craft_url) {
         url = transformCraftUrl(item.craft_url)

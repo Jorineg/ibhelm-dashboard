@@ -210,7 +210,7 @@
               class="type-badge-link"
               :style="getTypeBadgeStyle(data)"
               :title="getTypeBadgeTooltip(data)"
-              @click.stop
+              @click="handleTypeBadgeClick($event, data)"
             >
               {{ getTypeBadgeText(data) }}
             </a>
@@ -265,7 +265,7 @@
               class="gallery-type-badge-link"
               :style="getTypeBadgeStyle(item)"
               :title="getTypeBadgeTooltip(item)"
-              @click.stop
+              @click="handleTypeBadgeClick($event, item)"
             >
               {{ getTypeBadgeText(item) }}
             </a>
@@ -333,6 +333,7 @@ import Button from 'primevue/button'
 import { InfoTooltip } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { supabase } from '@/lib/supabase'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
 
 interface Props {
@@ -389,7 +390,7 @@ const emit = defineEmits<Emits>()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
-const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
 
 // Transform craft URL to include space ID
 const transformCraftUrl = (url: string): string => {
@@ -813,6 +814,8 @@ const getRowPrimaryUrl = (item: ViewDataItem): string => {
   if (item.teamwork_url) return item.teamwork_url
   if (item.missive_url) return item.missive_url
   if (item.craft_url) return transformCraftUrl(item.craft_url)
+  // Files are handled by click handler, use javascript:void(0) to prevent navigation
+  if (item.type?.toLowerCase() === 'file') return 'javascript:void(0)'
   return '#'
 }
 
@@ -832,8 +835,48 @@ const getTypeBadgeTooltip = (item: ViewDataItem): string => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'Open in Missive'
   if (itemType === 'craft') return 'Open in Craft'
-  if (itemType === 'file') return 'View file'
+  if (itemType === 'file') return 'Open file'
   return 'Open in Teamwork'
+}
+
+// Handle type badge click - special handling for files
+const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
+  console.log('handleTypeBadgeClick called', item.type, item)
+  event.stopPropagation()
+  
+  const itemType = item.type?.toLowerCase()
+  
+  // For files, generate signed URL and open
+  if (itemType === 'file') {
+    event.preventDefault()
+    
+    if (!item.storage_path) {
+      console.error('File has no storage_path:', item)
+      alert('File storage path not available. Database may need to be updated.')
+      return
+    }
+    
+    console.log('Generating signed URL for:', item.storage_path, 'bucket:', filesBucket.value)
+    
+    const { data, error } = await supabase.storage
+      .from(filesBucket.value)
+      .createSignedUrl(item.storage_path, 300) // 5 minute expiry
+    
+    if (error) {
+      console.error('Error generating signed URL:', error)
+      alert(`Error accessing file: ${error.message}`)
+      return
+    }
+    
+    console.log('Signed URL generated:', data?.signedUrl)
+    
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank')
+    }
+    return
+  }
+  
+  // For non-files, let the default link behavior happen (href is set)
 }
 
 // Gallery view helpers

@@ -170,6 +170,7 @@ export interface AppSettings {
   teamwork_base_url?: string
   cost_group_prefixes?: string[]
   location_prefix?: string
+  files_bucket?: string
 }
 
 export interface DataItem {
@@ -192,6 +193,8 @@ export interface DataItem {
   task_type_name?: string
   task_type_slug?: string
   task_type_color?: string
+  // File storage
+  storage_path?: string
   // Any other fields for display
   [key: string]: any
 }

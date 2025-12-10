@@ -11,7 +11,8 @@ const defaults: AppSettings = {
   project_color: '#f59e0b',
   teamwork_base_url: '',
   cost_group_prefixes: ['KGR'],
-  location_prefix: 'O-'
+  location_prefix: 'O-',
+  files_bucket: 'files'
 }
 const settings = ref<AppSettings>({ ...defaults })
 const loading = ref(false)
@@ -81,6 +82,7 @@ export function useAppearanceSettings() {
   const teamworkBaseUrl = computed(() => settings.value.teamwork_base_url || '')
   const costGroupPrefixes = computed(() => settings.value.cost_group_prefixes || ['KGR'])
   const locationPrefix = computed(() => settings.value.location_prefix || 'O-')
+  const filesBucket = computed(() => settings.value.files_bucket || 'files')
 
   return {
     settings,
@@ -95,6 +97,7 @@ export function useAppearanceSettings() {
     teamworkBaseUrl,
     costGroupPrefixes,
     locationPrefix,
+    filesBucket,
     initialize,
     fetchSettings,
     updateEmailColor,
