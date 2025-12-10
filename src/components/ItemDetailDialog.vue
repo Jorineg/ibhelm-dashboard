@@ -17,6 +17,16 @@
     </template>
 
     <div v-if="item" class="detail-content scrollable-list">
+      <!-- Thumbnail preview for files -->
+      <div v-if="hasThumbnail" class="thumbnail-preview">
+        <img
+          :src="thumbnailUrl"
+          :alt="(item as DataItem).name"
+          class="thumbnail-preview-img"
+          @error="thumbnailFailed = true"
+        />
+      </div>
+
       <!-- Toggle for empty fields -->
       <div class="detail-header">
         <div class="checkbox-wrapper">
@@ -88,9 +98,22 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const showEmptyFields = ref(false)
+const thumbnailFailed = ref(false)
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value)
+})
+
+// Thumbnail support for files
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const hasThumbnail = computed(() => {
+  if (!props.item || thumbnailFailed.value) return false
+  return !!(props.item as DataItem).thumbnail_path
+})
+const thumbnailUrl = computed(() => {
+  if (!props.item) return ''
+  const path = (props.item as DataItem).thumbnail_path
+  return path ? `${supabaseUrl}/storage/v1/object/public/thumbnails/${path}` : ''
 })
 
 // Detect item type based on properties
@@ -127,7 +150,7 @@ const dialogTitle = computed(() => {
 
 
 // Fields to exclude from display
-const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url']
+const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url', 'thumbnail_path']
 
 const displayFields = computed(() => {
   if (!props.item) return []
@@ -195,10 +218,11 @@ const formatValue = (value: any): string => {
   return String(value)
 }
 
-// Reset showEmptyFields when dialog opens
+// Reset state when dialog opens
 watch(isVisible, (visible) => {
   if (visible) {
     showEmptyFields.value = false
+    thumbnailFailed.value = false
   }
 })
 </script>
@@ -207,6 +231,22 @@ watch(isVisible, (visible) => {
 .detail-content {
   max-height: 70vh;
   overflow-y: auto;
+}
+
+.thumbnail-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.thumbnail-preview-img {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
 }
 
 .detail-header {

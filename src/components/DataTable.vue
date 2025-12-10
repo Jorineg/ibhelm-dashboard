@@ -23,9 +23,10 @@
           <InfoTooltip position="bottom">
             <strong>Searches in:</strong>
             <ul>
-              <li>Task/email name &amp; subject</li>
+              <li>Name, subject, filename, title</li>
               <li>Description &amp; preview</li>
-              <li>Email body content</li>
+              <li>Email body &amp; craft markdown</li>
+              <li>File extracted text (PDF, etc.)</li>
               <li>Conversation comments</li>
             </ul>
           </InfoTooltip>
@@ -271,7 +272,16 @@
             </a>
           </div>
           <div class="gallery-item-thumbnail">
+            <img
+              v-if="shouldShowThumbnail(item)"
+              :src="getThumbnailUrl(item.thumbnail_path!)"
+              :alt="item.name"
+              loading="lazy"
+              class="gallery-thumbnail-img"
+              @error="() => handleThumbnailError(item.thumbnail_path!)"
+            />
             <i
+              v-else
               :class="getGalleryIcon(item)"
               class="gallery-icon"
             ></i>
@@ -841,7 +851,6 @@ const getTypeBadgeTooltip = (item: ViewDataItem): string => {
 
 // Handle type badge click - special handling for files
 const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
-  console.log('handleTypeBadgeClick called', item.type, item)
   event.stopPropagation()
   
   const itemType = item.type?.toLowerCase()
@@ -852,11 +861,8 @@ const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
     
     if (!item.storage_path) {
       console.error('File has no storage_path:', item)
-      alert('File storage path not available. Database may need to be updated.')
       return
     }
-    
-    console.log('Generating signed URL for:', item.storage_path, 'bucket:', filesBucket.value)
     
     const { data, error } = await supabase.storage
       .from(filesBucket.value)
@@ -864,11 +870,8 @@ const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
     
     if (error) {
       console.error('Error generating signed URL:', error)
-      alert(`Error accessing file: ${error.message}`)
       return
     }
-    
-    console.log('Signed URL generated:', data?.signedUrl)
     
     if (data?.signedUrl) {
       window.open(data.signedUrl, '_blank')
@@ -877,6 +880,21 @@ const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
   }
   
   // For non-files, let the default link behavior happen (href is set)
+}
+
+// Thumbnail URL helper - public bucket
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const getThumbnailUrl = (thumbnailPath: string): string => {
+  return `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
+}
+
+// Track failed thumbnails to show fallback icon
+const failedThumbnails = ref(new Set<string>())
+const handleThumbnailError = (thumbnailPath: string) => {
+  failedThumbnails.value.add(thumbnailPath)
+}
+const shouldShowThumbnail = (item: ViewDataItem): boolean => {
+  return !!item.thumbnail_path && !failedThumbnails.value.has(item.thumbnail_path)
 }
 
 // Gallery view helpers
@@ -1422,6 +1440,13 @@ onUnmounted(() => {
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.gallery-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .gallery-icon {

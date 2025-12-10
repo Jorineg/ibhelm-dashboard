@@ -195,6 +195,7 @@ export interface DataItem {
   task_type_color?: string
   // File storage
   storage_path?: string
+  thumbnail_path?: string
   // Any other fields for display
   [key: string]: any
 }
