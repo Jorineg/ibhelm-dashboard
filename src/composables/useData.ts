@@ -49,8 +49,8 @@ function buildUnifiedItemsParams(
     p_description_contains: col.description_contains || null,
     p_customer_contains: col.customer_contains || null,
     p_tasklist_contains: col.tasklist_contains || null,
-    p_from_name_contains: col.from_name_contains || null,
-    p_from_email_contains: col.from_email_contains || null,
+    p_creator_contains: col.creator_contains || null,
+    p_assigned_to_contains: col.assigned_to_contains || null,
     
     // Enum filters
     p_status_in: col.status_in && col.status_in.length > 0 ? col.status_in : null,

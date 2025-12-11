@@ -272,8 +272,8 @@ export interface ColumnFilters {
   description_contains?: string
   customer_contains?: string
   tasklist_contains?: string
-  from_name_contains?: string
-  from_email_contains?: string
+  creator_contains?: string
+  assigned_to_contains?: string
   
   // Enum filters (in/not in)
   status_in?: string[]
@@ -319,8 +319,8 @@ export const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { field: 'description', label: 'Description', type: 'text' },
   { field: 'customer', label: 'Customer', type: 'text' },
   { field: 'tasklist', label: 'Tasklist', type: 'text' },
-  { field: 'from_name', label: 'From Name', type: 'text' },
-  { field: 'from_email', label: 'From Email', type: 'text' },
+  { field: 'creator', label: 'Creator', type: 'text' },
+  { field: 'assigned_to', label: 'Assigned To', type: 'text' },
   // Enum filters (in/not_in)
   { field: 'status', label: 'Status', type: 'enum', enumValues: ['new', 'active', 'completed', 'reopened', 'deleted'] },
   { field: 'priority', label: 'Priority', type: 'enum', enumValues: ['none', 'low', 'medium', 'high'] },

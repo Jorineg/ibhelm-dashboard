@@ -741,11 +741,20 @@ const handleSort = (event: any) => {
   const field = event.sortField
   const order = event.sortOrder === 1 ? 'asc' : 'desc'
   
-  // If sortOrder is 0 (removed), default to sort_date desc
+  // If sortOrder is 0 (removed), use view-appropriate default
   if (event.sortOrder === 0 || !field) {
-    emit('sort', { field: 'sort_date', order: 'desc' })
+    emit('sort', getDefaultSort())
   } else {
     emit('sort', { field, order })
+  }
+}
+
+// Get default sort config based on view type
+const getDefaultSort = (): SortConfig => {
+  switch (props.viewType) {
+    case 'projects': return { field: 'name', order: 'asc' }
+    case 'people': return { field: 'display_name', order: 'asc' }
+    default: return { field: 'sort_date', order: 'desc' }
   }
 }
 
@@ -762,8 +771,8 @@ const handleHeaderClick = (field: string) => {
     if (currentOrder === 'asc') {
       emit('sort', { field, order: 'desc' })
     } else {
-      // Was desc, remove sort (default to sort_date desc)
-      emit('sort', { field: 'sort_date', order: 'desc' })
+      // Was desc, remove sort (use view-appropriate default)
+      emit('sort', getDefaultSort())
     }
   } else {
     // New field - start with asc
@@ -1092,7 +1101,7 @@ onUnmounted(() => {
 
 .toolbar-left {
   display: flex;
-  align-items: center;
+  align-items: start;
   gap: 1.5rem;
   flex-wrap: wrap;
   flex: 1;
@@ -1674,6 +1683,8 @@ onUnmounted(() => {
 .scroll-trigger {
   height: 20px;
   margin: 1rem 0;
+  position: sticky;
+  left: 0;
 }
 
 /* Keyboard navigation selection */
