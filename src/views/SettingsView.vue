@@ -1,16 +1,17 @@
 <template>
   <div class="settings-view">
-    <div class="settings-inner">
-      <!-- Header -->
-      <PageHeader
-        title="Settings"
-        :show-back="true"
-        :user-email="user?.email"
-        :show-sign-out="true"
-        @back="goBack"
-        @sign-out="handleSignOut"
-      />
+    <!-- Header -->
+    <PageHeader
+      title="Settings"
+      :show-back="true"
+      :user-email="user?.email"
+      :show-sign-out="true"
+      @back="goBack"
+      @sign-out="handleSignOut"
+    />
 
+    <!-- Scrollable Content -->
+    <div class="settings-inner">
       <!-- Main Content with Sidebar -->
       <div class="settings-layout">
       <!-- Sidebar Navigation -->
@@ -233,15 +234,22 @@ onMounted(async () => {
 <style scoped>
 .settings-view {
   height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-primary);
-  overflow-y: auto;
-  /* Remove default padding here, move to inner */
-  padding: 0; 
+  overflow: hidden;
+}
+
+.settings-view :deep(.page-header) {
+  flex-shrink: 0;
+  padding: 2rem;
+  margin-bottom: 0;
 }
 
 .settings-inner {
-  min-height: 100%;
-  padding: 2rem;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 2rem 2rem 2rem;
 }
 
 /* Settings Layout */
@@ -260,7 +268,7 @@ onMounted(async () => {
   padding: 1rem 0;
   box-shadow: var(--shadow-md);
   position: sticky;
-  top: 2rem;
+  top: 0;
   height: fit-content;
 }
 

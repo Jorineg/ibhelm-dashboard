@@ -82,6 +82,8 @@
           :exporting="exporting"
           :filter-config-id="activeConfig?.id"
           :project-filter="activeConfig?.quickFilters?.project || ''"
+          :grid-columns="gridColumns"
+          :nonempty-columns="itemsMetadata?.nonemptyColumns || null"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -159,6 +161,29 @@ const closeSyncPopup = () => {
   syncPopupVisible.value = false
 }
 
+// Grid zoom state (localStorage persisted) - number of columns per row
+const GRID_ZOOM_STORAGE_KEY = 'ibhelm_grid_columns'
+const GRID_COLUMN_LEVELS = [2, 3, 4, 6, 8, 10, 12, 14]
+const GRID_COLUMNS_DEFAULT = 4
+
+const gridColumns = ref(
+  parseInt(localStorage.getItem(GRID_ZOOM_STORAGE_KEY) || String(GRID_COLUMNS_DEFAULT))
+)
+
+const gridZoomIn = () => {
+  const currentIdx = GRID_COLUMN_LEVELS.indexOf(gridColumns.value)
+  const nextIdx = currentIdx === -1 ? 2 : Math.max(currentIdx - 1, 0) // fewer columns = zoom in
+  gridColumns.value = GRID_COLUMN_LEVELS[nextIdx]
+  localStorage.setItem(GRID_ZOOM_STORAGE_KEY, String(gridColumns.value))
+}
+
+const gridZoomOut = () => {
+  const currentIdx = GRID_COLUMN_LEVELS.indexOf(gridColumns.value)
+  const nextIdx = currentIdx === -1 ? 2 : Math.min(currentIdx + 1, GRID_COLUMN_LEVELS.length - 1) // more columns = zoom out
+  gridColumns.value = GRID_COLUMN_LEVELS[nextIdx]
+  localStorage.setItem(GRID_ZOOM_STORAGE_KEY, String(gridColumns.value))
+}
+
 // View tabs configuration
 const viewTabs = [
   { id: 'items' as ViewType, label: 'Items' },
@@ -175,6 +200,7 @@ const {
   hasMore,
   totalCount,
   error,
+  itemsMetadata,
   loadData,
   loadMore,
   fetchAllForExport,
@@ -867,6 +893,20 @@ const handleKeyDown = (event: KeyboardEvent) => {
     const newMode = activeConfig.value?.viewMode === 'gallery' ? 'list' : 'gallery'
     handleUpdateViewMode(newMode)
     return
+  }
+  
+  // Grid zoom in/out (only in gallery view)
+  if (activeConfig.value?.viewMode === 'gallery') {
+    if (key === bindings.gridZoomIn.key) {
+      event.preventDefault()
+      gridZoomIn()
+      return
+    }
+    if (key === bindings.gridZoomOut.key) {
+      event.preventDefault()
+      gridZoomOut()
+      return
+    }
   }
 }
 

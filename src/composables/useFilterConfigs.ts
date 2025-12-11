@@ -229,11 +229,11 @@ export function useFilterConfigs() {
   }
 
   // Column filter helpers
+  // Note: empty strings and empty arrays are kept (to show filter UI), only undefined/null deletes
   const updateColumnFilter = <K extends keyof ColumnFilters>(filterName: K, value: ColumnFilters[K]) => {
     if (activeConfig.value) {
       const newFilters = { ...activeConfig.value.columnFilters }
-      if (value === undefined || value === null || value === '' || 
-          (Array.isArray(value) && value.length === 0)) {
+      if (value === undefined || value === null) {
         delete newFilters[filterName]
       } else {
         newFilters[filterName] = value

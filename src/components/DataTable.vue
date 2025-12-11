@@ -290,12 +290,12 @@
 
     <!-- Gallery View -->
     <div v-show="localViewMode === 'gallery'" class="gallery-view" ref="galleryViewRef">
-      <div class="gallery-grid" ref="galleryGridRef">
+      <div class="gallery-grid" ref="galleryGridRef" :style="galleryGridStyle">
         <div
           v-for="(item, index) in displayedItems"
           :key="item.id"
           class="gallery-item"
-          :class="{ 'keyboard-selected': index === props.selectedRow }"
+          :class="{ 'keyboard-selected': index === props.selectedRow, 'compact': isCompactGrid }"
           @click="handleRowClick({ data: item })"
         >
           <div class="gallery-item-header">
@@ -415,6 +415,10 @@ interface Props {
   filterConfigId?: string
   // Project filter for people view
   projectFilter?: string
+  // Grid view columns per row
+  gridColumns?: number
+  // Non-empty columns from server (for items view) - null means use client-side detection
+  nonemptyColumns?: string[] | null
 }
 
 interface Emits {
@@ -528,13 +532,17 @@ const scrollHorizontal = (direction: 'left' | 'right') => {
   })
 }
 
+// Gallery grid dynamic style for zoom
+const gridColumns = computed(() => props.gridColumns || 4)
+const isCompactGrid = computed(() => gridColumns.value >= 8)
+
+const galleryGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${gridColumns.value}, 1fr)`,
+  gap: isCompactGrid.value ? '0' : undefined
+}))
+
 // Get number of columns in gallery grid
-const getGalleryColumns = (): number => {
-  if (!galleryGridRef.value || displayedItems.value.length === 0) return 1
-  const gridStyle = window.getComputedStyle(galleryGridRef.value)
-  const columns = gridStyle.gridTemplateColumns.split(' ').length
-  return columns || 1
-}
+const getGalleryColumns = (): number => gridColumns.value
 
 // Scroll to selected gallery item
 const scrollToSelectedGalleryItem = () => {
@@ -605,8 +613,37 @@ const orderedVisibleColumnsWithoutType = computed(() => {
   return orderedVisibleColumns.value.filter(col => col.field !== 'type')
 })
 
+// Check if column should be shown based on data
+// Uses server-provided nonemptyColumns when available, falls back to client-side check
+const shouldShowColumn = (field: string): boolean => {
+  // If server provided non-empty columns list (items view), use it
+  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) {
+    return props.nonemptyColumns.includes(field)
+  }
+  
+  // If loading and same filter config, use cached visibility
+  if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
+    return cachedColumnsWithData.value.has(field)
+  }
+  
+  // If no items (new config or initial load), show all columns
+  if (props.items.length === 0) return true
+
+  // Fallback: check if any item in current page has a non-empty value
+  return props.items.some(item => {
+    const value = item[field]
+    return value !== null && value !== undefined && value !== ''
+  })
+}
+
 // Count columns that are hidden because all their values are empty
 const hiddenEmptyColumnsCount = computed(() => {
+  // If server provided non-empty columns list, use it for accurate count
+  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) {
+    const nonemptySet = new Set(props.nonemptyColumns)
+    return props.visibleColumns.filter(field => !nonemptySet.has(field)).length
+  }
+  
   // During loading with same config, use cached visibility
   if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
     return props.visibleColumns.filter(field => !cachedColumnsWithData.value.has(field)).length
@@ -621,27 +658,12 @@ const getColumnStyle = (col: ColumnType) => {
   return { width, maxWidth: width }
 }
 
-// Check if column should be shown based on data
-const shouldShowColumn = (field: string): boolean => {
-  // If loading and same filter config, use cached visibility
-  if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
-    return cachedColumnsWithData.value.has(field)
-  }
-  
-  // If no items (new config or initial load), show all columns
-  if (props.items.length === 0) return true
-
-  // Check if any item has a non-empty value for this field
-  return props.items.some(item => {
-    const value = item[field]
-    return value !== null && value !== undefined && value !== ''
-  })
-}
-
-// Update cache when items change with actual data
+// Update cache when items change (fallback for views without server-provided columns)
 watch(() => props.items, (items) => {
+  // Skip cache update if server provides nonemptyColumns
+  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) return
+  
   if (items.length > 0) {
-    // Update cached columns that have data
     const columnsWithData = new Set<string>()
     props.columns.forEach(col => {
       const hasData = items.some(item => {
@@ -658,7 +680,6 @@ watch(() => props.items, (items) => {
 // Reset cache when filter config changes
 watch(() => props.filterConfigId, (newId, oldId) => {
   if (newId !== oldId && oldId !== undefined) {
-    // Config changed, clear cache so all columns show until new data loads
     cachedColumnsWithData.value = new Set()
   }
 })
@@ -1514,12 +1535,12 @@ onUnmounted(() => {
   padding: 2rem;
   flex: 1 1 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 2rem;
 }
 
@@ -1530,6 +1551,8 @@ onUnmounted(() => {
   padding: 1.5rem;
   cursor: pointer;
   transition: all var(--transition-normal);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .gallery-item:hover {
@@ -1542,6 +1565,10 @@ onUnmounted(() => {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
   background: var(--accent-primary-dark);
+}
+
+.gallery-item.compact {
+  padding: 0;
 }
 
 .gallery-item-header {
@@ -1573,7 +1600,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 160px;
+  aspect-ratio: 4 / 3;
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
@@ -1591,6 +1618,10 @@ onUnmounted(() => {
   color: var(--text-disabled);
 }
 
+.gallery-item-content {
+  min-width: 0;
+}
+
 .gallery-item-content h4 {
   font-size: 1.125rem;
   font-weight: 600;
@@ -1606,12 +1637,18 @@ onUnmounted(() => {
   color: var(--text-secondary);
   margin-bottom: 1rem;
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .gallery-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  overflow: hidden;
 }
 
 .meta-item {

@@ -522,13 +522,13 @@ const setEnumNotInFilter = (baseField: string, values: string[]) => {
 const getDateMin = (baseField: string): Date | null => {
   const minKey = `${baseField}_min` as keyof ColumnFilters
   const val = activeConfig.value?.columnFilters[minKey] as string | undefined
-  return val ? new Date(val) : null
+  return val && val !== '' ? new Date(val) : null
 }
 
 const getDateMax = (baseField: string): Date | null => {
   const maxKey = `${baseField}_max` as keyof ColumnFilters
   const val = activeConfig.value?.columnFilters[maxKey] as string | undefined
-  return val ? new Date(val) : null
+  return val && val !== '' ? new Date(val) : null
 }
 
 const getDateIsNull = (baseField: string): boolean | null => {
@@ -561,12 +561,14 @@ const getDateNullLabel = (baseField: string): string => {
 // Number filter helpers (work with base field name)
 const getNumberMin = (baseField: string): number | null => {
   const minKey = `${baseField}_min` as keyof ColumnFilters
-  return activeConfig.value?.columnFilters[minKey] as number | undefined ?? null
+  const val = activeConfig.value?.columnFilters[minKey]
+  return typeof val === 'number' ? val : null
 }
 
 const getNumberMax = (baseField: string): number | null => {
   const maxKey = `${baseField}_max` as keyof ColumnFilters
-  return activeConfig.value?.columnFilters[maxKey] as number | undefined ?? null
+  const val = activeConfig.value?.columnFilters[maxKey]
+  return typeof val === 'number' ? val : null
 }
 
 const setNumberMin = (baseField: string, value: number | null) => {
@@ -597,6 +599,7 @@ const getTypeIcon = (type: string): string => {
 
 const selectFilter = (col: FilterableColumn) => {
   showAddFilter.value = false
+  // Initialize with empty values to show the filter UI
   switch (col.type) {
     case 'text':
       updateColumnFilter(`${col.field}_contains` as keyof ColumnFilters, '')
@@ -605,10 +608,12 @@ const selectFilter = (col: FilterableColumn) => {
       updateColumnFilter(`${col.field}_in` as keyof ColumnFilters, [])
       break
     case 'date':
-      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, undefined)
+      // Use empty string as placeholder to show UI (query handles empty string as no filter)
+      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, '' as any)
       break
     case 'number':
-      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, undefined)
+      // Use empty string as placeholder to show UI (query handles empty string as no filter)
+      updateColumnFilter(`${col.field}_min` as keyof ColumnFilters, '' as any)
       break
   }
 }
@@ -716,7 +721,7 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 .add-filter-dropdown {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
   margin-top: 0.25rem;
   min-width: 180px;
   z-index: 1000;

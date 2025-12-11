@@ -27,6 +27,8 @@ export interface KeyBindings {
   focusSearch: KeyBinding
   toggleView: KeyBinding
   toggleFilterPopup: KeyBinding
+  gridZoomIn: KeyBinding
+  gridZoomOut: KeyBinding
 }
 
 const STORAGE_KEY = 'ibhelm_key_bindings'
@@ -52,7 +54,9 @@ const defaultBindings: KeyBindings = {
   deleteConfig: { key: 'd', description: 'Delete current filter config' },
   focusSearch: { key: 's', description: 'Focus search box' },
   toggleView: { key: 'v', description: 'Toggle list/gallery view' },
-  toggleFilterPopup: { key: 'f', description: 'Toggle filter config popup' }
+  toggleFilterPopup: { key: 'f', description: 'Toggle filter config popup' },
+  gridZoomIn: { key: '+', description: 'Grid view: zoom in (larger tiles)' },
+  gridZoomOut: { key: '-', description: 'Grid view: zoom out (smaller tiles)' }
 }
 
 const bindings = ref<KeyBindings>({ ...defaultBindings })

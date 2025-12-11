@@ -81,6 +81,20 @@ function buildUnifiedItemsParams(
   }
 }
 
+// Metadata types
+interface TypeCounts {
+  task: number
+  email: number
+  craft: number
+  file: number
+}
+
+interface ItemsMetadata {
+  nonemptyColumns: string[]
+  typeCounts: TypeCounts
+  taskTypeCounts: Record<string, number> // task_type_id -> count
+}
+
 export function useData() {
   const items = ref<ViewDataItem[]>([])
   const loading = ref(false)
@@ -91,6 +105,9 @@ export function useData() {
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
   const error = ref<string | null>(null)
+  
+  // Metadata from count query (items view only)
+  const itemsMetadata = ref<ItemsMetadata | null>(null)
 
   // Fetch unified items using the single RPC function
   const fetchUnifiedItems = async (
@@ -100,7 +117,7 @@ export function useData() {
     showEmails = true,
     showCraft = true,
     showFiles = true,
-    includeCount = false,
+    includeMetadata = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null
@@ -111,7 +128,7 @@ export function useData() {
     const hasTypes = showTasks || showEmails || showCraft || showFiles || 
       (selectedTaskTypes && selectedTaskTypes.length > 0)
     if (!hasTypes) {
-      return { data: [], count: 0 }
+      return { data: [], count: 0, metadata: null }
     }
     
     const params = buildUnifiedItemsParams(
@@ -123,16 +140,25 @@ export function useData() {
     const { data, error: queryError } = await supabase.rpc('query_unified_items', params)
     if (queryError) throw queryError
     
-    // Get count if needed
+    // Get count and metadata if needed
     let count: number | null = null
-    if (includeCount) {
+    let metadata: ItemsMetadata | null = null
+    if (includeMetadata) {
       // Remove pagination params for count
       const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
-      const { data: countResult, error: countError } = await supabase.rpc('count_unified_items', countParams)
-      if (!countError) count = countResult
+      const { data: metaResult, error: metaError } = await supabase.rpc('count_unified_items_with_metadata', countParams)
+      if (!metaError && metaResult && metaResult.length > 0) {
+        const row = metaResult[0]
+        count = row.total_count
+        metadata = {
+          nonemptyColumns: row.nonempty_columns || [],
+          typeCounts: row.type_counts || { task: 0, email: 0, craft: 0, file: 0 },
+          taskTypeCounts: row.task_type_counts || {}
+        }
+      }
     }
     
-    return { data: data || [], count }
+    return { data: data || [], count, metadata }
   }
 
   // Fetch projects from project_overview view
@@ -239,7 +265,7 @@ export function useData() {
     }
 
     try {
-      let result: { data: any[]; count: number | null }
+      let result: { data: any[]; count: number | null; metadata?: ItemsMetadata | null }
       
       switch (viewType) {
         case 'projects':
@@ -260,6 +286,13 @@ export function useData() {
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
+      
+      // Update metadata for items view
+      if (viewType === 'items' && 'metadata' in result) {
+        itemsMetadata.value = result.metadata || null
+      } else {
+        itemsMetadata.value = null
+      }
     } catch (err) {
       // Only update error if this is still the current request
       if (thisRequestVersion === requestVersion) {
@@ -407,6 +440,7 @@ export function useData() {
     hasMore.value = true
     totalCount.value = null
     error.value = null
+    itemsMetadata.value = null
   }
 
   // Clear error (for retry functionality)
@@ -423,6 +457,7 @@ export function useData() {
     currentSort,
     currentViewType,
     error,
+    itemsMetadata,
     loadData,
     loadMore,
     fetchAllForExport,
