@@ -22,7 +22,7 @@
               class="detail-value time" 
               :class="{ warning: isSourceOutdated(source.data) }"
             >
-              {{ formatDateTime(source.data.lastScanned) }}
+              {{ formatRelativeTime(source.data.lastScanned) }}
               <i v-if="isSourceOutdated(source.data)" class="pi pi-exclamation-triangle warning-icon"></i>
             </span>
           </div>
@@ -30,7 +30,7 @@
           <div class="detail-row">
             <span class="detail-label">Last change:</span>
             <span class="detail-value time">
-              {{ formatDateTime(source.data.lastChange) }}
+              {{ formatRelativeTime(source.data.lastChange) }}
             </span>
           </div>
           
@@ -58,20 +58,20 @@
         
         <div class="source-details">
           <div class="detail-row">
-            <span class="detail-label">Last file:</span>
-            <span class="detail-value time">
-              {{ formatDateTime(syncStatus.files.lastEventTime) }}
-            </span>
-          </div>
-          
-          <div class="detail-row">
-            <span class="detail-label">Last update:</span>
+            <span class="detail-label">Last sync:</span>
             <span 
               class="detail-value time" 
               :class="{ warning: isFilesOutdated }"
             >
-              {{ formatDateTime(syncStatus.files.lastUpdated) }}
+              {{ formatRelativeTime(syncStatus.files.lastUpdated) }}
               <i v-if="isFilesOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
+            </span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Last change:</span>
+            <span class="detail-value time">
+              {{ formatRelativeTime(syncStatus.files.lastEventTime) }}
             </span>
           </div>
         </div>
@@ -94,7 +94,7 @@
               class="detail-value time" 
               :class="{ warning: isThumbnailsOutdated }"
             >
-              {{ formatDateTime(syncStatus.thumbnails.lastProcessed) }}
+              {{ formatRelativeTime(syncStatus.thumbnails.lastProcessed) }}
               <i v-if="isThumbnailsOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
             </span>
           </div>
@@ -117,7 +117,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SyncStatus, SyncSourceStatus } from '@/composables/useSyncStatus'
-import { formatDateTime } from '@/lib/formatDate'
+import { formatRelativeTime } from '@/lib/formatDate'
 
 interface Props {
   syncStatus: SyncStatus

@@ -32,6 +32,30 @@
           </InfoTooltip>
         </div>
         
+        <!-- Project Filter (people view only) -->
+        <div v-if="props.viewType === 'people'" class="project-filter-wrapper">
+          <AutocompleteInput
+            :model-value="props.projectFilter || ''"
+            :suggestions="projectSuggestions"
+            :loading="projectLoading"
+            placeholder="Filter by project..."
+            primary-field="name"
+            secondary-field="company_name"
+            @update:model-value="(value: string) => emit('update:projectFilter', value)"
+            @search="handleProjectSearch"
+            @select="handleProjectSelect"
+            @clear="handleProjectClear"
+          >
+            <template #option="{ suggestion }">
+              <div class="project-option">
+                <span class="project-name">{{ suggestion.name }}</span>
+                <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
+                <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
+              </div>
+            </template>
+          </AutocompleteInput>
+        </div>
+        
         <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
           <template v-if="props.viewType === 'items' || !props.viewType">
             
@@ -341,9 +365,10 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip } from '@/components/common'
+import { InfoTooltip, AutocompleteInput } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useProjectAutocomplete, type ProjectSuggestion } from '@/composables/useAutocomplete'
 import { supabase } from '@/lib/supabase'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
 
@@ -372,6 +397,8 @@ interface Props {
   exporting?: boolean
   // Filter config ID to track config changes
   filterConfigId?: string
+  // Project filter for people view
+  projectFilter?: string
 }
 
 interface Emits {
@@ -387,6 +414,7 @@ interface Emits {
   (e: 'update:selectedTaskTypes', value: string[]): void
   (e: 'update:selectedRow', value: number): void
   (e: 'update:selectedCol', value: number): void
+  (e: 'update:projectFilter', value: string): void
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
@@ -402,6 +430,13 @@ const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 
 // Appearance settings from composable
 const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
+
+// Project autocomplete for people view
+const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
+
+const handleProjectSearch = (searchText: string) => searchProjects(searchText)
+const handleProjectSelect = (suggestion: ProjectSuggestion) => emit('update:projectFilter', suggestion.name)
+const handleProjectClear = () => { emit('update:projectFilter', ''); clearProjectSuggestions() }
 
 // Transform craft URL to include space ID
 const transformCraftUrl = (url: string): string => {
@@ -1173,6 +1208,51 @@ onUnmounted(() => {
 .clear-search {
   position: absolute;
   right: 1.5rem;
+}
+
+/* Project filter for people view */
+.project-filter-wrapper {
+  width: 220px;
+}
+
+.project-filter-wrapper :deep(.autocomplete-input) {
+  font-size: 0.95rem !important;
+}
+
+.project-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.project-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.project-company {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
+.project-status {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.project-status.active {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.project-status.completed {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-tertiary);
 }
 
 /* Table scroll container - handles both horizontal and vertical scroll */

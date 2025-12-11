@@ -50,12 +50,12 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <!-- Config Panel (left side) - hidden for projects view -->
-      <ConfigurationPanel v-if="activeView !== 'projects'" ref="configPanelRef" />
+      <!-- Config Panel (left side) - hidden for projects and people views -->
+      <ConfigurationPanel v-if="activeView === 'items'" ref="configPanelRef" />
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
-        <FilterBar v-if="activeView !== 'projects'" :available-columns="availableColumns" class="filters-section" />
+        <FilterBar v-if="activeView === 'items'" :available-columns="availableColumns" class="filters-section" />
         <DataTable
           ref="dataTableRef"
           :search-query="searchQuery"
@@ -80,6 +80,7 @@
           :selected-col="selectedCol"
           :exporting="exporting"
           :filter-config-id="activeConfig?.id"
+          :project-filter="activeConfig?.quickFilters?.project || ''"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -91,6 +92,7 @@
           @update:selected-task-types="handleUpdateSelectedTaskTypes"
           @update:selected-row="selectedRow = $event"
           @update:selected-col="selectedCol = $event"
+          @update:project-filter="handleUpdateProjectFilter"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
           @sort="handleSort"
@@ -513,6 +515,18 @@ const handleUpdateSelectedTaskTypes = (types: string[]) => {
   if (activeConfig.value) {
     // Persist selected task types to configuration - the watch will trigger data reload
     updateConfiguration(activeConfig.value.id, { selectedTaskTypes: types })
+  }
+}
+
+const handleUpdateProjectFilter = (value: string) => {
+  if (activeConfig.value) {
+    const newFilters = { ...activeConfig.value.quickFilters }
+    if (value) {
+      newFilters.project = value
+    } else {
+      delete newFilters.project
+    }
+    updateConfiguration(activeConfig.value.id, { quickFilters: newFilters })
   }
 }
 

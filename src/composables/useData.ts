@@ -178,29 +178,43 @@ export function useData() {
     }
   }
 
-  // Fetch people from unified_person_details view
+  // Fetch people using RPC function
   const fetchPeople = async (
     page = 0,
     search = '',
     includeCount = false,
-    _filterConfig: FilterConfiguration | null = null,
+    filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null
   ) => {
     try {
       const sort = sortConfig || { field: 'display_name', order: 'asc' }
-      let query = supabase
-        .from('unified_person_details')
-        .select('*', { count: includeCount ? 'exact' : undefined })
-        .order(sort.field, { ascending: sort.order === 'asc' })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-      // Apply search
-      if (search) {
-        query = query.or(`display_name.ilike.%${search}%,primary_email.ilike.%${search}%,tw_company_name.ilike.%${search}%`)
+      const quick = filterConfig?.quickFilters || {}
+      
+      const params = {
+        p_text_search: search || null,
+        p_project_search: quick.project || null,
+        p_is_internal: null,
+        p_is_company: null,
+        p_sort_field: sort.field,
+        p_sort_order: sort.order,
+        p_limit: PAGE_SIZE,
+        p_offset: page * PAGE_SIZE,
       }
-
-      const { data, error, count } = await query
+      
+      const { data, error } = await supabase.rpc('query_unified_persons', params)
       if (error) throw error
+      
+      let count: number | null = null
+      if (includeCount) {
+        const { data: countResult, error: countError } = await supabase.rpc('count_unified_persons', {
+          p_text_search: params.p_text_search,
+          p_project_search: params.p_project_search,
+          p_is_internal: params.p_is_internal,
+          p_is_company: params.p_is_company,
+        })
+        if (!countError) count = countResult
+      }
+      
       return { data: data || [], count }
     } catch (error) {
       console.error('Error fetching people:', error)
@@ -349,15 +363,27 @@ export function useData() {
         return data || []
       }
       case 'people': {
-        let query = supabase
-          .from('unified_person_details')
-          .select('*')
-          .order(sort.field, { ascending: sort.order === 'asc' })
-        if (search) {
-          query = query.or(`display_name.ilike.%${search}%,primary_email.ilike.%${search}%,tw_company_name.ilike.%${search}%`)
+        const quick = filterConfig?.quickFilters || {}
+        const allPeople: ViewDataItem[] = []
+        let page = 0
+        
+        while (true) {
+          const { data } = await supabase.rpc('query_unified_persons', {
+            p_text_search: search || null,
+            p_project_search: quick.project || null,
+            p_is_internal: null,
+            p_is_company: null,
+            p_sort_field: sort.field,
+            p_sort_order: sort.order,
+            p_limit: 1000,
+            p_offset: page * 1000,
+          })
+          if (!data || data.length === 0) break
+          allPeople.push(...data)
+          if (data.length < 1000) break
+          page++
         }
-        const { data } = await query
-        return data || []
+        return allPeople
       }
       default: {
         // Items view - fetch all in batches using RPC
