@@ -198,14 +198,29 @@
         
         <!-- Filter action buttons -->
         <div class="filter-actions-inline">
-          <Button
-            label="Add Filter"
-            icon="pi pi-plus"
-            outlined
-            size="small"
-            @click="showAddFilterMenu"
-            class="filter-action-btn"
-          />
+          <div class="add-filter-container" ref="addFilterRef">
+            <Button
+              label="Add Filter"
+              icon="pi pi-plus"
+              outlined
+              size="small"
+              @click="toggleAddFilterMenu"
+              class="filter-action-btn"
+            />
+            <Transition name="dropdown">
+              <div v-if="showAddFilter && availableFilters.length > 0" class="add-filter-dropdown dropdown-panel">
+                <div
+                  v-for="col in availableFilters"
+                  :key="col.field"
+                  class="dropdown-item"
+                  @click="selectFilter(col)"
+                >
+                  <i :class="getTypeIcon(col.type)" class="filter-icon"></i>
+                  <span>{{ col.label }}</span>
+                </div>
+              </div>
+            </Transition>
+          </div>
 
           <Button
             v-if="hasActiveFilters"
@@ -219,9 +234,6 @@
           />
         </div>
       </div>
-
-      <!-- Add filter menu -->
-      <Menu ref="addFilterMenu" :model="availableFiltersMenu" :popup="true" />
 
       <!-- Column filters (typed) - grouped by base field -->
       <div v-if="activeBaseFields.length > 0" class="column-filters">
@@ -339,11 +351,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
-import Menu from 'primevue/menu'
 import MultiSelect from 'primevue/multiselect'
 import Calendar from 'primevue/calendar'
 import TriStateCheckbox from 'primevue/tristatecheckbox'
@@ -381,7 +392,22 @@ const { suggestions: costGroupSuggestions, loading: costGroupLoading, search: se
 const { suggestions: locationSuggestions, loading: locationLoading, search: searchLocations, clear: clearLocationSuggestions } = useLocationAutocomplete()
 const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, clear: clearTagSuggestions } = useTagAutocomplete()
 
-const addFilterMenu = ref()
+// Add filter dropdown state
+const addFilterRef = ref<HTMLElement | null>(null)
+const showAddFilter = ref(false)
+
+const toggleAddFilterMenu = () => {
+  showAddFilter.value = !showAddFilter.value
+}
+
+const handleClickOutside = (event: MouseEvent) => {
+  if (addFilterRef.value && !addFilterRef.value.contains(event.target as Node)) {
+    showAddFilter.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
@@ -553,24 +579,10 @@ const setNumberMax = (baseField: string, value: number | null) => {
   updateColumnFilter(maxKey, value ?? undefined)
 }
 
-// Add filter menu
-const showAddFilterMenu = (event: Event) => {
-  addFilterMenu.value.toggle(event)
-}
-
-const availableFiltersMenu = computed(() => {
-  // Get the base fields that are already active
-  const activeBaseFields = new Set(
-    activeColumnFilterKeys.value.map(key => getBaseField(key))
-  )
-  
-  return FILTERABLE_COLUMNS
-    .filter(col => !activeBaseFields.has(col.field))
-    .map(col => ({
-      label: col.label,
-      icon: getTypeIcon(col.type),
-      command: () => addColumnFilter(col)
-    }))
+// Available filters (columns not already active)
+const availableFilters = computed(() => {
+  const activeFields = new Set(activeColumnFilterKeys.value.map(key => getBaseField(key)))
+  return FILTERABLE_COLUMNS.filter(col => !activeFields.has(col.field))
 })
 
 const getTypeIcon = (type: string): string => {
@@ -583,8 +595,8 @@ const getTypeIcon = (type: string): string => {
   }
 }
 
-const addColumnFilter = (col: FilterableColumn) => {
-  // Add the appropriate filter key based on type
+const selectFilter = (col: FilterableColumn) => {
+  showAddFilter.value = false
   switch (col.type) {
     case 'text':
       updateColumnFilter(`${col.field}_contains` as keyof ColumnFilters, '')
@@ -694,6 +706,43 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 .filter-action-btn {
   font-size: 0.875rem !important;
   white-space: nowrap;
+}
+
+/* Add filter dropdown */
+.add-filter-container {
+  position: relative;
+}
+
+.add-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  min-width: 180px;
+  z-index: 1000;
+}
+
+.add-filter-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filter-icon {
+  color: var(--text-tertiary);
+  width: 1rem;
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 /* Column filters */
