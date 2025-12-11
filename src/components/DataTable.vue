@@ -135,7 +135,10 @@
           </template>
           
           <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
-            {{ itemCountDisplay }}
+            {{ itemCountData.loaded.toLocaleString() }} of 
+            <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span>
+            <span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span>
+            {{ itemCountData.viewLabel }}
           </span>
         </div>
         
@@ -151,7 +154,7 @@
           <template #value>
             <span>{{ localVisibleColumns.length }} columns selected</span>
             <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
-              ({{ hiddenEmptyColumnsCount }} empty columns hidden)
+              ({{ hiddenEmptyColumnsCount }} columns hidden)
             </span>
           </template>
         </MultiSelect>
@@ -384,6 +387,7 @@ import { InfoTooltip, AutocompleteInput } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete, type ProjectSuggestion } from '@/composables/useAutocomplete'
+import { getVisibleColumnsForTypes } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
 
@@ -391,6 +395,7 @@ interface Props {
   items: ViewDataItem[]
   columns: ColumnType[]
   loading: boolean
+  countLoading?: boolean
   error?: string | null
   visibleColumns: string[]
   columnOrder: string[]
@@ -417,8 +422,6 @@ interface Props {
   projectFilter?: string
   // Grid view columns per row
   gridColumns?: number
-  // Non-empty columns from server (for items view) - null means use client-side detection
-  nonemptyColumns?: string[] | null
 }
 
 interface Emits {
@@ -613,38 +616,47 @@ const orderedVisibleColumnsWithoutType = computed(() => {
   return orderedVisibleColumns.value.filter(col => col.field !== 'type')
 })
 
-// Check if column should be shown based on data
-// Uses server-provided nonemptyColumns when available, falls back to client-side check
+// Static column visibility based on selected item types
+const staticVisibleColumns = computed(() => {
+  if (props.viewType !== 'items' && props.viewType !== undefined) {
+    return null // Don't apply for projects/people views
+  }
+  return getVisibleColumnsForTypes(
+    props.showTasks,
+    props.showEmails,
+    props.showCraft,
+    props.showFiles,
+    props.selectedTaskTypes ?? null
+  )
+})
+
+// Check if column should be shown based on selected item types
 const shouldShowColumn = (field: string): boolean => {
-  // If server provided non-empty columns list (items view), use it
-  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) {
-    return props.nonemptyColumns.includes(field)
+  // For items view, use static mapping
+  if (staticVisibleColumns.value !== null) {
+    return staticVisibleColumns.value.includes(field)
   }
   
-  // If loading and same filter config, use cached visibility
+  // For other views, use client-side check
   if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
     return cachedColumnsWithData.value.has(field)
   }
-  
-  // If no items (new config or initial load), show all columns
   if (props.items.length === 0) return true
 
-  // Fallback: check if any item in current page has a non-empty value
   return props.items.some(item => {
     const value = item[field]
     return value !== null && value !== undefined && value !== ''
   })
 }
 
-// Count columns that are hidden because all their values are empty
+// Count columns that are hidden because they're not relevant to selected item types
 const hiddenEmptyColumnsCount = computed(() => {
-  // If server provided non-empty columns list, use it for accurate count
-  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) {
-    const nonemptySet = new Set(props.nonemptyColumns)
-    return props.visibleColumns.filter(field => !nonemptySet.has(field)).length
+  // For items view, use static mapping
+  if (staticVisibleColumns.value !== null) {
+    return props.visibleColumns.filter(field => !staticVisibleColumns.value!.includes(field)).length
   }
   
-  // During loading with same config, use cached visibility
+  // For other views, use cached/client-side visibility
   if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
     return props.visibleColumns.filter(field => !cachedColumnsWithData.value.has(field)).length
   }
@@ -658,10 +670,10 @@ const getColumnStyle = (col: ColumnType) => {
   return { width, maxWidth: width }
 }
 
-// Update cache when items change (fallback for views without server-provided columns)
+// Update cache when items change (for views without static mapping: projects/people)
 watch(() => props.items, (items) => {
-  // Skip cache update if server provides nonemptyColumns
-  if (props.nonemptyColumns !== null && props.nonemptyColumns !== undefined) return
+  // Skip if using static mapping (items view)
+  if (staticVisibleColumns.value !== null) return
   
   if (items.length > 0) {
     const columnsWithData = new Set<string>()
@@ -686,15 +698,18 @@ watch(() => props.filterConfigId, (newId, oldId) => {
 
 const displayedItems = computed(() => props.items)
 
-const itemCountDisplay = computed(() => {
+// Object for count display with loading state
+const itemCountData = computed(() => {
   const loaded = displayedItems.value.length
   const viewLabel = props.viewType === 'projects' ? 'projects' 
     : props.viewType === 'people' ? 'people' 
     : 'items'
-  if (props.totalCount !== null && props.totalCount !== undefined) {
-    return `${loaded.toLocaleString()} of ${props.totalCount.toLocaleString()} ${viewLabel}`
+  return {
+    loaded,
+    total: props.totalCount,
+    viewLabel,
+    isCountLoading: props.countLoading ?? false
   }
-  return `${loaded.toLocaleString()} ${viewLabel}`
 })
 
 const handleRowClick = (event: { data: DataItem }) => {
@@ -1222,6 +1237,26 @@ onUnmounted(() => {
   margin-left: 0;
   padding-left: 0;
   border-left: none;
+}
+
+/* Shimmer effect for count loading */
+.count-shimmer {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--text-disabled) 25%,
+    var(--text-tertiary) 50%,
+    var(--text-disabled) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 3px;
+  color: transparent;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .search-wrapper {

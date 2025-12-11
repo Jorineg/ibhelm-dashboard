@@ -7,6 +7,57 @@ const PAGE_SIZE = 50
 // Request versioning to handle race conditions when switching configs
 let requestVersion = 0
 
+// Static mapping: columns potentially filled per item type (based on mv_unified_items view)
+// Union of these sets gives visible columns for selected checkboxes
+export const COLUMNS_BY_TYPE: Record<string, string[]> = {
+  task: [
+    'name', 'description', 'status', 'project', 'customer', 'location', 'location_path',
+    'cost_group', 'cost_group_code', 'due_date', 'priority', 'progress', 'tasklist',
+    'task_type_name', 'assigned_to', 'tags', 'creator', 'created_at', 'updated_at', 'teamwork_url'
+  ],
+  email: [
+    'name', 'description', 'preview', 'project', 'location', 'location_path',
+    'cost_group', 'cost_group_code', 'body', 'creator', 'conversation_subject',
+    'recipients', 'attachments', 'attachment_count', 'assigned_to', 'tags',
+    'created_at', 'updated_at', 'missive_url'
+  ],
+  craft: [
+    'name', 'body', 'created_at', 'updated_at', 'craft_url'
+  ],
+  file: [
+    'name', 'description', 'project', 'location', 'location_path',
+    'cost_group', 'cost_group_code', 'creator', 'created_at', 'updated_at',
+    'storage_path', 'thumbnail_path'
+  ]
+}
+
+// Compute visible columns based on selected item types
+export function getVisibleColumnsForTypes(
+  showTasks: boolean,
+  showEmails: boolean,
+  showCraft: boolean,
+  showFiles: boolean,
+  selectedTaskTypes: string[] | null
+): string[] {
+  const columns = new Set<string>()
+  
+  // Task checkbox: only add if any task types are selected (or selectedTaskTypes is null = all)
+  if (showTasks && (selectedTaskTypes === null || selectedTaskTypes.length > 0)) {
+    COLUMNS_BY_TYPE.task.forEach(c => columns.add(c))
+  }
+  if (showEmails) {
+    COLUMNS_BY_TYPE.email.forEach(c => columns.add(c))
+  }
+  if (showCraft) {
+    COLUMNS_BY_TYPE.craft.forEach(c => columns.add(c))
+  }
+  if (showFiles) {
+    COLUMNS_BY_TYPE.file.forEach(c => columns.add(c))
+  }
+  
+  return Array.from(columns)
+}
+
 // Build RPC params from filter configuration
 function buildUnifiedItemsParams(
   filterConfig: FilterConfiguration | null,
@@ -81,23 +132,10 @@ function buildUnifiedItemsParams(
   }
 }
 
-// Metadata types
-interface TypeCounts {
-  task: number
-  email: number
-  craft: number
-  file: number
-}
-
-interface ItemsMetadata {
-  nonemptyColumns: string[]
-  typeCounts: TypeCounts
-  taskTypeCounts: Record<string, number> // task_type_id -> count
-}
-
 export function useData() {
   const items = ref<ViewDataItem[]>([])
   const loading = ref(false)
+  const countLoading = ref(false)
   const hasMore = ref(true)
   const currentPage = ref(0)
   const searchQuery = ref('')
@@ -105,11 +143,8 @@ export function useData() {
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
   const error = ref<string | null>(null)
-  
-  // Metadata from count query (items view only)
-  const itemsMetadata = ref<ItemsMetadata | null>(null)
 
-  // Fetch unified items using the single RPC function
+  // Fetch unified items - data only, no count
   const fetchUnifiedItems = async (
     page = 0,
     search = '',
@@ -117,7 +152,6 @@ export function useData() {
     showEmails = true,
     showCraft = true,
     showFiles = true,
-    includeMetadata = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null
@@ -128,7 +162,7 @@ export function useData() {
     const hasTypes = showTasks || showEmails || showCraft || showFiles || 
       (selectedTaskTypes && selectedTaskTypes.length > 0)
     if (!hasTypes) {
-      return { data: [], count: 0, metadata: null }
+      return { data: [] }
     }
     
     const params = buildUnifiedItemsParams(
@@ -136,36 +170,50 @@ export function useData() {
       selectedTaskTypes, sort, page
     )
     
-    // Query data
+    const t0 = performance.now()
     const { data, error: queryError } = await supabase.rpc('query_unified_items', params)
+    console.log(`[TIMING] query_unified_items: ${(performance.now()-t0).toFixed(0)}ms, rows: ${data?.length ?? 0}`)
+    
     if (queryError) throw queryError
+    return { data: data || [] }
+  }
+  
+  // Fetch count separately (runs after data is displayed)
+  const fetchUnifiedItemsCount = async (
+    search = '',
+    showTasks = true,
+    showEmails = true,
+    showCraft = true,
+    showFiles = true,
+    filterConfig: FilterConfiguration | null = null,
+    selectedTaskTypes: string[] | null = null
+  ): Promise<number> => {
+    // Check if any type is selected
+    const hasTypes = showTasks || showEmails || showCraft || showFiles || 
+      (selectedTaskTypes && selectedTaskTypes.length > 0)
+    if (!hasTypes) return 0
     
-    // Get count and metadata if needed
-    let count: number | null = null
-    let metadata: ItemsMetadata | null = null
-    if (includeMetadata) {
-      // Remove pagination params for count
-      const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
-      const { data: metaResult, error: metaError } = await supabase.rpc('count_unified_items_with_metadata', countParams)
-      if (!metaError && metaResult && metaResult.length > 0) {
-        const row = metaResult[0]
-        count = row.total_count
-        metadata = {
-          nonemptyColumns: row.nonempty_columns || [],
-          typeCounts: row.type_counts || { task: 0, email: 0, craft: 0, file: 0 },
-          taskTypeCounts: row.task_type_counts || {}
-        }
-      }
-    }
+    const params = buildUnifiedItemsParams(
+      filterConfig, search, showTasks, showEmails, showCraft, showFiles,
+      selectedTaskTypes, { field: 'sort_date', order: 'desc' }, 0
+    )
     
-    return { data: data || [], count, metadata }
+    // Remove pagination/sort params - count doesn't need them
+    const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
+    
+    const t0 = performance.now()
+    const { data, error: queryError } = await supabase.rpc('count_unified_items', countParams)
+    console.log(`[TIMING] count_unified_items: ${(performance.now()-t0).toFixed(0)}ms, count: ${data}`)
+    
+    if (queryError) throw queryError
+    return data ?? 0
   }
 
   // Fetch projects from project_overview view
   const fetchProjects = async (
     page = 0,
     search = '',
-    includeCount = false,
+    _includeCount = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null
   ) => {
@@ -174,32 +222,29 @@ export function useData() {
     
     let query = supabase
       .from('project_overview')
-      .select('*', { count: includeCount ? 'exact' : undefined })
+      .select('*')
       .order(sort.field, { ascending: sort.order === 'asc' })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-    // Apply search
     if (search) {
       query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
     }
-
-    // Apply column filters
     if (col.name_contains) query = query.ilike('name', `%${col.name_contains}%`)
     if (col.status_in?.length) query = query.in('status', col.status_in)
     if (col.status_not_in?.length) {
       col.status_not_in.forEach(s => { query = query.neq('status', s) })
     }
 
-    const { data, error: queryError, count } = await query
+    const { data, error: queryError } = await query
     if (queryError) throw queryError
-    return { data: data || [], count }
+    return { data: data || [] }
   }
 
   // Fetch people using RPC function
   const fetchPeople = async (
     page = 0,
     search = '',
-    includeCount = false,
+    _includeCount = false,
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null
   ) => {
@@ -219,25 +264,13 @@ export function useData() {
     
     const { data, error: queryError } = await supabase.rpc('query_unified_persons', params)
     if (queryError) throw queryError
-    
-    let count: number | null = null
-    if (includeCount) {
-      const { data: countResult, error: countError } = await supabase.rpc('count_unified_persons', {
-        p_text_search: params.p_text_search,
-        p_project_search: params.p_project_search,
-        p_is_internal: params.p_is_internal,
-        p_is_company: params.p_is_company,
-      })
-      if (!countError) count = countResult
-    }
-    
-    return { data: data || [], count }
+    return { data: data || [] }
   }
 
   // Data items are now directly from the view
   const dataItems = computed<ViewDataItem[]>(() => items.value)
 
-  // Load initial data
+  // Load initial data - fetches items first, then count separately
   const loadData = async (
     showTasks = true,
     showEmails = true,
@@ -253,11 +286,13 @@ export function useData() {
     const thisRequestVersion = ++requestVersion
     
     loading.value = true
+    countLoading.value = true
     currentPage.value = 0
     items.value = []
     hasMore.value = true
     currentViewType.value = viewType
     error.value = null
+    totalCount.value = null
 
     // Update current sort if provided
     if (sortConfig) {
@@ -265,46 +300,104 @@ export function useData() {
     }
 
     try {
-      let result: { data: any[]; count: number | null; metadata?: ItemsMetadata | null }
+      let result: { data: any[]; count?: number | null }
       
       switch (viewType) {
         case 'projects':
-          result = await fetchProjects(0, search, true, filterConfig, currentSort.value)
+          result = await fetchProjects(0, search, false, filterConfig, currentSort.value)
           break
         case 'people':
-          result = await fetchPeople(0, search, true, filterConfig, currentSort.value)
+          result = await fetchPeople(0, search, false, filterConfig, currentSort.value)
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, true, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
       // Only update state if this is still the current request
-      if (thisRequestVersion !== requestVersion) return
+      if (thisRequestVersion !== requestVersion) {
+        console.log('[TIMING] Request superseded, skipping state update')
+        return
+      }
       
+      const stateStart = performance.now()
       items.value = result.data
-      totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
+      loading.value = false
+      console.log(`[TIMING] State update: ${(performance.now() - stateStart).toFixed(0)}ms`)
       
-      // Update metadata for items view
-      if (viewType === 'items' && 'metadata' in result) {
-        itemsMetadata.value = result.metadata || null
-      } else {
-        itemsMetadata.value = null
+      // Now fetch count in background (after data is displayed)
+      try {
+        let count: number
+        switch (viewType) {
+          case 'projects':
+            count = await fetchProjectsCount(search, filterConfig)
+            break
+          case 'people':
+            count = await fetchPeopleCount(search, filterConfig)
+            break
+          case 'items':
+          default:
+            count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes)
+            break
+        }
+        
+        if (thisRequestVersion === requestVersion) {
+          totalCount.value = count
+        }
+      } catch (countErr) {
+        console.error('Error loading count:', countErr)
+        // Don't show error for count failure - data is already displayed
+      } finally {
+        if (thisRequestVersion === requestVersion) {
+          countLoading.value = false
+        }
       }
     } catch (err) {
       // Only update error if this is still the current request
       if (thisRequestVersion === requestVersion) {
         console.error('Error loading data:', err)
         error.value = err instanceof Error ? err.message : 'Failed to load data. Please try again.'
-      }
-    } finally {
-      // Only update loading state if this is still the current request
-      if (thisRequestVersion === requestVersion) {
         loading.value = false
+        countLoading.value = false
       }
     }
+  }
+  
+  // Fetch project count
+  const fetchProjectsCount = async (search = '', filterConfig: FilterConfiguration | null = null): Promise<number> => {
+    const col = filterConfig?.columnFilters || {}
+    
+    let query = supabase
+      .from('project_overview')
+      .select('*', { count: 'exact', head: true })
+    
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
+    }
+    if (col.name_contains) query = query.ilike('name', `%${col.name_contains}%`)
+    if (col.status_in?.length) query = query.in('status', col.status_in)
+    if (col.status_not_in?.length) {
+      col.status_not_in.forEach(s => { query = query.neq('status', s) })
+    }
+    
+    const { count, error: queryError } = await query
+    if (queryError) throw queryError
+    return count ?? 0
+  }
+  
+  // Fetch people count
+  const fetchPeopleCount = async (search = '', filterConfig: FilterConfiguration | null = null): Promise<number> => {
+    const quick = filterConfig?.quickFilters || {}
+    const { data, error: queryError } = await supabase.rpc('count_unified_persons', {
+      p_text_search: search || null,
+      p_project_search: quick.project || null,
+      p_is_internal: null,
+      p_is_company: null,
+    })
+    if (queryError) throw queryError
+    return data ?? 0
   }
 
   // Load more data (for infinite scroll)
@@ -327,7 +420,7 @@ export function useData() {
     currentPage.value++
 
     try {
-      let result: { data: any[]; count: number | null }
+      let result: { data: any[] }
       
       switch (viewType) {
         case 'projects':
@@ -338,7 +431,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, false, filterConfig, currentSort.value, selectedTaskTypes)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes)
           break
       }
       
@@ -437,10 +530,10 @@ export function useData() {
     requestVersion++ // Cancel any pending requests
     items.value = []
     loading.value = true
+    countLoading.value = true
     hasMore.value = true
     totalCount.value = null
     error.value = null
-    itemsMetadata.value = null
   }
 
   // Clear error (for retry functionality)
@@ -451,13 +544,13 @@ export function useData() {
   return {
     dataItems,
     loading,
+    countLoading,
     hasMore,
     searchQuery,
     totalCount,
     currentSort,
     currentViewType,
     error,
-    itemsMetadata,
     loadData,
     loadMore,
     fetchAllForExport,

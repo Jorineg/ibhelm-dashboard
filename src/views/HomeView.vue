@@ -64,6 +64,7 @@
           :items="filteredAndSearchedItems"
           :columns="availableColumns"
           :loading="loading"
+          :count-loading="countLoading"
           :error="error"
           :total-count="totalCount"
           :visible-columns="activeConfig?.visibleColumns || []"
@@ -83,7 +84,6 @@
           :filter-config-id="activeConfig?.id"
           :project-filter="activeConfig?.quickFilters?.project || ''"
           :grid-columns="gridColumns"
-          :nonempty-columns="itemsMetadata?.nonemptyColumns || null"
           @update:visible-columns="handleUpdateVisibleColumns"
           @update:column-order="handleUpdateColumnOrder"
           @update:column-widths="handleUpdateColumnWidths"
@@ -131,7 +131,7 @@ import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
-import { supabase } from '@/lib/supabase'
+import { supabase, getNextRequestId, setCurrentRequestId } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
@@ -197,10 +197,10 @@ const activeView = computed(() => currentViewType.value)
 const {
   dataItems,
   loading,
+  countLoading,
   hasMore,
   totalCount,
   error,
-  itemsMetadata,
   loadData,
   loadMore,
   fetchAllForExport,
@@ -367,12 +367,29 @@ const dataFetchConfigKey = computed(() => {
 // Track if initial load has been done to prevent double loading on page reload
 let initialLoadDone = false
 let filterTimeout: number | null = null
+let configSwitchStart: number | null = null
+let configSwitchReqId: number | null = null
+let lastConfigId: string | null = null
+let currentReqId: number | null = null
 
 // Watch for config ID changes to immediately clear data (prevents flicker when switching configs)
 watch(() => activeConfig.value?.id, (newId, oldId) => {
   if (oldId && newId !== oldId) {
+    const reqId = getNextRequestId()
+    configSwitchStart = performance.now()
+    configSwitchReqId = reqId
+    lastConfigId = newId ?? null
     // Immediately clear items and show loading to prevent new config being applied to old data
     clearAndStartLoading()
+  }
+})
+
+// Log total time when loading finishes after a config switch
+watch(loading, (isLoading, wasLoading) => {
+  if (wasLoading && !isLoading && configSwitchStart !== null && configSwitchReqId === currentReqId) {
+    console.log(`[UI] #${currentReqId} Config switch → data displayed: ${(performance.now() - configSwitchStart).toFixed(0)}ms`)
+    configSwitchStart = null
+    configSwitchReqId = null
   }
 })
 
@@ -385,9 +402,19 @@ watch(dataFetchConfigKey, async (newKey, oldKey) => {
   // Skip if this is the same config key (prevents duplicate loads)
   if (initialLoadDone && newKey === oldKey) return
   
+  // Config ID switch: skip debounce entirely (already handled by clearAndStartLoading)
+  const isConfigIdSwitch = activeConfig.value.id === lastConfigId && configSwitchStart !== null
+  const debounceMs = isConfigIdSwitch ? 0 : 300
+  const reqId = configSwitchReqId ?? getNextRequestId()
+  lastConfigId = null
+  
   filterTimeout = window.setTimeout(async () => {
     if (activeConfig.value) {
+      currentReqId = reqId
+      setCurrentRequestId(reqId)
+      const loadStart = performance.now()
       initialLoadDone = true
+      console.log(`[UI] #${reqId} loadData starting...`)
       await loadData(
         activeConfig.value.showTasks,
         activeConfig.value.showEmails,
@@ -399,8 +426,10 @@ watch(dataFetchConfigKey, async (newKey, oldKey) => {
         currentViewType.value,
         selectedTaskTypes.value
       )
+      console.log(`[UI] #${reqId} loadData took: ${(performance.now() - loadStart).toFixed(0)}ms`)
+      setCurrentRequestId(null)
     }
-  }, 300)
+  }, debounceMs)
 }, { immediate: true })
 
 // Search debouncing
