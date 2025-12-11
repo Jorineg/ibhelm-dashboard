@@ -5,7 +5,8 @@
     </div>
     
     <div class="sync-sources">
-      <div class="sync-source-item" v-for="source in sources" :key="source.key">
+      <!-- Connector sources (Teamwork, Missive, Craft) -->
+      <div class="sync-source-item" v-for="source in connectorSources" :key="source.key">
         <div class="source-header">
           <span class="source-icon">{{ source.icon }}</span>
           <span class="source-name">{{ source.name }}</span>
@@ -44,6 +45,71 @@
           </div>
         </div>
       </div>
+
+      <!-- Files sync status -->
+      <div class="sync-source-item">
+        <div class="source-header">
+          <span class="source-icon">📁</span>
+          <span class="source-name">Files</span>
+          <span class="source-status" :class="filesStatusClass">
+            <i :class="filesStatusIcon"></i>
+          </span>
+        </div>
+        
+        <div class="source-details">
+          <div class="detail-row">
+            <span class="detail-label">Last file:</span>
+            <span class="detail-value time">
+              {{ formatDateTime(syncStatus.files.lastEventTime) }}
+            </span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Last update:</span>
+            <span 
+              class="detail-value time" 
+              :class="{ warning: isFilesOutdated }"
+            >
+              {{ formatDateTime(syncStatus.files.lastUpdated) }}
+              <i v-if="isFilesOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thumbnails processing status -->
+      <div class="sync-source-item">
+        <div class="source-header">
+          <span class="source-icon">🖼️</span>
+          <span class="source-name">Thumbnails</span>
+          <span class="source-status" :class="thumbnailsStatusClass">
+            <i :class="thumbnailsStatusIcon"></i>
+          </span>
+        </div>
+        
+        <div class="source-details">
+          <div class="detail-row">
+            <span class="detail-label">Last update:</span>
+            <span 
+              class="detail-value time" 
+              :class="{ warning: isThumbnailsOutdated }"
+            >
+              {{ formatDateTime(syncStatus.thumbnails.lastProcessed) }}
+              <i v-if="isThumbnailsOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
+            </span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Queue:</span>
+            <span v-if="syncStatus.thumbnails.pendingCount > 0" class="detail-value queue pending">
+              {{ syncStatus.thumbnails.pendingCount }} pending
+            </span>
+            <span v-else class="detail-value queue ok">
+              ✓ processed
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -56,11 +122,13 @@ import { formatDateTime } from '@/lib/formatDate'
 interface Props {
   syncStatus: SyncStatus
   isSourceOutdated: (source: SyncSourceStatus) => boolean
+  isFilesOutdated: boolean
+  isThumbnailsOutdated: boolean
 }
 
 const props = defineProps<Props>()
 
-const sources = computed(() => [
+const connectorSources = computed(() => [
   { key: 'teamwork', name: 'Teamwork', icon: '📋', data: props.syncStatus.teamwork },
   { key: 'missive', name: 'Missive', icon: '✉️', data: props.syncStatus.missive },
   { key: 'craft', name: 'Craft', icon: '📝', data: props.syncStatus.craft }
@@ -77,6 +145,28 @@ const getSourceStatusIcon = (source: SyncSourceStatus): string => {
   if (props.isSourceOutdated(source)) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
 }
+
+const filesStatusClass = computed((): string => {
+  if (props.isFilesOutdated) return 'outdated'
+  return 'ok'
+})
+
+const filesStatusIcon = computed((): string => {
+  if (props.isFilesOutdated) return 'pi pi-exclamation-triangle'
+  return 'pi pi-check'
+})
+
+const thumbnailsStatusClass = computed((): string => {
+  if (props.syncStatus.thumbnails.pendingCount > 0) return 'importing'
+  if (props.isThumbnailsOutdated) return 'outdated'
+  return 'ok'
+})
+
+const thumbnailsStatusIcon = computed((): string => {
+  if (props.syncStatus.thumbnails.pendingCount > 0) return 'pi pi-download'
+  if (props.isThumbnailsOutdated) return 'pi pi-exclamation-triangle'
+  return 'pi pi-check'
+})
 </script>
 
 <style scoped>

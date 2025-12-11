@@ -36,6 +36,11 @@
   line-height: 1.25rem !important;
 }
 
+.p-multiselect-trigger {
+  width: auto;
+  margin-left: 1rem;
+}
+
 /* Remove any inner borders on dropdown labels and trigger */
 .p-dropdown .p-dropdown-label {
   border: none !important;

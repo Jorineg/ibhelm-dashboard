@@ -115,21 +115,22 @@
           </span>
         </div>
         
-        <div class="column-selector-wrapper">
-          <MultiSelect
-            v-model="localVisibleColumns"
-            :options="allColumns"
-            option-label="header"
-            option-value="field"
-            placeholder="Select Columns"
-            :max-selected-labels="3"
-            selected-items-label="{0} columns selected"
-            class="column-selector"
-          />
-          <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
-            ({{ hiddenEmptyColumnsCount }} empty columns hidden)
-          </span>
-        </div>
+        <MultiSelect
+          v-model="localVisibleColumns"
+          :options="allColumns"
+          option-label="header"
+          option-value="field"
+          placeholder="Select Columns"
+          :max-selected-labels="0"
+          class="column-selector"
+        >
+          <template #value>
+            <span>{{ localVisibleColumns.length }} columns selected</span>
+            <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
+              ({{ hiddenEmptyColumnsCount }} empty columns hidden)
+            </span>
+          </template>
+        </MultiSelect>
       </div>
 
       <div class="toolbar-right">
@@ -1047,11 +1048,6 @@ onUnmounted(() => {
   font-size: 0.9rem !important;
 }
 
-.column-selector-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 .column-selector {
   min-width: 200px;
@@ -1061,6 +1057,7 @@ onUnmounted(() => {
   font-size: 0.875rem;
   color: var(--text-tertiary);
   white-space: nowrap;
+  margin-left: 0.5rem;
 }
 
 .item-type-toggles {
@@ -1149,7 +1146,7 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  width: 250px;
+  width: 210px;
 }
 
 .search-wrapper > :deep(.info-tooltip-wrapper) {

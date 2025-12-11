@@ -34,6 +34,8 @@
             <SyncStatusPanel 
               :sync-status="syncStatus" 
               :is-source-outdated="isSourceOutdated"
+              :is-files-outdated="isFilesOutdated"
+              :is-thumbnails-outdated="isThumbnailsOutdated"
             />
           </div>
         </div>
@@ -49,7 +51,7 @@
     <!-- Main Content -->
     <div class="main-content">
       <!-- Config Panel (left side) - hidden for projects view -->
-      <ConfigurationPanel v-if="activeView !== 'projects'" />
+      <ConfigurationPanel v-if="activeView !== 'projects'" ref="configPanelRef" />
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
@@ -107,7 +109,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
@@ -129,7 +131,7 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration } = useFilterConfigs()
-const { syncStatus, overallStatus, isSourceOutdated } = useSyncStatus()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
 const { craftSpaceId, filesBucket } = useAppearanceSettings()
@@ -189,6 +191,12 @@ const dataTableRef = ref<{
   scrollHorizontal: (dir: 'left' | 'right') => void
   getGalleryColumns: () => number
   scrollToSelectedGalleryItem: () => void 
+} | null>(null)
+const configPanelRef = ref<{
+  toggle: () => void
+  expand: () => void
+  collapse: () => void
+  isExpanded: boolean
 } | null>(null)
 
 const selectedTaskTypes = computed(() => {
@@ -576,14 +584,21 @@ const handleExport = async () => {
       return rowData
     })
     
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, activeView.value)
+    // Create workbook and worksheet
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet(activeView.value)
+    ws.addRows([headers, ...rows])
     
     // Download
     const filename = `${activeView.value}_export_${new Date().toISOString().slice(0, 10)}.xlsx`
-    XLSX.writeFile(wb, filename)
+    const buffer = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   } catch (error) {
     console.error('Export failed:', error)
   } finally {
@@ -635,6 +650,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
   // Ignore other shortcuts if typing or dialog is open
   if (isTyping || detailDialogVisible.value) return
   
+  // Toggle filter popup (f)
+  if (key === bindings.toggleFilterPopup.key) {
+    event.preventDefault()
+    configPanelRef.value?.toggle()
+    return
+  }
+  
   // Filter config shortcuts 1-9
   const configNumber = parseInt(key)
   if (configNumber >= 1 && configNumber <= 9) {
@@ -643,7 +665,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
       event.preventDefault()
       const configs = configurations.value
       if (configNumber <= configs.length) {
-        setActiveConfiguration(configs[configNumber - 1].id)
+        const targetConfig = configs[configNumber - 1]
+        if (targetConfig.id === activeConfig.value?.id) {
+          // Same config - toggle popup
+          configPanelRef.value?.toggle()
+        } else {
+          setActiveConfiguration(targetConfig.id)
+        }
       }
       return
     }

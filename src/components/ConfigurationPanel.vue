@@ -9,7 +9,7 @@
         v-for="config in configurations"
         :key="config.id"
         :class="['mini-config-item', { active: config.id === activeConfigId }]"
-        @click="setActiveConfiguration(config.id)"
+        @click="handleMiniConfigClick(config.id)"
         :title="config.name"
         :tabindex="isExpanded ? -1 : 0"
       >
@@ -35,7 +35,7 @@
           v-for="config in configurations"
           :key="config.id"
           :class="['config-item', { active: config.id === activeConfigId }]"
-          @click="setActiveConfiguration(config.id)"
+          @click="handleConfigClick(config.id)"
         >
           <i class="pi pi-filter config-icon"></i>
           <span class="config-name">{{ config.name }}</span>
@@ -52,6 +52,7 @@
         <div class="control-group">
           <label for="config-name">Name</label>
           <InputText
+            ref="configNameInputRef"
             id="config-name"
             :model-value="activeConfig.name"
             @update:model-value="handleUpdateName"
@@ -85,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Divider from 'primevue/divider'
@@ -105,19 +106,41 @@ const {
 
 const isExpanded = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
+const configNameInputRef = ref<InstanceType<typeof InputText> | null>(null)
 
 // Truncate config name for mini view (no ellipsis)
 const truncateName = (name: string) => {
   return name.slice(0, 10)
 }
 
+const focusNameInput = () => {
+  nextTick(() => {
+    const input = configNameInputRef.value?.$el as HTMLInputElement | undefined
+    if (input) {
+      input.focus()
+      input.select()
+    }
+  })
+}
+
 const expand = () => {
   isExpanded.value = true
+  focusNameInput()
 }
 
 const collapse = () => {
   isExpanded.value = false
 }
+
+const toggle = () => {
+  if (isExpanded.value) {
+    collapse()
+  } else {
+    expand()
+  }
+}
+
+defineExpose({ expand, collapse, toggle, isExpanded })
 
 // Click outside handler
 const handleClickOutside = (event: MouseEvent) => {
@@ -172,6 +195,24 @@ const handleDelete = () => {
 const handleUpdateName = (name: string) => {
   if (activeConfig.value) {
     updateConfiguration(activeConfig.value.id, { name })
+  }
+}
+
+const handleConfigClick = (configId: string) => {
+  if (configId === activeConfigId.value) {
+    // Same config clicked - close the popup
+    collapse()
+  } else {
+    setActiveConfiguration(configId)
+  }
+}
+
+const handleMiniConfigClick = (configId: string) => {
+  if (configId === activeConfigId.value) {
+    // Same config clicked - open the popup
+    expand()
+  } else {
+    setActiveConfiguration(configId)
   }
 }
 </script>
