@@ -182,10 +182,25 @@
     </div>
 
     <!-- Loading overlay - positioned outside scroll container -->
-    <div v-if="loading" class="loading-overlay">
+    <div v-if="loading && !props.error" class="loading-overlay">
       <div class="loading-state">
         <i class="pi pi-spin pi-spinner loading-icon"></i>
         <p>Loading data...</p>
+      </div>
+    </div>
+
+    <!-- Error overlay -->
+    <div v-if="props.error" class="error-overlay">
+      <div class="error-state">
+        <i class="pi pi-exclamation-triangle error-icon"></i>
+        <p class="error-title">Failed to load data</p>
+        <p class="error-message">{{ props.error }}</p>
+        <Button 
+          label="Try Again" 
+          icon="pi pi-refresh" 
+          class="retry-btn"
+          @click="emit('retry')"
+        />
       </div>
     </div>
 
@@ -376,6 +391,7 @@ interface Props {
   items: ViewDataItem[]
   columns: ColumnType[]
   loading: boolean
+  error?: string | null
   visibleColumns: string[]
   columnOrder: string[]
   columnWidths: Record<string, string>
@@ -420,6 +436,7 @@ interface Emits {
   (e: 'loadMore'): void
   (e: 'sort', sortConfig: SortConfig): void
   (e: 'export'): void
+  (e: 'retry'): void
 }
 
 const props = defineProps<Props>()
@@ -1371,7 +1388,8 @@ onUnmounted(() => {
 }
 
 .empty-state,
-.loading-state {
+.loading-state,
+.error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1381,7 +1399,8 @@ onUnmounted(() => {
 }
 
 .empty-icon,
-.loading-icon {
+.loading-icon,
+.error-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
   color: var(--text-disabled);
@@ -1389,6 +1408,47 @@ onUnmounted(() => {
 
 .loading-icon {
   color: var(--accent-primary);
+}
+
+/* Error overlay */
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  top: 80px; /* Below toolbar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(42, 42, 42, 0.95);
+  z-index: 50;
+}
+
+.error-icon {
+  color: #ef4444;
+}
+
+.error-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.error-message {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 400px;
+  margin-bottom: 1.5rem;
+}
+
+.retry-btn {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+.retry-btn:hover {
+  background: var(--accent-secondary) !important;
+  border-color: var(--accent-secondary) !important;
 }
 
 .array-item:not(:last-child) {

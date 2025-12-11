@@ -64,6 +64,7 @@
           :items="filteredAndSearchedItems"
           :columns="availableColumns"
           :loading="loading"
+          :error="error"
           :total-count="totalCount"
           :visible-columns="activeConfig?.visibleColumns || []"
           :column-order="activeConfig?.columnOrder || []"
@@ -97,6 +98,7 @@
           @load-more="handleLoadMore"
           @sort="handleSort"
           @export="handleExport"
+          @retry="handleRetry"
         />
       </main>
     </div>
@@ -172,6 +174,7 @@ const {
   loading,
   hasMore,
   totalCount,
+  error,
   loadData,
   loadMore,
   fetchAllForExport,
@@ -543,6 +546,22 @@ const handleSort = async (sortConfig: SortConfig) => {
       searchQuery.value,
       activeConfig.value,
       sortConfig,
+      currentViewType.value,
+      selectedTaskTypes.value
+    )
+  }
+}
+
+const handleRetry = async () => {
+  if (activeConfig.value) {
+    await loadData(
+      activeConfig.value.showTasks,
+      activeConfig.value.showEmails,
+      activeConfig.value.showCraft ?? true,
+      activeConfig.value.showFiles ?? true,
+      searchQuery.value,
+      activeConfig.value,
+      activeConfig.value.sortConfig,
       currentViewType.value,
       selectedTaskTypes.value
     )

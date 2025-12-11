@@ -90,6 +90,7 @@ export function useData() {
   const totalCount = ref<number | null>(null)
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
+  const error = ref<string | null>(null)
 
   // Fetch unified items using the single RPC function
   const fetchUnifiedItems = async (
@@ -104,39 +105,34 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null
   ) => {
-    try {
-      const sort = sortConfig || currentSort.value
-      
-      // Check if any type is selected
-      const hasTypes = showTasks || showEmails || showCraft || showFiles || 
-        (selectedTaskTypes && selectedTaskTypes.length > 0)
-      if (!hasTypes) {
-        return { data: [], count: 0 }
-      }
-      
-      const params = buildUnifiedItemsParams(
-        filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-        selectedTaskTypes, sort, page
-      )
-      
-      // Query data
-      const { data, error } = await supabase.rpc('query_unified_items', params)
-      if (error) throw error
-      
-      // Get count if needed
-      let count: number | null = null
-      if (includeCount) {
-        // Remove pagination params for count
-        const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
-        const { data: countResult, error: countError } = await supabase.rpc('count_unified_items', countParams)
-        if (!countError) count = countResult
-      }
-      
-      return { data: data || [], count }
-    } catch (error) {
-      console.error('Error fetching unified items:', error)
-      return { data: [], count: null }
+    const sort = sortConfig || currentSort.value
+    
+    // Check if any type is selected
+    const hasTypes = showTasks || showEmails || showCraft || showFiles || 
+      (selectedTaskTypes && selectedTaskTypes.length > 0)
+    if (!hasTypes) {
+      return { data: [], count: 0 }
     }
+    
+    const params = buildUnifiedItemsParams(
+      filterConfig, search, showTasks, showEmails, showCraft, showFiles,
+      selectedTaskTypes, sort, page
+    )
+    
+    // Query data
+    const { data, error: queryError } = await supabase.rpc('query_unified_items', params)
+    if (queryError) throw queryError
+    
+    // Get count if needed
+    let count: number | null = null
+    if (includeCount) {
+      // Remove pagination params for count
+      const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
+      const { data: countResult, error: countError } = await supabase.rpc('count_unified_items', countParams)
+      if (!countError) count = countResult
+    }
+    
+    return { data: data || [], count }
   }
 
   // Fetch projects from project_overview view
@@ -147,35 +143,30 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null
   ) => {
-    try {
-      const sort = sortConfig || { field: 'name', order: 'asc' }
-      const col = filterConfig?.columnFilters || {}
-      
-      let query = supabase
-        .from('project_overview')
-        .select('*', { count: includeCount ? 'exact' : undefined })
-        .order(sort.field, { ascending: sort.order === 'asc' })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+    const sort = sortConfig || { field: 'name', order: 'asc' }
+    const col = filterConfig?.columnFilters || {}
+    
+    let query = supabase
+      .from('project_overview')
+      .select('*', { count: includeCount ? 'exact' : undefined })
+      .order(sort.field, { ascending: sort.order === 'asc' })
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
 
-      // Apply search
-      if (search) {
-        query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
-      }
-
-      // Apply column filters
-      if (col.name_contains) query = query.ilike('name', `%${col.name_contains}%`)
-      if (col.status_in?.length) query = query.in('status', col.status_in)
-      if (col.status_not_in?.length) {
-        col.status_not_in.forEach(s => { query = query.neq('status', s) })
-      }
-
-      const { data, error, count } = await query
-      if (error) throw error
-      return { data: data || [], count }
-    } catch (error) {
-      console.error('Error fetching projects:', error)
-      return { data: [], count: null }
+    // Apply search
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
     }
+
+    // Apply column filters
+    if (col.name_contains) query = query.ilike('name', `%${col.name_contains}%`)
+    if (col.status_in?.length) query = query.in('status', col.status_in)
+    if (col.status_not_in?.length) {
+      col.status_not_in.forEach(s => { query = query.neq('status', s) })
+    }
+
+    const { data, error: queryError, count } = await query
+    if (queryError) throw queryError
+    return { data: data || [], count }
   }
 
   // Fetch people using RPC function
@@ -186,40 +177,35 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null
   ) => {
-    try {
-      const sort = sortConfig || { field: 'display_name', order: 'asc' }
-      const quick = filterConfig?.quickFilters || {}
-      
-      const params = {
-        p_text_search: search || null,
-        p_project_search: quick.project || null,
-        p_is_internal: null,
-        p_is_company: null,
-        p_sort_field: sort.field,
-        p_sort_order: sort.order,
-        p_limit: PAGE_SIZE,
-        p_offset: page * PAGE_SIZE,
-      }
-      
-      const { data, error } = await supabase.rpc('query_unified_persons', params)
-      if (error) throw error
-      
-      let count: number | null = null
-      if (includeCount) {
-        const { data: countResult, error: countError } = await supabase.rpc('count_unified_persons', {
-          p_text_search: params.p_text_search,
-          p_project_search: params.p_project_search,
-          p_is_internal: params.p_is_internal,
-          p_is_company: params.p_is_company,
-        })
-        if (!countError) count = countResult
-      }
-      
-      return { data: data || [], count }
-    } catch (error) {
-      console.error('Error fetching people:', error)
-      return { data: [], count: null }
+    const sort = sortConfig || { field: 'display_name', order: 'asc' }
+    const quick = filterConfig?.quickFilters || {}
+    
+    const params = {
+      p_text_search: search || null,
+      p_project_search: quick.project || null,
+      p_is_internal: null,
+      p_is_company: null,
+      p_sort_field: sort.field,
+      p_sort_order: sort.order,
+      p_limit: PAGE_SIZE,
+      p_offset: page * PAGE_SIZE,
     }
+    
+    const { data, error: queryError } = await supabase.rpc('query_unified_persons', params)
+    if (queryError) throw queryError
+    
+    let count: number | null = null
+    if (includeCount) {
+      const { data: countResult, error: countError } = await supabase.rpc('count_unified_persons', {
+        p_text_search: params.p_text_search,
+        p_project_search: params.p_project_search,
+        p_is_internal: params.p_is_internal,
+        p_is_company: params.p_is_company,
+      })
+      if (!countError) count = countResult
+    }
+    
+    return { data: data || [], count }
   }
 
   // Data items are now directly from the view
@@ -245,6 +231,7 @@ export function useData() {
     items.value = []
     hasMore.value = true
     currentViewType.value = viewType
+    error.value = null
 
     // Update current sort if provided
     if (sortConfig) {
@@ -273,10 +260,11 @@ export function useData() {
       items.value = result.data
       totalCount.value = result.count
       hasMore.value = result.data.length === PAGE_SIZE
-    } catch (error) {
-      // Only log error if this is still the current request
+    } catch (err) {
+      // Only update error if this is still the current request
       if (thisRequestVersion === requestVersion) {
-        console.error('Error loading data:', error)
+        console.error('Error loading data:', err)
+        error.value = err instanceof Error ? err.message : 'Failed to load data. Please try again.'
       }
     } finally {
       // Only update loading state if this is still the current request
@@ -326,9 +314,10 @@ export function useData() {
       
       items.value.push(...result.data)
       hasMore.value = result.data.length === PAGE_SIZE
-    } catch (error) {
+    } catch (err) {
       if (thisRequestVersion === requestVersion) {
-        console.error('Error loading more data:', error)
+        console.error('Error loading more data:', err)
+        error.value = err instanceof Error ? err.message : 'Failed to load more data. Please try again.'
       }
     } finally {
       if (thisRequestVersion === requestVersion) {
@@ -417,6 +406,12 @@ export function useData() {
     loading.value = true
     hasMore.value = true
     totalCount.value = null
+    error.value = null
+  }
+
+  // Clear error (for retry functionality)
+  const clearError = () => {
+    error.value = null
   }
 
   return {
@@ -427,9 +422,11 @@ export function useData() {
     totalCount,
     currentSort,
     currentViewType,
+    error,
     loadData,
     loadMore,
     fetchAllForExport,
-    clearAndStartLoading
+    clearAndStartLoading,
+    clearError
   }
 }
