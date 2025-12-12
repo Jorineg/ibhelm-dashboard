@@ -1,112 +1,90 @@
 <template>
   <div class="config-panel-wrapper">
-    <!-- Collapsed Mini View (always rendered, invisible when expanded to preserve space) -->
-    <div class="mini-config-bar" :class="{ invisible: isExpanded }">
-      <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
-        <i class="pi pi-chevron-right"></i>
-      </button>
+    <div class="mini-config-bar">
       <TransitionGroup name="config-list">
-        <button
+        <div
           v-for="config in sortedConfigurations"
           :key="config.id"
-          :class="['mini-config-item', { 
-            active: config.id === activeConfigId,
-            dragging: draggedConfigId === config.id
-          }]"
-          @click="handleMiniConfigClick(config.id)"
-          :title="config.name"
-          :tabindex="isExpanded ? -1 : 0"
-          draggable="true"
-          @dragstart="onConfigDragStart($event, config.id)"
-          @dragover="onConfigDragOver($event, config.id)"
-          @drop="onConfigDrop"
-          @dragend="onConfigDragEnd"
+          class="config-item-wrapper"
+          @mouseenter="hoveredConfigId = config.id"
+          @mouseleave="hoveredConfigId = null"
         >
-          {{ truncateName(config.name) }}
-        </button>
-      </TransitionGroup>
-    </div>
-
-    <!-- Expanded Panel (floating) -->
-    <div v-if="isExpanded" ref="panelRef" class="configuration-panel">
-      <div class="panel-header">
-        <h3>Filter Configurations for <span class="view-badge">{{ viewLabel }}</span></h3>
-        <Button
-          icon="pi pi-plus"
-          label="New"
-          size="small"
-          @click="handleCreateConfig"
-          class="new-config-btn"
-        />
-      </div>
-
-      <div class="configurations-list thin-scrollbar">
-        <div
-          v-for="config in configurations"
-          :key="config.id"
-          :class="['config-item', { active: config.id === activeConfigId }]"
-          @click="handleConfigClick(config.id)"
-        >
-          <i class="pi pi-filter config-icon"></i>
-          <span class="config-name">{{ config.name }}</span>
-          <span class="config-date">{{ formatDate(config.updatedAt) }}</span>
-        </div>
-      </div>
-
-      <Divider />
-
-      <!-- Active configuration controls -->
-      <div v-if="activeConfig" class="active-config-controls">
-        <h4>Active Configuration</h4>
-        
-        <div class="control-group">
-          <label for="config-name">Name</label>
-          <InputText
-            ref="configNameInputRef"
-            id="config-name"
-            :model-value="activeConfig.name"
-            @update:model-value="handleUpdateName"
-            placeholder="Configuration name"
-            class="config-name-input"
-          />
-        </div>
-
-        <div class="control-buttons">
-          <Button
-            label="Duplicate"
-            icon="pi pi-copy"
-            outlined
-            size="small"
-            @click="handleDuplicate"
-          />
+          <button
+            :class="['mini-config-item', { 
+              active: config.id === activeConfigId,
+              dragging: draggedConfigId === config.id
+            }]"
+            @click="handleConfigClick(config.id)"
+            :title="config.name"
+            draggable="true"
+            @dragstart="onConfigDragStart($event, config.id)"
+            @dragover="onConfigDragOver($event, config.id)"
+            @drop="onConfigDrop"
+            @dragend="onConfigDragEnd"
+          >
+            <span v-if="!isRenaming(config.id)" class="config-name">{{ truncateName(config.name) }}</span>
+            <input
+              v-else
+              ref="renameInputRef"
+              v-model="renameValue"
+              class="rename-input"
+              @blur="finishRename"
+              @keydown.enter="finishRename"
+              @keydown.escape="cancelRename"
+              @click.stop
+            />
+          </button>
           
-          <Button
-            label="Delete"
-            icon="pi pi-trash"
-            outlined
-            severity="danger"
-            size="small"
-            @click="handleDelete"
-            :disabled="configurations.length <= 1"
-          />
+          <!-- Three dots menu button (outside button, positioned over it) -->
+          <span 
+            v-if="config.id === activeConfigId && !isRenaming(config.id) && (hoveredConfigId === config.id || openMenuId === config.id)"
+            class="config-menu-btn" 
+            @click="toggleMenu(config.id)"
+            title="Configuration options"
+            ref="menuRef"
+          >
+            <i class="pi pi-ellipsis-v"></i>
+          </span>
+          
+          <!-- Dropdown menu -->
+          <Transition name="dropdown">
+            <div v-if="openMenuId === config.id" class="config-dropdown dropdown-panel">
+              <div class="dropdown-item" @click="startRename(config.id, config.name)">
+                <i class="pi pi-pencil"></i>
+                <span>Rename</span>
+              </div>
+              <div class="dropdown-item" @click="handleDuplicate(config.id)">
+                <i class="pi pi-copy"></i>
+                <span>Duplicate</span>
+              </div>
+              <div 
+                class="dropdown-item danger" 
+                :class="{ disabled: configurations.length <= 1 }"
+                @click="handleDelete(config.id)"
+              >
+                <i class="pi pi-trash"></i>
+                <span>Delete</span>
+              </div>
+            </div>
+          </Transition>
         </div>
-      </div>
+      </TransitionGroup>
+      
+      <!-- Add new config button -->
+      <button class="add-config-btn" @click="handleCreateConfig" title="New configuration">
+        <i class="pi pi-plus"></i>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
-import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import Divider from 'primevue/divider'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 
 const {
   configurations,
-  activeConfig,
   activeConfigId,
-  currentViewType,
   createConfiguration,
   duplicateConfiguration,
   deleteConfiguration,
@@ -115,12 +93,23 @@ const {
   updateConfigOrder
 } = useFilterConfigs()
 
-// Drag and drop state for mini config bar
+// Drag and drop state
 const draggedConfigId = ref<string | null>(null)
 const previewOrder = ref<string[] | null>(null)
 let lastSwapTime = 0
 
-// Sorted configurations with live preview during drag
+// Menu state
+const openMenuId = ref<string | null>(null)
+const menuRef = ref<HTMLElement[] | null>(null)
+const hoveredConfigId = ref<string | null>(null)
+
+// Rename state
+const renamingId = ref<string | null>(null)
+const renameValue = ref('')
+const renameInputRef = ref<HTMLInputElement[] | null>(null)
+
+const isRenaming = (configId: string) => renamingId.value === configId
+
 const sortedConfigurations = computed(() => {
   if (previewOrder.value) {
     return previewOrder.value
@@ -144,7 +133,6 @@ const onConfigDragOver = (e: DragEvent, configId: string) => {
   e.preventDefault()
   if (!draggedConfigId.value || draggedConfigId.value === configId || !previewOrder.value) return
   
-  // Throttle swaps to prevent flickering
   const now = Date.now()
   if (now - lastSwapTime < 150) return
   
@@ -152,7 +140,6 @@ const onConfigDragOver = (e: DragEvent, configId: string) => {
   const targetIdx = previewOrder.value.indexOf(configId)
   if (currentIdx === -1 || targetIdx === -1 || currentIdx === targetIdx) return
   
-  // Move item to new position
   const newOrder = [...previewOrder.value]
   newOrder.splice(currentIdx, 1)
   newOrder.splice(targetIdx, 0, draggedConfigId.value)
@@ -177,50 +164,70 @@ const onConfigDragEnd = () => {
   previewOrder.value = null
 }
 
-const isExpanded = ref(false)
-const panelRef = ref<HTMLElement | null>(null)
-const configNameInputRef = ref<InstanceType<typeof InputText> | null>(null)
+const truncateName = (name: string) => name.slice(0, 10)
 
-// Truncate config name for mini view (no ellipsis)
-const truncateName = (name: string) => {
-  return name.slice(0, 10)
+const handleConfigClick = (configId: string) => {
+  if (configId !== activeConfigId.value) {
+    setActiveConfiguration(configId)
+  }
+  closeMenu()
 }
 
-const focusNameInput = () => {
+const toggleMenu = (configId: string) => {
+  openMenuId.value = openMenuId.value === configId ? null : configId
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const handleCreateConfig = () => {
+  createConfiguration()
+  closeMenu()
+}
+
+const handleDuplicate = (configId: string) => {
+  duplicateConfiguration(configId)
+  closeMenu()
+}
+
+const handleDelete = (configId: string) => {
+  if (configurations.value.length <= 1) return
+  deleteConfiguration(configId)
+  closeMenu()
+}
+
+const startRename = (configId: string, currentName: string) => {
+  renamingId.value = configId
+  renameValue.value = currentName
+  closeMenu()
   nextTick(() => {
-    const input = configNameInputRef.value?.$el as HTMLInputElement | undefined
-    if (input) {
-      input.focus()
-      input.select()
+    if (renameInputRef.value && renameInputRef.value[0]) {
+      renameInputRef.value[0].focus()
+      renameInputRef.value[0].select()
     }
   })
 }
 
-const expand = () => {
-  isExpanded.value = true
-  focusNameInput()
-}
-
-const collapse = () => {
-  isExpanded.value = false
-}
-
-const toggle = () => {
-  if (isExpanded.value) {
-    collapse()
-  } else {
-    expand()
+const finishRename = () => {
+  if (renamingId.value && renameValue.value.trim()) {
+    updateConfiguration(renamingId.value, { name: renameValue.value.trim() })
   }
+  renamingId.value = null
+  renameValue.value = ''
 }
 
-defineExpose({ expand, collapse, toggle, isExpanded })
+const cancelRename = () => {
+  renamingId.value = null
+  renameValue.value = ''
+}
 
-// Click outside handler
+// Click outside handler for menu
 const handleClickOutside = (event: MouseEvent) => {
-  if (!isExpanded.value) return
+  if (!openMenuId.value) return
   const target = event.target as HTMLElement
-  if (panelRef.value && !panelRef.value.contains(target)) {
-    collapse()
+  if (menuRef.value && !menuRef.value.some(el => el?.contains(target))) {
+    closeMenu()
   }
 }
 
@@ -231,63 +238,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true)
 })
-
-// View label for the header badge
-const viewLabel = computed(() => {
-  switch (currentViewType.value) {
-    case 'items': return 'ITEMS'
-    case 'projects': return 'PROJECTS'
-    case 'people': return 'PEOPLE'
-    default: return ''
-  }
-})
-
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-const handleCreateConfig = () => {
-  createConfiguration()
-}
-
-const handleDuplicate = () => {
-  if (activeConfig.value) {
-    duplicateConfiguration(activeConfig.value.id)
-  }
-}
-
-const handleDelete = () => {
-  if (activeConfig.value && configurations.value.length > 1) {
-    if (confirm(`Delete configuration "${activeConfig.value.name}"?`)) {
-      deleteConfiguration(activeConfig.value.id)
-    }
-  }
-}
-
-const handleUpdateName = (name: string) => {
-  if (activeConfig.value) {
-    updateConfiguration(activeConfig.value.id, { name })
-  }
-}
-
-const handleConfigClick = (configId: string) => {
-  if (configId === activeConfigId.value) {
-    // Same config clicked - close the popup
-    collapse()
-  } else {
-    setActiveConfiguration(configId)
-  }
-}
-
-const handleMiniConfigClick = (configId: string) => {
-  if (configId === activeConfigId.value) {
-    // Same config clicked - open the popup
-    expand()
-  } else {
-    setActiveConfiguration(configId)
-  }
-}
 </script>
 
 <style scoped>
@@ -297,20 +247,20 @@ const handleMiniConfigClick = (configId: string) => {
   flex-shrink: 0;
 }
 
-/* Mini Config Bar (collapsed state) */
 .mini-config-bar {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  transition: opacity 0.15s ease;
+  width: 7rem;
 }
 
-.mini-config-bar.invisible {
-  opacity: 0;
-  pointer-events: none;
+.config-item-wrapper {
+  position: relative;
 }
 
 .mini-config-item {
+  position: relative;
+  width: 100%;
   padding: 0.5rem 0.65rem;
   background: var(--bg-tertiary);
   border: 1px solid transparent;
@@ -323,6 +273,7 @@ const handleMiniConfigClick = (configId: string) => {
               color var(--transition-normal), opacity 0.15s, transform 0.2s ease;
   white-space: nowrap;
   text-align: left;
+  overflow: hidden;
 }
 
 .mini-config-item:active {
@@ -345,171 +296,133 @@ const handleMiniConfigClick = (configId: string) => {
   transform: scale(0.95);
 }
 
+.config-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rename-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
 /* Move transition for reordering */
 .config-list-move {
   transition: transform 0.2s ease;
 }
 
-.mini-expand-btn {
-  height: 3rem;
+/* Three dots menu button - positioned over the config button */
+.config-menu-btn {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent-primary-dark);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+  z-index: 2;
+  opacity: 0.7;
+}
+
+.config-menu-btn:hover {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+/* Dropdown menu - opens to the right */
+.config-dropdown {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 0.25rem;
+  min-width: 140px;
+  z-index: 1000;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  transition: background var(--transition-normal);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.dropdown-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dropdown-item.danger {
+  color: var(--color-danger);
+}
+
+.dropdown-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.dropdown-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdown-item.disabled:hover {
   background: transparent;
-  border: 1px solid var(--border-primary);
+}
+
+.dropdown-item i {
+  font-size: 0.9rem;
+  width: 1rem;
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+/* Add config button */
+.add-config-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: transparent;
+  border: 1px dashed var(--border-secondary);
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all var(--transition-normal);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
 }
 
-.mini-expand-btn:hover {
-  background: var(--accent-primary-dark);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-/* Expanded Panel (floating) */
-.configuration-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 99999;
-  background: var(--bg-secondary);
-  padding: 1.25rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid var(--border-primary);
-  min-width: 280px;
-  max-width: 320px;
-  max-height: calc(100vh - 200px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-  flex-shrink: 0;
-}
-
-.panel-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.new-config-btn {
-  width: 100%;
-}
-
-.view-badge {
-  padding: 0.2rem 0.5rem;
-  background: var(--accent-primary-dark, rgba(99, 102, 241, 0.15));
-  color: var(--accent-primary, #6366f1);
-  font-size: 0.7rem;
-  font-weight: 600;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.configurations-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-  flex: 1;
-  min-height: 0;
-}
-
-.config-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  border: 2px solid transparent;
+.add-config-btn:hover {
   background: var(--bg-tertiary);
-  flex-shrink: 0;
-}
-
-.config-item:hover {
-  background: var(--bg-hover);
-}
-
-.config-item.active {
-  background: var(--accent-primary-dark);
   border-color: var(--accent-primary);
-}
-
-.config-icon {
-  color: var(--text-tertiary);
-  font-size: 0.9rem;
-}
-
-.config-item.active .config-icon {
   color: var(--accent-primary);
-}
-
-.config-name {
-  flex: 1;
-  font-weight: 500;
-  font-size: 0.85rem;
-  color: var(--text-primary);
-}
-
-.config-date {
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-}
-
-.active-config-controls {
-  padding-top: 1rem;
-  flex-shrink: 0;
-}
-
-.active-config-controls h4 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
-}
-
-.control-group {
-  margin-bottom: 1rem;
-}
-
-.control-group label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.4rem;
-}
-
-.config-name-input {
-  width: 100%;
-}
-
-.control-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.control-buttons button {
-  flex: 1;
 }
 </style>

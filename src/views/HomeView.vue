@@ -51,7 +51,7 @@
     <!-- Main Content -->
     <div class="main-content">
       <!-- Config Panel (left side) - hidden for projects and people views -->
-      <ConfigurationPanel v-if="activeView === 'items'" ref="configPanelRef" />
+      <ConfigurationPanel v-if="activeView === 'items'" />
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
@@ -223,12 +223,6 @@ const dataTableRef = ref<{
   scrollHorizontal: (dir: 'left' | 'right') => void
   getGalleryColumns: () => number
   scrollToSelectedGalleryItem: () => void 
-} | null>(null)
-const configPanelRef = ref<{
-  toggle: () => void
-  expand: () => void
-  collapse: () => void
-  isExpanded: boolean
 } | null>(null)
 
 const selectedTaskTypes = computed(() => {
@@ -660,13 +654,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
   // Ignore other shortcuts if typing or dialog is open
   if (isTyping || detailDialogVisible.value) return
   
-  // Toggle filter popup (f)
-  if (key === bindings.toggleFilterPopup.key) {
-    event.preventDefault()
-    configPanelRef.value?.toggle()
-    return
-  }
-  
   // Filter config shortcuts 1-9
   const configNumber = parseInt(key)
   if (configNumber >= 1 && configNumber <= 9) {
@@ -675,13 +662,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
       event.preventDefault()
       const configs = configurations.value
       if (configNumber <= configs.length) {
-        const targetConfig = configs[configNumber - 1]
-        if (targetConfig.id === activeConfig.value?.id) {
-          // Same config - toggle popup
-          configPanelRef.value?.toggle()
-        } else {
-          setActiveConfiguration(targetConfig.id)
-        }
+        setActiveConfiguration(configs[configNumber - 1].id)
       }
       return
     }
