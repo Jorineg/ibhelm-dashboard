@@ -64,18 +64,16 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
   border: none;
-  background: var(--bg-tertiary);
+  background: transparent;
   color: var(--text-secondary);
-  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
+  font-size: 1.25rem;
+  padding: 0;
 }
 
 .back-btn:hover {
-  background: var(--bg-hover);
   color: var(--text-primary);
 }
 

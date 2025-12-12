@@ -959,7 +959,7 @@ onUnmounted(() => {
   font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
   letter-spacing: 0.01em;
   position: relative;
 }

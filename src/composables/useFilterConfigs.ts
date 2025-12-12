@@ -64,6 +64,13 @@ const configOrder = ref<Record<ViewType, string[]>>({
   people: []
 })
 
+// Config selection history stack per view type (most recent at end)
+const configHistoryStack = ref<Record<ViewType, string[]>>({
+  items: [],
+  projects: [],
+  people: []
+})
+
 // Quick filter order per view type (global, not per config)
 const quickFilterOrder = ref<Record<ViewType, (keyof QuickFilters)[]>>({
   items: [],
@@ -110,6 +117,7 @@ function loadConfigurations() {
       allConfigurations.value = parsed.configs || []
       activeConfigIds.value = parsed.activeConfigIds || { items: '', projects: '', people: '' }
       configOrder.value = parsed.configOrder || { items: [], projects: [], people: [] }
+      configHistoryStack.value = parsed.configHistoryStack || { items: [], projects: [], people: [] }
       quickFilterOrder.value = parsed.quickFilterOrder || { items: [], projects: [], people: [] }
     }
 
@@ -148,11 +156,23 @@ function saveConfigurations() {
       configs: allConfigurations.value,
       activeConfigIds: activeConfigIds.value,
       configOrder: configOrder.value,
+      configHistoryStack: configHistoryStack.value,
       quickFilterOrder: quickFilterOrder.value
     }))
   } catch (error) {
     console.error('Error saving configurations:', error)
   }
+}
+
+// Push current config to history stack (helper to avoid duplication)
+function pushToHistory(viewType: ViewType) {
+  const currentId = activeConfigIds.value[viewType]
+  if (!currentId) return
+  const stack = configHistoryStack.value[viewType]
+  const existingIdx = stack.indexOf(currentId)
+  if (existingIdx !== -1) stack.splice(existingIdx, 1)
+  stack.push(currentId)
+  if (stack.length > 20) stack.shift()
 }
 
 // Initialize module (runs once)
@@ -171,11 +191,13 @@ export function useFilterConfigs() {
   }
 
   const createConfiguration = (name?: string) => {
-    const config = defaultConfig(currentViewType.value)
+    const viewType = currentViewType.value
+    pushToHistory(viewType)
+    const config = defaultConfig(viewType)
     config.name = name || `Configuration ${configurations.value.length + 1}`
     allConfigurations.value.push(config)
-    configOrder.value[currentViewType.value].push(config.id)
-    activeConfigIds.value[currentViewType.value] = config.id
+    configOrder.value[viewType].push(config.id)
+    activeConfigIds.value[viewType] = config.id
     saveConfigurations()
     return config
   }
@@ -183,6 +205,9 @@ export function useFilterConfigs() {
   const duplicateConfiguration = (id: string) => {
     const original = allConfigurations.value.find(c => c.id === id)
     if (!original) return null
+
+    const viewType = original.viewType
+    pushToHistory(viewType)
 
     const duplicate: FilterConfiguration = {
       ...JSON.parse(JSON.stringify(original)),
@@ -194,14 +219,14 @@ export function useFilterConfigs() {
 
     allConfigurations.value.push(duplicate)
     // Insert after original in order
-    const order = configOrder.value[original.viewType]
+    const order = configOrder.value[viewType]
     const originalIdx = order.indexOf(id)
     if (originalIdx !== -1) {
       order.splice(originalIdx + 1, 0, duplicate.id)
     } else {
       order.push(duplicate.id)
     }
-    activeConfigIds.value[currentViewType.value] = duplicate.id
+    activeConfigIds.value[viewType] = duplicate.id
     saveConfigurations()
     return duplicate
   }
@@ -217,13 +242,25 @@ export function useFilterConfigs() {
     // Remove from order
     const orderIdx = configOrder.value[viewType].indexOf(id)
     if (orderIdx !== -1) configOrder.value[viewType].splice(orderIdx, 1)
+    // Remove from history stack
+    const stack = configHistoryStack.value[viewType]
+    const historyIdx = stack.indexOf(id)
+    if (historyIdx !== -1) stack.splice(historyIdx, 1)
 
     if (activeConfigIds.value[viewType] === id) {
       const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
       if (viewConfigs.length > 0) {
-        // Use first in order if available
-        const order = configOrder.value[viewType]
-        activeConfigIds.value[viewType] = order[0] || viewConfigs[0].id
+        // Pop from history stack until we find a valid config
+        let nextId: string | undefined
+        while (stack.length > 0) {
+          const candidate = stack.pop()!
+          if (viewConfigs.some(c => c.id === candidate)) {
+            nextId = candidate
+            break
+          }
+        }
+        // Fallback to first in order if no valid history
+        activeConfigIds.value[viewType] = nextId || configOrder.value[viewType][0] || viewConfigs[0].id
       } else {
         const newConfig = defaultConfig(viewType)
         allConfigurations.value.push(newConfig)
@@ -255,7 +292,11 @@ export function useFilterConfigs() {
   const setActiveConfiguration = (id: string) => {
     const config = allConfigurations.value.find(c => c.id === id)
     if (config) {
-      activeConfigIds.value[config.viewType] = id
+      const viewType = config.viewType
+      if (activeConfigIds.value[viewType] !== id) {
+        pushToHistory(viewType)
+      }
+      activeConfigIds.value[viewType] = id
       saveConfigurations()
       return true
     }

@@ -238,18 +238,12 @@ onMounted(async () => {
   flex-direction: column;
   background: var(--bg-primary);
   overflow: hidden;
-}
-
-.settings-view :deep(.page-header) {
-  flex-shrink: 0;
   padding: 2rem;
-  margin-bottom: 0;
 }
 
 .settings-inner {
   flex: 1;
   overflow-y: auto;
-  padding: 0 2rem 2rem 2rem;
 }
 
 /* Settings Layout */
