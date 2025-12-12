@@ -5,7 +5,8 @@ import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/
 
 const PAGE_SIZE = 50
 
-// Request versioning to handle race conditions when switching configs
+// Single version counter for race condition handling
+// Pattern: increment at start, check before any state update
 let requestVersion = 0
 
 // Build cache key for a query
@@ -305,7 +306,8 @@ export function useData() {
   // Data items are now directly from the view
   const dataItems = computed<ViewDataItem[]>(() => items.value)
 
-  // Load initial data - uses stale-while-revalidate: shows cache immediately, fetches fresh in background
+  // Load data with stale-while-revalidate: show cache immediately, fetch fresh in background
+  // Race condition handling: version incremented at start, checked before ANY state update
   const loadData = async (
     showTasks = true,
     showEmails = true,
@@ -316,40 +318,30 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null
-  ) => {
-    // Increment version and capture it for this request
-    const thisRequestVersion = ++requestVersion
-    
-    currentPage.value = 0
-    hasMore.value = true
-    currentViewType.value = viewType
-    error.value = null
+  ): Promise<void> => {
+    const myVersion = ++requestVersion
+    const isCurrent = () => myVersion === requestVersion
 
-    // Update current sort if provided
-    if (sortConfig) {
-      currentSort.value = sortConfig
-    }
+    if (sortConfig) currentSort.value = sortConfig
     
-    // Build cache key for this query
     const cacheKey = buildCacheKey(
       viewType, showTasks, showEmails, showCraft, showFiles,
-      search, filterConfig, currentSort.value, selectedTaskTypes
+      search, filterConfig, sortConfig || currentSort.value, selectedTaskTypes
     )
     
-    // Check cache first
+    // Show cache or loading state (check version before updating)
+    if (!isCurrent()) return
+    
     const cached = getCachedQuery<ViewDataItem[]>(cacheKey)
     if (cached) {
-      // Show cached data immediately
       items.value = cached.data
       totalCount.value = cached.count
       cacheTimestamp.value = cached.timestamp
       hasMore.value = cached.data.length === PAGE_SIZE
       loading.value = false
       countLoading.value = false
-      revalidating.value = true // Indicate we're refreshing in background
-      console.log(`[CACHE] Hit for query, showing ${cached.data.length} items from ${formatCacheAge(cached.timestamp)}`)
+      revalidating.value = true
     } else {
-      // No cache - show loading state
       items.value = []
       totalCount.value = null
       cacheTimestamp.value = null
@@ -357,82 +349,59 @@ export function useData() {
       countLoading.value = true
       revalidating.value = false
     }
+    currentPage.value = 0
+    hasMore.value = true
+    currentViewType.value = viewType
+    error.value = null
 
-    // Always fetch fresh data
+    // Fetch fresh data
     try {
-      let result: { data: any[]; count?: number | null }
-      
+      let result: { data: any[] }
       switch (viewType) {
         case 'projects':
-          result = await fetchProjects(0, search, false, filterConfig, currentSort.value)
+          result = await fetchProjects(0, search, false, filterConfig, sortConfig || currentSort.value)
           break
         case 'people':
-          result = await fetchPeople(0, search, false, filterConfig, currentSort.value)
+          result = await fetchPeople(0, search, false, filterConfig, sortConfig || currentSort.value)
           break
-        case 'items':
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes)
-          break
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, sortConfig || currentSort.value, selectedTaskTypes)
       }
       
-      // Only update state if this is still the current request
-      if (thisRequestVersion !== requestVersion) {
-        console.log('[TIMING] Request superseded, skipping state update')
-        return
-      }
+      if (!isCurrent()) return // Superseded - discard results
       
-      const stateStart = performance.now()
       items.value = result.data
       hasMore.value = result.data.length === PAGE_SIZE
-      cacheTimestamp.value = Date.now() // Fresh data
+      cacheTimestamp.value = Date.now()
       loading.value = false
       revalidating.value = false
-      console.log(`[TIMING] State update: ${(performance.now() - stateStart).toFixed(0)}ms`)
       
-      // Fetch count in background (after data is displayed)
+      // Fetch count in background
       try {
         let count: number
         switch (viewType) {
-          case 'projects':
-            count = await fetchProjectsCount(search, filterConfig)
-            break
-          case 'people':
-            count = await fetchPeopleCount(search, filterConfig)
-            break
-          case 'items':
-          default:
-            count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes)
-            break
+          case 'projects': count = await fetchProjectsCount(search, filterConfig); break
+          case 'people': count = await fetchPeopleCount(search, filterConfig); break
+          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes)
         }
-        
-        if (thisRequestVersion === requestVersion) {
+        if (isCurrent()) {
           totalCount.value = count
-          // Update cache with fresh data and count
           setCachedQuery(cacheKey, result.data, count)
         }
-      } catch (countErr) {
-        console.error('Error loading count:', countErr)
-        // Still cache data even if count fails
-        if (thisRequestVersion === requestVersion) {
-          setCachedQuery(cacheKey, result.data, null)
-        }
+      } catch {
+        if (isCurrent()) setCachedQuery(cacheKey, result.data, null)
       } finally {
-        if (thisRequestVersion === requestVersion) {
-          countLoading.value = false
-        }
+        if (isCurrent()) countLoading.value = false
       }
     } catch (err) {
-      // Only update error if this is still the current request
-      if (thisRequestVersion === requestVersion) {
-        console.error('Error loading data:', err)
-        // If we had cached data, keep showing it but indicate error
-        if (items.value.length === 0) {
-          error.value = err instanceof Error ? err.message : 'Failed to load data. Please try again.'
-        }
-        loading.value = false
-        countLoading.value = false
-        revalidating.value = false
+      if (!isCurrent()) return
+      console.error('Error loading data:', err)
+      if (items.value.length === 0) {
+        error.value = err instanceof Error ? err.message : 'Failed to load data.'
       }
+      loading.value = false
+      countLoading.value = false
+      revalidating.value = false
     }
   }
   
@@ -599,7 +568,7 @@ export function useData() {
 
   // Immediately clear items and show loading (used when switching configs to prevent flicker)
   const clearAndStartLoading = () => {
-    requestVersion++ // Cancel any pending requests
+    requestVersion++
     items.value = []
     loading.value = true
     countLoading.value = true
@@ -610,7 +579,6 @@ export function useData() {
     error.value = null
   }
 
-  // Clear error (for retry functionality)
   const clearError = () => {
     error.value = null
   }

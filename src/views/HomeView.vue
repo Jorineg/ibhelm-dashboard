@@ -126,13 +126,13 @@ import ItemDetailDialog from '@/components/ItemDetailDialog.vue'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
-import { useFilterConfigs, getConfigSwitchTimestamp, hasRecentConfigSwitch } from '@/composables/useFilterConfigs'
+import { useFilterConfigs, hasRecentConfigSwitch } from '@/composables/useFilterConfigs'
 import { useData } from '@/composables/useData'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
-import { supabase, getNextRequestId, setCurrentRequestId } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
@@ -338,41 +338,18 @@ const dataFetchConfigKey = computed(() => {
   })
 })
 
-// State for data loading coordination
-let filterTimeout: number | null = null
-let currentReqId: number | null = null
-let lastLoadedKey: string | null = null  // Track what config key we loaded to prevent duplicates
+// Debounce timer for filter changes
+let debounceTimer: number | null = null
+let isFirstLoad = true
 
-// Watch for config ID changes - don't clear data (cache will show instantly)
-watch(() => activeConfig.value?.id, (newId, oldId) => {
-  if (oldId && newId !== oldId) {
-    // Cancel any pending load
-    if (filterTimeout) {
-      clearTimeout(filterTimeout)
-      filterTimeout = null
-    }
-    lastLoadedKey = null  // Reset so new config can load
-    // Don't call clearAndStartLoading() - let loadData() check cache first
-  }
-})
-
-watch(dataFetchConfigKey, async (newKey) => {
-  if (filterTimeout) clearTimeout(filterTimeout)
+// Simple watch: debounce typing (300ms), then load
+// Race conditions handled inside loadData via version checking
+watch(dataFetchConfigKey, (newKey) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (!newKey || !activeConfig.value) return
   
-  // Skip if no config or already loaded this exact key
-  if (!newKey || !activeConfig.value || lastLoadedKey === newKey) return
-  
-  // Determine debounce:
-  // - 0ms for first load (lastLoadedKey is null)
-  // - 0ms for config switches
-  // - 300ms for filter changes (debounce typing)
-  const isFirstLoad = lastLoadedKey === null
-  const isConfigSwitch = hasRecentConfigSwitch()
-  const debounceMs = (isFirstLoad || isConfigSwitch) ? 0 : 300
-  const reqId = getNextRequestId()
-  
-  // Capture values NOW (they could change during debounce)
-  const captured = {
+  // Capture current values (they could change during debounce)
+  const params = {
     showTasks: activeConfig.value.showTasks,
     showEmails: activeConfig.value.showEmails,
     showCraft: activeConfig.value.showCraft ?? true,
@@ -381,58 +358,22 @@ watch(dataFetchConfigKey, async (newKey) => {
     config: activeConfig.value,
     search: searchQuery.value,
     viewType: currentViewType.value,
-    taskTypes: selectedTaskTypes.value,
-    key: newKey
+    taskTypes: selectedTaskTypes.value
   }
   
-  const doLoad = async () => {
-    // Skip if we already loaded this key (another load completed during debounce)
-    if (lastLoadedKey === captured.key) return
-    
-    currentReqId = reqId
-    setCurrentRequestId(reqId)
-    const loadStart = performance.now()
-    const clickTime = getConfigSwitchTimestamp() // Get timestamp from actual click moment
-    console.log(`[UI] #${reqId} loadData starting...`)
-    
-    // loadData checks cache synchronously - if hit, items.value is set before first await
-    const loadPromise = loadData(
-      captured.showTasks,
-      captured.showEmails,
-      captured.showCraft,
-      captured.showFiles,
-      captured.search,
-      captured.config,
-      captured.sortConfig,
-      captured.viewType,
-      captured.taskTypes
+  const doLoad = () => {
+    loadData(
+      params.showTasks, params.showEmails, params.showCraft, params.showFiles,
+      params.search, params.config, params.sortConfig, params.viewType, params.taskTypes
     )
-    
-    // Log cache hit timing - wait for Vue DOM update + browser paint
-    if (clickTime !== null && dataItems.value.length > 0) {
-      const reactiveSet = performance.now()
-      nextTick(() => {
-        const domUpdated = performance.now()
-        requestAnimationFrame(() => {
-          const painted = performance.now()
-          console.log(`[UI] Click → reactive: ${(reactiveSet - clickTime).toFixed(1)}ms → DOM: ${(domUpdated - clickTime).toFixed(1)}ms → paint: ${(painted - clickTime).toFixed(1)}ms`)
-        })
-      })
-    }
-    
-    await loadPromise
-    
-    lastLoadedKey = captured.key
-    console.log(`[UI] #${reqId} loadData took: ${(performance.now() - loadStart).toFixed(0)}ms`)
-    setCurrentRequestId(null)
   }
   
-  // For immediate loads (config switch, first load), call synchronously
-  // This ensures cache is checked in same tick as config change, preventing flicker
-  if (debounceMs === 0) {
+  // No debounce for first load or config switches (show cache instantly)
+  if (isFirstLoad || hasRecentConfigSwitch()) {
+    isFirstLoad = false
     doLoad()
   } else {
-    filterTimeout = window.setTimeout(doLoad, debounceMs)
+    debounceTimer = window.setTimeout(doLoad, 300)
   }
 }, { immediate: true })
 
@@ -1017,7 +958,10 @@ onUnmounted(() => {
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 1.25rem;
+}
+
+.settings-btn i {
+  font-size: 1.5rem;
 }
 
 .settings-btn:hover {

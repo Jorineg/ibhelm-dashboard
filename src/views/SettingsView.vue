@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-view">
+  <div class="settings-view" @click="syncPopupVisible = false">
     <!-- Header -->
     <PageHeader
       title="Settings"
@@ -8,7 +8,30 @@
       :show-sign-out="true"
       @back="goBack"
       @sign-out="handleSignOut"
-    />
+    >
+      <template #center>
+        <div class="sync-status-wrapper" @click.stop>
+          <SyncStatusIndicator 
+            :overall-status="overallStatus" 
+            @click="toggleSyncPopup" 
+          />
+          <div v-if="syncPopupVisible" class="sync-popup-container">
+            <SyncStatusPanel 
+              :sync-status="syncStatus" 
+              :is-source-outdated="isSourceOutdated"
+              :is-files-outdated="isFilesOutdated"
+              :is-thumbnails-outdated="isThumbnailsOutdated"
+            />
+          </div>
+        </div>
+      </template>
+      
+      <template #actions>
+        <button class="home-btn" @click="goBack" title="Home">
+          <i class="pi pi-home"></i>
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Scrollable Content -->
     <div class="settings-inner">
@@ -96,15 +119,22 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
 import { TaskTypesSection, PeopleSection, EmailsSection, CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
+import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
 import { useEmails } from '@/composables/useEmails'
 import { useCostGroups } from '@/composables/useCostGroups'
 import { useLocations } from '@/composables/useLocations'
+import { useSyncStatus } from '@/composables/useSyncStatus'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated } = useSyncStatus()
+
+const syncPopupVisible = ref(false)
+const toggleSyncPopup = () => { syncPopupVisible.value = !syncPopupVisible.value }
 
 const {
   extractionRun,
@@ -244,6 +274,7 @@ onMounted(async () => {
 .settings-inner {
   flex: 1;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 /* Settings Layout */
@@ -304,6 +335,44 @@ onMounted(async () => {
 /* Settings Content */
 .settings-content {
   min-width: 0;
+}
+
+/* Sync Status */
+.sync-status-wrapper {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.sync-popup-container {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.5rem;
+  z-index: 9999;
+}
+
+/* Home button */
+.home-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.home-btn i {
+  font-size: 1.5rem;
+}
+
+.home-btn:hover {
+  color: var(--text-primary);
 }
 
 /* Responsive */

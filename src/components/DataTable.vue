@@ -217,7 +217,6 @@
         :reorderable-columns="true"
         removable-sort
         :row-class="getRowClass"
-        scrollable
         scrollHeight="flex"
         :virtualScrollerOptions="{ itemSize: 41 }"
         @row-click="handleRowClick"
@@ -245,7 +244,6 @@
           frozen
           :sortable="false"
           :reorderable-column="false"
-          :style="{ width: '90px', minWidth: '90px', maxWidth: '90px' }"
           class="type-column"
         >
           <template #body="{ data }">
@@ -1434,11 +1432,18 @@ onUnmounted(() => {
   pointer-events: auto !important;
 }
 
-/* Type column - frozen, not resizable */
+/* Type column - frozen, not resizable, fixed width (shrink-to-fit trick) */
 .data-table :deep(.type-column) {
   position: sticky !important;
   left: 0 !important;
   z-index: 2 !important;
+  width: 1% !important;
+  white-space: nowrap !important;
+}
+
+/* Type column header - add margin to widen the column */
+.data-table :deep(.type-column .p-column-header-content) {
+  margin: 0 1rem;
 }
 
 /* Type column in header - must be above both thead (z-index 100) and body type cells */
@@ -1594,15 +1599,20 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-/* Type Badge - styled button inside cell link */
+/* Type Badge - styled button inside cell link - FIXED width */
 .type-badge {
   display: inline-block;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.4rem;
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.5px;
   border: 1px solid;
+  width: 58px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 

@@ -123,15 +123,20 @@
   font-size: 0.8rem;
 }
 
-/* Type Badge (used in DataTable and gallery view) */
+/* Type Badge (used in DataTable and gallery view) - FIXED width */
 .type-badge {
   display: inline-block;
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.4rem;
   border-radius: 4px;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.5px;
   border: 1px solid;
+  width: 58px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Empty/Loading states */
