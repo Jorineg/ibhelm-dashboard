@@ -49,21 +49,24 @@ const loggingFetch: typeof fetch = async (input, init) => {
   
   const start = performance.now()
   const response = await fetch(input, init)
-  const networkTime = performance.now() - start
+  const headersTime = performance.now() - start // DB query + server processing done
   
-  // Clone and parse to measure JSON parsing time (doesn't affect original response)
+  // Read body to measure transfer time separately from parsing
   const cloned = response.clone()
+  const bodyStart = performance.now()
+  const text = await cloned.text()
+  const bodyTime = performance.now() - bodyStart
+  
   const parseStart = performance.now()
-  await cloned.json().catch(() => {}) // Ignore parse errors
+  try { JSON.parse(text) } catch {} 
   const parseTime = performance.now() - parseStart
+  
   const totalTime = performance.now() - start
+  const sizeKB = (text.length / 1024).toFixed(0)
   
   const prefix = reqId ? `[DB] #${reqId}` : '[DB]'
-  if (parseTime > 20) {
-    console.log(`${prefix} ${queryDesc} — net:${networkTime.toFixed(0)}ms parse:${parseTime.toFixed(0)}ms total:${totalTime.toFixed(0)}ms`)
-  } else {
-    console.log(`${prefix} ${queryDesc} — ${totalTime.toFixed(0)}ms`)
-  }
+  // db: time until headers (DB query done), body: transfer, parse: JSON.parse
+  console.log(`${prefix} ${queryDesc} — db:${headersTime.toFixed(0)}ms body:${bodyTime.toFixed(0)}ms(${sizeKB}KB) parse:${parseTime.toFixed(0)}ms`)
   return response
 }
 

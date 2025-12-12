@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { getCached, setCache, isEqual } from '@/lib/cache'
 import { usePollingRun, type BaseRun } from './usePollingRun'
 import type { TaskType, TaskTypeRule } from '@/types'
 
@@ -21,8 +22,8 @@ const { run: extractionRun, isRunning: extractionRunning, startRun: rerunExtract
 )
 
 // Shared state across all composable instances
-const taskTypes = ref<TaskType[]>([])
-const taskTypeRules = ref<TaskTypeRule[]>([])
+const taskTypes = ref<TaskType[]>(getCached<TaskType[]>('task_types') || [])
+const taskTypeRules = ref<TaskTypeRule[]>(getCached<TaskTypeRule[]>('task_type_rules') || [])
 const loading = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
@@ -37,7 +38,11 @@ export function useTaskTypes() {
         .order('display_order', { ascending: true })
 
       if (error) throw error
-      taskTypes.value = data || []
+      const fresh = data || []
+      if (!isEqual(fresh, taskTypes.value)) {
+        taskTypes.value = fresh
+      }
+      setCache('task_types', fresh)
     } catch (error) {
       console.error('Error fetching task types:', error)
     } finally {
@@ -53,7 +58,11 @@ export function useTaskTypes() {
         .order('db_created_at', { ascending: true })
 
       if (error) throw error
-      taskTypeRules.value = data || []
+      const fresh = data || []
+      if (!isEqual(fresh, taskTypeRules.value)) {
+        taskTypeRules.value = fresh
+      }
+      setCache('task_type_rules', fresh)
     } catch (error) {
       console.error('Error fetching task type rules:', error)
     }
@@ -62,7 +71,10 @@ export function useTaskTypes() {
   const initialize = async () => {
     if (initialized.value) return
     initialized.value = true
-    await Promise.all([fetchTaskTypes(), fetchTaskTypeRules()])
+    // Fire off background refresh (don't await if we have cached data)
+    const hasCached = taskTypes.value.length > 0 || taskTypeRules.value.length > 0
+    const refreshPromise = Promise.all([fetchTaskTypes(), fetchTaskTypeRules()])
+    if (!hasCached) await refreshPromise
   }
 
   const createTaskType = async (taskType: Partial<TaskType>): Promise<TaskType | null> => {
@@ -87,6 +99,7 @@ export function useTaskTypes() {
       if (error) throw error
 
       taskTypes.value.push(data)
+      setCache('task_types', taskTypes.value)
       return data
     } catch (error) {
       console.error('Error creating task type:', error)
@@ -111,6 +124,7 @@ export function useTaskTypes() {
       if (index !== -1) {
         taskTypes.value[index] = { ...taskTypes.value[index], ...updates }
       }
+      setCache('task_types', taskTypes.value)
 
       return true
     } catch (error) {
@@ -134,6 +148,8 @@ export function useTaskTypes() {
 
       taskTypes.value = taskTypes.value.filter(t => t.id !== id)
       taskTypeRules.value = taskTypeRules.value.filter(r => r.task_type_id !== id)
+      setCache('task_types', taskTypes.value)
+      setCache('task_type_rules', taskTypeRules.value)
 
       return true
     } catch (error) {
@@ -160,6 +176,7 @@ export function useTaskTypes() {
       if (error) throw error
 
       taskTypeRules.value.push(data)
+      setCache('task_type_rules', taskTypeRules.value)
       return data
     } catch (error) {
       console.error('Error adding task type rule:', error)
@@ -181,6 +198,7 @@ export function useTaskTypes() {
       if (error) throw error
 
       taskTypeRules.value = taskTypeRules.value.filter(r => r.id !== ruleId)
+      setCache('task_type_rules', taskTypeRules.value)
       return true
     } catch (error) {
       console.error('Error removing task type rule:', error)

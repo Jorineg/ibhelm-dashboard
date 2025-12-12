@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { getCached, setCache, isEqual } from '@/lib/cache'
 import type { AppSettings } from '@/types'
 
 const defaults: AppSettings = {
@@ -14,7 +15,8 @@ const defaults: AppSettings = {
   location_prefix: 'O-',
   files_bucket: 'files'
 }
-const settings = ref<AppSettings>({ ...defaults })
+const cached = getCached<AppSettings>('app_settings')
+const settings = ref<AppSettings>(cached ? { ...defaults, ...cached } : { ...defaults })
 const loading = ref(false)
 const saving = ref(false)
 const initialized = ref(false)
@@ -29,7 +31,11 @@ export function useAppearanceSettings() {
         .single()
 
       if (error) throw error
-      settings.value = { ...defaults, ...data.body }
+      const fresh = { ...defaults, ...data.body }
+      if (!isEqual(fresh, settings.value)) {
+        settings.value = fresh
+      }
+      setCache('app_settings', data.body)
     } catch (error) {
       console.error('Error fetching app settings:', error)
     } finally {
@@ -40,7 +46,10 @@ export function useAppearanceSettings() {
   const initialize = async () => {
     if (initialized.value) return
     initialized.value = true
-    await fetchSettings()
+    // Fire off background refresh (don't await if we have cached data)
+    const hasCached = cached !== null
+    const refreshPromise = fetchSettings()
+    if (!hasCached) await refreshPromise
   }
 
   const updateSetting = async <K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<boolean> => {
@@ -54,6 +63,7 @@ export function useAppearanceSettings() {
 
       if (error) throw error
       settings.value = newBody
+      setCache('app_settings', newBody)
       return true
     } catch (error) {
       console.error(`Error updating ${key}:`, error)
