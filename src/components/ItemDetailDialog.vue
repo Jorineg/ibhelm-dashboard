@@ -27,6 +27,55 @@
         />
       </div>
 
+      <!-- Source email info for files -->
+      <div v-if="isFile && sourceEmail" class="source-email-section">
+        <div class="section-label">From Email</div>
+        <div class="source-email-info">
+          <div class="source-email-details">
+            <span class="source-email-subject">{{ sourceEmail.subject || 'No subject' }}</span>
+            <span class="source-email-from">
+              from {{ sourceEmail.from_name || sourceEmail.from_email || 'Unknown' }}
+            </span>
+          </div>
+          <a
+            v-if="sourceEmail.missive_url"
+            :href="sourceEmail.missive_url"
+            target="_blank"
+            class="missive-link-button"
+            title="Open in Missive"
+          >
+            <i class="pi pi-envelope" />
+            Open in Missive
+          </a>
+        </div>
+      </div>
+
+      <!-- Attached files for emails -->
+      <div v-if="isEmail && emailFiles.length > 0" class="email-files-section">
+        <div class="section-label">Attachments ({{ emailFiles.length }} files)</div>
+        <div class="email-files-grid">
+          <div
+            v-for="file in emailFiles"
+            :key="file.file_id"
+            class="email-file-card"
+            @click="downloadFile(file)"
+            :title="`Download ${file.filename}`"
+          >
+            <div class="file-thumbnail">
+              <img
+                v-if="file.thumbnail_path && !failedFileThumbnails.has(file.file_id)"
+                :src="getFileThumbnailUrl(file.thumbnail_path)"
+                :alt="file.filename"
+                @error="failedFileThumbnails.add(file.file_id)"
+              />
+              <i v-else class="pi pi-file file-icon" />
+            </div>
+            <div class="file-name">{{ file.filename }}</div>
+            <i class="pi pi-download download-indicator" />
+          </div>
+        </div>
+      </div>
+
       <!-- Toggle for empty fields -->
       <div class="detail-header">
         <div class="checkbox-wrapper">
@@ -77,13 +126,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import Dialog from 'primevue/dialog'
 import Checkbox from 'primevue/checkbox'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
 import { TypeLinkButton } from '@/components/common'
+import { supabase } from '@/lib/supabase'
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
+
+interface SourceEmailInfo {
+  message_id: string
+  subject: string | null
+  from_name: string | null
+  from_email: string | null
+  delivered_at: string | null
+  missive_url: string | null
+}
+
+interface EmailFileInfo {
+  file_id: string
+  filename: string
+  storage_path: string
+  thumbnail_path: string | null
+}
 
 interface Props {
   visible: boolean
@@ -99,10 +166,20 @@ const emit = defineEmits<Emits>()
 
 const showEmptyFields = ref(false)
 const thumbnailFailed = ref(false)
+const sourceEmail = ref<SourceEmailInfo | null>(null)
+const emailFiles = ref<EmailFileInfo[]>([])
+const failedFileThumbnails = reactive(new Set<string>())
+
+const { filesBucket } = useAppearanceSettings()
+
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value)
 })
+
+// Detect if this is a file or email item
+const isFile = computed(() => (props.item as DataItem)?.type?.toLowerCase() === 'file')
+const isEmail = computed(() => (props.item as DataItem)?.type?.toLowerCase() === 'email')
 
 // Thumbnail support for files
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -115,6 +192,44 @@ const thumbnailUrl = computed(() => {
   const path = (props.item as DataItem).thumbnail_path
   return path ? `${supabaseUrl}/storage/v1/object/public/thumbnails/${path}` : ''
 })
+
+// Get thumbnail URL for email file attachments
+const getFileThumbnailUrl = (thumbnailPath: string): string => {
+  return `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
+}
+
+// Fetch source email for a file
+const fetchSourceEmail = async (fileId: string) => {
+  const { data, error } = await supabase.rpc('get_file_source_email', { p_file_id: fileId })
+  if (!error && data && data.length > 0) {
+    sourceEmail.value = data[0]
+  } else {
+    sourceEmail.value = null
+  }
+}
+
+// Fetch files for an email
+const fetchEmailFiles = async (messageId: string) => {
+  const { data, error } = await supabase.rpc('get_email_files', { p_message_id: messageId })
+  if (!error && data) {
+    emailFiles.value = data
+  } else {
+    emailFiles.value = []
+  }
+}
+
+// Download file via signed URL
+const downloadFile = async (file: EmailFileInfo) => {
+  if (!file.storage_path) return
+  
+  const { data, error } = await supabase.storage
+    .from(filesBucket.value)
+    .createSignedUrl(file.storage_path, 300)
+  
+  if (!error && data?.signedUrl) {
+    window.open(data.signedUrl, '_blank')
+  }
+}
 
 // Detect item type based on properties
 const detectedItemType = computed<'item' | 'project' | 'person'>(() => {
@@ -218,11 +333,26 @@ const formatValue = (value: any): string => {
   return String(value)
 }
 
-// Reset state when dialog opens
-watch(isVisible, (visible) => {
+// Reset state and fetch related data when dialog opens
+watch(isVisible, async (visible) => {
   if (visible) {
     showEmptyFields.value = false
     thumbnailFailed.value = false
+    sourceEmail.value = null
+    emailFiles.value = []
+    failedFileThumbnails.clear()
+    
+    if (props.item) {
+      const item = props.item as DataItem
+      // Fetch source email for files
+      if (isFile.value && item.id) {
+        fetchSourceEmail(item.id)
+      }
+      // Fetch files for emails
+      if (isEmail.value && item.id) {
+        fetchEmailFiles(item.id)
+      }
+    }
   }
 })
 </script>
@@ -361,6 +491,146 @@ watch(isVisible, (visible) => {
   max-height: 400px;
   color: var(--text-secondary);
   border: 1px solid var(--border-primary);
+}
+
+/* Source email section for files */
+.source-email-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+}
+
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.source-email-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.source-email-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.source-email-subject {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-email-from {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.missive-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--accent-primary-dark);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all var(--transition-normal);
+}
+
+.missive-link-button:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+/* Email files section */
+.email-files-section {
+  margin-bottom: 1.5rem;
+}
+
+.email-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.email-file-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.email-file-card:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.email-file-card:hover .download-indicator {
+  opacity: 1;
+}
+
+.file-thumbnail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  margin-bottom: 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.file-thumbnail img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.file-thumbnail .file-icon {
+  font-size: 2rem;
+  color: var(--text-muted);
+}
+
+.file-name {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-indicator {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--accent-primary);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 </style>
 
