@@ -3,9 +3,11 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 export interface KeyBinding {
   key: string
   description: string
+  group?: string
 }
 
 export interface KeyBindings {
+  // Filter configs (1-9, 0)
   filterConfig1: KeyBinding
   filterConfig2: KeyBinding
   filterConfig3: KeyBinding
@@ -15,48 +17,85 @@ export interface KeyBindings {
   filterConfig7: KeyBinding
   filterConfig8: KeyBinding
   filterConfig9: KeyBinding
+  filterConfig0: KeyBinding
+  // Navigation
   navigateUp: KeyBinding
   navigateDown: KeyBinding
   navigateLeft: KeyBinding
   navigateRight: KeyBinding
+  // Item actions
   openLink: KeyBinding
   openDetail: KeyBinding
   closeDialog: KeyBinding
+  // Config management
   newConfig: KeyBinding
   deleteConfig: KeyBinding
+  renameConfig: KeyBinding
+  // View
   focusSearch: KeyBinding
   toggleView: KeyBinding
-  toggleFilterPopup: KeyBinding
   gridZoomIn: KeyBinding
   gridZoomOut: KeyBinding
+  // Quick filters
+  focusProject: KeyBinding
+  focusCostGroup: KeyBinding
+  focusLocation: KeyBinding
+  focusTags: KeyBinding
+  focusInvolvedPerson: KeyBinding
+  // Type toggles
+  toggleEmails: KeyBinding
+  toggleCraft: KeyBinding
+  toggleFiles: KeyBinding
+  toggleTaskType1: KeyBinding
+  toggleTaskType2: KeyBinding
+  toggleTaskType3: KeyBinding
 }
 
 const STORAGE_KEY = 'ibhelm_key_bindings'
 
 const defaultBindings: KeyBindings = {
-  filterConfig1: { key: '1', description: 'Switch to filter config 1' },
-  filterConfig2: { key: '2', description: 'Switch to filter config 2' },
-  filterConfig3: { key: '3', description: 'Switch to filter config 3' },
-  filterConfig4: { key: '4', description: 'Switch to filter config 4' },
-  filterConfig5: { key: '5', description: 'Switch to filter config 5' },
-  filterConfig6: { key: '6', description: 'Switch to filter config 6' },
-  filterConfig7: { key: '7', description: 'Switch to filter config 7' },
-  filterConfig8: { key: '8', description: 'Switch to filter config 8' },
-  filterConfig9: { key: '9', description: 'Switch to filter config 9' },
-  navigateUp: { key: 'ArrowUp', description: 'Move selection up' },
-  navigateDown: { key: 'ArrowDown', description: 'Move selection down (loads more at end)' },
-  navigateLeft: { key: 'ArrowLeft', description: 'Scroll table left' },
-  navigateRight: { key: 'ArrowRight', description: 'Scroll table right' },
-  openLink: { key: 'Enter', description: 'Open item link' },
-  openDetail: { key: 'o', description: 'Toggle detail popup' },
-  closeDialog: { key: 'Escape', description: 'Close dialog' },
-  newConfig: { key: 'n', description: 'Create new filter config' },
-  deleteConfig: { key: 'd', description: 'Delete current filter config' },
-  focusSearch: { key: 's', description: 'Focus search box' },
-  toggleView: { key: 'v', description: 'Toggle list/gallery view' },
-  toggleFilterPopup: { key: 'f', description: 'Toggle filter config popup' },
-  gridZoomIn: { key: '+', description: 'Grid view: zoom in (larger tiles)' },
-  gridZoomOut: { key: '-', description: 'Grid view: zoom out (smaller tiles)' }
+  // Filter configs (fixed, not customizable via UI)
+  filterConfig1: { key: '1', description: 'Switch to filter config 1', group: 'configs' },
+  filterConfig2: { key: '2', description: 'Switch to filter config 2', group: 'configs' },
+  filterConfig3: { key: '3', description: 'Switch to filter config 3', group: 'configs' },
+  filterConfig4: { key: '4', description: 'Switch to filter config 4', group: 'configs' },
+  filterConfig5: { key: '5', description: 'Switch to filter config 5', group: 'configs' },
+  filterConfig6: { key: '6', description: 'Switch to filter config 6', group: 'configs' },
+  filterConfig7: { key: '7', description: 'Switch to filter config 7', group: 'configs' },
+  filterConfig8: { key: '8', description: 'Switch to filter config 8', group: 'configs' },
+  filterConfig9: { key: '9', description: 'Switch to filter config 9', group: 'configs' },
+  filterConfig0: { key: '0', description: 'Switch to filter config 10', group: 'configs' },
+  // Navigation
+  navigateUp: { key: 'ArrowUp', description: 'Move selection up', group: 'navigation' },
+  navigateDown: { key: 'ArrowDown', description: 'Move selection down', group: 'navigation' },
+  navigateLeft: { key: 'ArrowLeft', description: 'Scroll table left', group: 'navigation' },
+  navigateRight: { key: 'ArrowRight', description: 'Scroll table right', group: 'navigation' },
+  // Item actions
+  openLink: { key: 'Enter', description: 'Open item link', group: 'actions' },
+  openDetail: { key: '.', description: 'Toggle detail popup', group: 'actions' },
+  closeDialog: { key: 'Escape', description: 'Close dialog / blur input', group: 'actions' },
+  // Config management
+  newConfig: { key: 'f', description: 'Create new filter config', group: 'config_mgmt' },
+  deleteConfig: { key: 'd', description: 'Delete current filter config', group: 'config_mgmt' },
+  renameConfig: { key: 'r', description: 'Rename current filter config', group: 'config_mgmt' },
+  // View
+  focusSearch: { key: 's', description: 'Focus search box', group: 'view' },
+  toggleView: { key: 'g', description: 'Toggle list/gallery view', group: 'view' },
+  gridZoomIn: { key: '+', description: 'Grid: zoom in (larger tiles)', group: 'view' },
+  gridZoomOut: { key: '-', description: 'Grid: zoom out (smaller tiles)', group: 'view' },
+  // Quick filters
+  focusProject: { key: 'p', description: 'Focus Projekt filter', group: 'filters' },
+  focusCostGroup: { key: 'k', description: 'Focus Kostengruppe filter', group: 'filters' },
+  focusLocation: { key: 'o', description: 'Focus Ort filter', group: 'filters' },
+  focusTags: { key: 't', description: 'Focus Tags filter', group: 'filters' },
+  focusInvolvedPerson: { key: 'i', description: 'Focus Involvierte Person filter', group: 'filters' },
+  // Type toggles
+  toggleEmails: { key: 'v', description: 'Toggle show emails', group: 'toggles' },
+  toggleCraft: { key: 'b', description: 'Toggle show craft docs', group: 'toggles' },
+  toggleFiles: { key: 'n', description: 'Toggle show files', group: 'toggles' },
+  toggleTaskType1: { key: 'y', description: 'Toggle task type 1', group: 'toggles' },
+  toggleTaskType2: { key: 'x', description: 'Toggle task type 2', group: 'toggles' },
+  toggleTaskType3: { key: 'c', description: 'Toggle task type 3', group: 'toggles' }
 }
 
 const bindings = ref<KeyBindings>({ ...defaultBindings })

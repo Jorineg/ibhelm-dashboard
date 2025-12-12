@@ -3,22 +3,32 @@
     title="Key Bindings"
     description="Customize keyboard shortcuts. Click on a key to change it."
   >
-    <div class="keybindings-grid">
-      <div 
-        v-for="(binding, action) in keyBindings" 
-        :key="action" 
-        class="keybinding-row"
-      >
-        <span class="keybinding-description">{{ binding.description }}</span>
-        <button 
-          class="keybinding-key"
-          :class="{ recording: recordingAction === action }"
-          @click="startRecording(action)"
+    <!-- Fixed shortcuts info -->
+    <InfoBox title="Fixed shortcuts">
+      Keys <strong>1-9</strong> and <strong>0</strong> switch to filter configs 1-10
+    </InfoBox>
+
+    <!-- Grouped shortcuts -->
+    <div v-for="group in shortcutGroups" :key="group.id" class="keybinding-group">
+      <h4 class="group-title">{{ group.label }}</h4>
+      <div class="keybindings-grid">
+        <div 
+          v-for="action in group.actions" 
+          :key="action" 
+          class="keybinding-row"
         >
-          {{ recordingAction === action ? 'Press key...' : formatKeyForDisplay(binding.key) }}
-        </button>
+          <span class="keybinding-description">{{ keyBindings[action].description }}</span>
+          <button 
+            class="keybinding-key"
+            :class="{ recording: recordingAction === action }"
+            @click="startRecording(action)"
+          >
+            {{ recordingAction === action ? 'Press key...' : formatKeyForDisplay(keyBindings[action].key) }}
+          </button>
+        </div>
       </div>
     </div>
+
     <div class="keybindings-actions">
       <button class="reset-btn" @click="handleReset">
         <i class="pi pi-refresh"></i>
@@ -30,12 +40,46 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { SectionCard } from '@/components/common'
+import { SectionCard, InfoBox } from '@/components/common'
 import { useKeyBindings, type KeyBindings } from '@/composables/useKeyBindings'
 
 const { keyBindings, updateBinding, resetToDefaults, formatKeyForDisplay } = useKeyBindings()
 
 const recordingAction = ref<keyof KeyBindings | null>(null)
+
+// Grouped shortcuts (excludes filter configs 1-9, 0 which are fixed)
+const shortcutGroups: { id: string; label: string; actions: (keyof KeyBindings)[] }[] = [
+  {
+    id: 'navigation',
+    label: 'Navigation',
+    actions: ['navigateUp', 'navigateDown', 'navigateLeft', 'navigateRight']
+  },
+  {
+    id: 'actions',
+    label: 'Item Actions',
+    actions: ['openLink', 'openDetail', 'closeDialog']
+  },
+  {
+    id: 'config_mgmt',
+    label: 'Config Management',
+    actions: ['newConfig', 'deleteConfig', 'renameConfig']
+  },
+  {
+    id: 'view',
+    label: 'View',
+    actions: ['focusSearch', 'toggleView', 'gridZoomIn', 'gridZoomOut']
+  },
+  {
+    id: 'filters',
+    label: 'Quick Filters',
+    actions: ['focusProject', 'focusCostGroup', 'focusLocation', 'focusTags', 'focusInvolvedPerson']
+  },
+  {
+    id: 'toggles',
+    label: 'Type Toggles',
+    actions: ['toggleEmails', 'toggleCraft', 'toggleFiles', 'toggleTaskType1', 'toggleTaskType2', 'toggleTaskType3']
+  }
+]
 
 const startRecording = (action: keyof KeyBindings) => {
   recordingAction.value = action
@@ -79,35 +123,61 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+:deep(.info-box) {
+  margin-bottom: 1.5rem;
+}
+
+:deep(.info-box strong) {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.keybinding-group {
+  margin-bottom: 1.5rem;
+}
+
+.keybinding-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.group-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem 0;
+  padding-left: 0.25rem;
+}
+
 .keybindings-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .keybinding-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   background: var(--bg-tertiary);
   border-radius: var(--radius-md);
 }
 
 .keybinding-description {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--text-primary);
 }
 
 .keybinding-key {
   min-width: 60px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;

@@ -238,6 +238,16 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true)
 })
+
+// Expose method to start renaming the active config (for keyboard shortcut)
+const startRenameActive = () => {
+  const active = configurations.value.find(c => c.id === activeConfigId.value)
+  if (active) {
+    startRename(active.id, active.name)
+  }
+}
+
+defineExpose({ startRenameActive })
 </script>
 
 <style scoped>

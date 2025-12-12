@@ -478,14 +478,30 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
-    project: 'Project',
-    involved_person: 'Involved Person',
+    project: 'Projekt',
+    involved_person: 'Involvierte Person',
     location: 'Ort',
-    kostengruppe: 'Cost Group',
+    kostengruppe: 'Kostengruppe',
     tags: 'Tags'
   }
   return labels[name] || name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ')
 }
+
+// Refs for quick filter inputs
+const filterInputRefs = ref<Record<string, HTMLElement | null>>({})
+
+const focusQuickFilter = (filterName: string) => {
+  // Find the autocomplete or input element for this filter
+  const container = document.querySelector(`[id="${filterName}"]`) as HTMLElement
+  if (container) {
+    const input = container.tagName === 'INPUT' ? container : container.querySelector('input')
+    if (input) {
+      (input as HTMLInputElement).focus()
+    }
+  }
+}
+
+defineExpose({ focusQuickFilter })
 
 // Column filter helpers
 const getBaseField = (filterKey: keyof ColumnFilters): string => {

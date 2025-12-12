@@ -51,11 +51,11 @@
     <!-- Main Content -->
     <div class="main-content">
       <!-- Config Panel (left side) - hidden for projects and people views -->
-      <ConfigurationPanel v-if="activeView === 'items'" />
+      <ConfigurationPanel v-if="activeView === 'items'" ref="configPanelRef" />
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
-        <FilterBar v-if="activeView === 'items'" :available-columns="availableColumns" class="filters-section" />
+        <FilterBar v-if="activeView === 'items'" ref="filterBarRef" :available-columns="availableColumns" class="filters-section" />
         <DataTable
           ref="dataTableRef"
           :search-query="searchQuery"
@@ -222,8 +222,14 @@ const dataTableRef = ref<{
   scrollToSelectedCell: () => void
   scrollHorizontal: (dir: 'left' | 'right') => void
   getGalleryColumns: () => number
-  scrollToSelectedGalleryItem: () => void 
+  scrollToSelectedGalleryItem: () => void
 } | null>(null)
+
+// Ref for ConfigurationPanel to trigger rename
+const configPanelRef = ref<{ startRenameActive: () => void } | null>(null)
+
+// Ref for FilterBar to focus quick filters
+const filterBarRef = ref<{ focusQuickFilter: (filter: string) => void } | null>(null)
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -618,8 +624,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
   const bindings = keyBindings.value
   const key = event.key
   
-  // Escape: blur input, or close dialog, or deselect
-  if (key === bindings.closeDialog.key) {
+  // Escape or Enter: blur input, or close dialog, or deselect
+  if (key === bindings.closeDialog.key || (key === 'Enter' && isTyping)) {
     event.preventDefault()
     if (isTyping) {
       (target as HTMLInputElement).blur()
@@ -629,14 +635,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
       detailDialogVisible.value = false
       return
     }
-    // Deselect row if nothing else to close
     if (selectedRow.value >= 0) {
       selectedRow.value = -1
     }
     return
   }
   
-  // Toggle detail popup with 'o' (works even when dialog is open)
+  // Toggle detail popup (works even when dialog is open)
   if (key === bindings.openDetail.key && !isTyping) {
     event.preventDefault()
     if (detailDialogVisible.value) {
@@ -666,6 +671,16 @@ const handleKeyDown = (event: KeyboardEvent) => {
       }
       return
     }
+  }
+  
+  // Filter config 10 (key '0')
+  if (key === bindings.filterConfig0.key) {
+    event.preventDefault()
+    const configs = configurations.value
+    if (configs.length >= 10) {
+      setActiveConfiguration(configs[9].id)
+    }
+    return
   }
   
   // Navigation shortcuts - handle differently for list vs gallery view
@@ -796,14 +811,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
-  // New config (n)
+  // New config
   if (key === bindings.newConfig.key) {
     event.preventDefault()
     createConfiguration()
     return
   }
   
-  // Delete config (d)
+  // Delete config
   if (key === bindings.deleteConfig.key) {
     event.preventDefault()
     if (activeConfig.value && configurations.value.length > 1) {
@@ -812,14 +827,21 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
-  // Focus search (s)
+  // Rename config
+  if (key === bindings.renameConfig.key) {
+    event.preventDefault()
+    configPanelRef.value?.startRenameActive()
+    return
+  }
+  
+  // Focus search
   if (key === bindings.focusSearch.key) {
     event.preventDefault()
     dataTableRef.value?.focusSearch()
     return
   }
   
-  // Toggle view (v)
+  // Toggle view
   if (key === bindings.toggleView.key) {
     event.preventDefault()
     const newMode = activeConfig.value?.viewMode === 'gallery' ? 'list' : 'gallery'
@@ -837,6 +859,67 @@ const handleKeyDown = (event: KeyboardEvent) => {
     if (key === bindings.gridZoomOut.key) {
       event.preventDefault()
       gridZoomOut()
+      return
+    }
+  }
+  
+  // Quick filter shortcuts (only in items view)
+  if (activeView.value === 'items') {
+    if (key === bindings.focusProject.key) {
+      event.preventDefault()
+      filterBarRef.value?.focusQuickFilter('project')
+      return
+    }
+    if (key === bindings.focusCostGroup.key) {
+      event.preventDefault()
+      filterBarRef.value?.focusQuickFilter('kostengruppe')
+      return
+    }
+    if (key === bindings.focusLocation.key) {
+      event.preventDefault()
+      filterBarRef.value?.focusQuickFilter('location')
+      return
+    }
+    if (key === bindings.focusTags.key) {
+      event.preventDefault()
+      filterBarRef.value?.focusQuickFilter('tags')
+      return
+    }
+    if (key === bindings.focusInvolvedPerson.key) {
+      event.preventDefault()
+      filterBarRef.value?.focusQuickFilter('involved_person')
+      return
+    }
+    
+    // Type toggle shortcuts
+    if (key === bindings.toggleEmails.key) {
+      event.preventDefault()
+      handleUpdateShowEmails(!(activeConfig.value?.showEmails ?? true))
+      return
+    }
+    if (key === bindings.toggleCraft.key) {
+      event.preventDefault()
+      handleUpdateShowCraft(!(activeConfig.value?.showCraft ?? true))
+      return
+    }
+    if (key === bindings.toggleFiles.key) {
+      event.preventDefault()
+      handleUpdateShowFiles(!(activeConfig.value?.showFiles ?? true))
+      return
+    }
+    
+    // Task type toggle shortcuts
+    if (key === bindings.toggleTaskType1.key || key === bindings.toggleTaskType2.key || key === bindings.toggleTaskType3.key) {
+      event.preventDefault()
+      const typeIndex = key === bindings.toggleTaskType1.key ? 0 : key === bindings.toggleTaskType2.key ? 1 : 2
+      if (typeIndex < taskTypes.value.length) {
+        const typeId = taskTypes.value[typeIndex].id
+        const current = selectedTaskTypes.value
+        const newTypes = current.includes(typeId) 
+          ? current.filter(id => id !== typeId)
+          : [...current, typeId]
+        handleUpdateSelectedTaskTypes(newTypes)
+      }
       return
     }
   }
