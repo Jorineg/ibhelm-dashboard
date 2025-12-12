@@ -312,37 +312,11 @@ const availableColumns = computed<Column[]>(() => {
   }
 })
 
-// Switch view handler
-const switchView = async (view: ViewType) => {
+// Switch view handler - just changes view, watcher handles data loading
+const switchView = (view: ViewType) => {
   if (currentViewType.value === view) return
   setCurrentView(view)
-  
-  // Wait for Vue to update the reactive state (activeConfig will change)
-  await nextTick()
-  
-  const defaultSort: SortConfig = view === 'items' 
-    ? { field: 'sort_date', order: 'desc' }
-    : view === 'projects'
-      ? { field: 'name', order: 'asc' }
-      : { field: 'display_name', order: 'asc' }
-  
-  await loadData(
-    activeConfig.value?.showTasks ?? true,
-    activeConfig.value?.showEmails ?? true,
-    activeConfig.value?.showCraft ?? true,
-    activeConfig.value?.showFiles ?? true,
-    '',
-    activeConfig.value || null,
-    defaultSort,
-    view,
-    selectedTaskTypes.value
-  )
-  
-  // Clear any pending filter timeout to prevent double-load from the dataFetchConfig watcher
-  if (filterTimeout) {
-    clearTimeout(filterTimeout)
-    filterTimeout = null
-  }
+  // Config ID watcher will fire → clearAndStartLoading() → dataFetchConfigKey watcher loads data
 }
 
 // Filtered items (server-side filtering is primary)
@@ -364,71 +338,87 @@ const dataFetchConfigKey = computed(() => {
   })
 })
 
-// Track if initial load has been done to prevent double loading on page reload
-let initialLoadDone = false
+// State for data loading coordination
 let filterTimeout: number | null = null
 let configSwitchStart: number | null = null
-let configSwitchReqId: number | null = null
-let lastConfigId: string | null = null
 let currentReqId: number | null = null
+let lastLoadedKey: string | null = null  // Track what config key we loaded to prevent duplicates
 
 // Watch for config ID changes to immediately clear data (prevents flicker when switching configs)
 watch(() => activeConfig.value?.id, (newId, oldId) => {
   if (oldId && newId !== oldId) {
-    const reqId = getNextRequestId()
+    // Cancel any pending load
+    if (filterTimeout) {
+      clearTimeout(filterTimeout)
+      filterTimeout = null
+    }
     configSwitchStart = performance.now()
-    configSwitchReqId = reqId
-    lastConfigId = newId ?? null
-    // Immediately clear items and show loading to prevent new config being applied to old data
+    lastLoadedKey = null  // Reset so new config can load
     clearAndStartLoading()
   }
 })
 
 // Log total time when loading finishes after a config switch
 watch(loading, (isLoading, wasLoading) => {
-  if (wasLoading && !isLoading && configSwitchStart !== null && configSwitchReqId === currentReqId) {
-    console.log(`[UI] #${currentReqId} Config switch → data displayed: ${(performance.now() - configSwitchStart).toFixed(0)}ms`)
+  if (wasLoading && !isLoading && configSwitchStart !== null) {
+    console.log(`[UI] Config switch → data displayed: ${(performance.now() - configSwitchStart).toFixed(0)}ms`)
     configSwitchStart = null
-    configSwitchReqId = null
   }
 })
 
-watch(dataFetchConfigKey, async (newKey, oldKey) => {
+watch(dataFetchConfigKey, async (newKey) => {
   if (filterTimeout) clearTimeout(filterTimeout)
   
-  // Skip if no config
-  if (!newKey || !activeConfig.value) return
+  // Skip if no config or already loaded this exact key
+  if (!newKey || !activeConfig.value || lastLoadedKey === newKey) return
   
-  // Skip if this is the same config key (prevents duplicate loads)
-  if (initialLoadDone && newKey === oldKey) return
+  // Determine debounce:
+  // - 0ms for first load (lastLoadedKey is null)
+  // - 0ms for config switches (configSwitchStart is set)
+  // - 300ms for filter changes (debounce typing)
+  const isFirstLoad = lastLoadedKey === null
+  const isConfigSwitch = configSwitchStart !== null
+  const debounceMs = (isFirstLoad || isConfigSwitch) ? 0 : 300
+  const reqId = getNextRequestId()
   
-  // Config ID switch: skip debounce entirely (already handled by clearAndStartLoading)
-  const isConfigIdSwitch = activeConfig.value.id === lastConfigId && configSwitchStart !== null
-  const debounceMs = isConfigIdSwitch ? 0 : 300
-  const reqId = configSwitchReqId ?? getNextRequestId()
-  lastConfigId = null
+  // Capture values NOW (they could change during debounce)
+  const captured = {
+    showTasks: activeConfig.value.showTasks,
+    showEmails: activeConfig.value.showEmails,
+    showCraft: activeConfig.value.showCraft ?? true,
+    showFiles: activeConfig.value.showFiles ?? true,
+    sortConfig: activeConfig.value.sortConfig,
+    config: activeConfig.value,
+    search: searchQuery.value,
+    viewType: currentViewType.value,
+    taskTypes: selectedTaskTypes.value,
+    key: newKey
+  }
   
   filterTimeout = window.setTimeout(async () => {
-    if (activeConfig.value) {
-      currentReqId = reqId
-      setCurrentRequestId(reqId)
-      const loadStart = performance.now()
-      initialLoadDone = true
-      console.log(`[UI] #${reqId} loadData starting...`)
-      await loadData(
-        activeConfig.value.showTasks,
-        activeConfig.value.showEmails,
-        activeConfig.value.showCraft ?? true,
-        activeConfig.value.showFiles ?? true,
-        searchQuery.value,
-        activeConfig.value,
-        activeConfig.value.sortConfig,
-        currentViewType.value,
-        selectedTaskTypes.value
-      )
-      console.log(`[UI] #${reqId} loadData took: ${(performance.now() - loadStart).toFixed(0)}ms`)
-      setCurrentRequestId(null)
-    }
+    // Skip if we already loaded this key (another load completed during debounce)
+    if (lastLoadedKey === captured.key) return
+    
+    currentReqId = reqId
+    setCurrentRequestId(reqId)
+    const loadStart = performance.now()
+    console.log(`[UI] #${reqId} loadData starting...`)
+    
+    await loadData(
+      captured.showTasks,
+      captured.showEmails,
+      captured.showCraft,
+      captured.showFiles,
+      captured.search,
+      captured.config,
+      captured.sortConfig,
+      captured.viewType,
+      captured.taskTypes
+    )
+    
+    lastLoadedKey = captured.key
+    console.log(`[UI] #${reqId} loadData took: ${(performance.now() - loadStart).toFixed(0)}ms`)
+    setCurrentRequestId(null)
   }, debounceMs)
 }, { immediate: true })
 
