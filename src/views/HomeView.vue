@@ -163,7 +163,7 @@ const closeSyncPopup = () => {
 
 // Grid zoom state (localStorage persisted) - number of columns per row
 const GRID_ZOOM_STORAGE_KEY = 'ibhelm_grid_columns'
-const GRID_COLUMN_LEVELS = [2, 3, 4, 6, 8, 10, 12, 14]
+const GRID_COLUMN_LEVELS = [2, 3, 4, 6, 8, 11, 15]
 const GRID_COLUMNS_DEFAULT = 4
 
 const gridColumns = ref(

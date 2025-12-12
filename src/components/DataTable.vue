@@ -133,13 +133,6 @@
               ></span>
             </div>
           </template>
-          
-          <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
-            {{ itemCountData.loaded.toLocaleString() }} of 
-            <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span>
-            <span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span>
-            {{ itemCountData.viewLabel }}
-          </span>
         </div>
         
         <MultiSelect
@@ -157,6 +150,11 @@
             <span>{{ enabledSelectedColumnsCount }} columns selected</span>
           </template>
         </MultiSelect>
+
+        <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
+          <span class="results-line">displaying {{ itemCountData.loaded.toLocaleString() }}</span>
+          <span class="results-line">of <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span><span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span> {{ itemCountData.viewLabel }}</span>
+        </span>
       </div>
 
       <div class="toolbar-right">
@@ -1138,7 +1136,7 @@ onUnmounted(() => {
 
 .toolbar-left {
   display: flex;
-  align-items: start;
+  align-items: center;
   gap: 1.5rem;
   flex-wrap: wrap;
   flex: 1;
@@ -1247,18 +1245,13 @@ onUnmounted(() => {
 }
 
 .results-count {
+  display: flex;
+  flex-direction: column;
   font-size: 0.875rem;
   color: var(--text-tertiary);
-  margin-left: 1rem;
-  padding-left: 1rem;
-  border-left: 1px solid var(--text-disabled);
+  line-height: 1.2;
 }
 
-.results-count.no-border {
-  margin-left: 0;
-  padding-left: 0;
-  border-left: none;
-}
 
 /* Shimmer effect for count loading */
 .count-shimmer {
