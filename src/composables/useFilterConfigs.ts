@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
 
-const STORAGE_KEY = 'ibhelm_filter_configurations_v2'
+const STORAGE_KEY = 'ibhelm_filter_configurations_v3'
 
 // Default quick filter fields per view type
 const DEFAULT_QUICK_FILTERS_BY_VIEW: Record<ViewType, (keyof QuickFilters)[]> = {
@@ -36,6 +36,7 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     showFiles: true,
     viewMode: 'list',
     sortConfig: DEFAULT_SORT_BY_VIEW[viewType],
+    searchQuery: '',
     quickFilters: {},
     columnFilters: {},
     visibleColumns: columns,
@@ -58,6 +59,13 @@ const activeConfigIds = ref<Record<ViewType, string>>({
 
 // Config order per view type (array of config IDs)
 const configOrder = ref<Record<ViewType, string[]>>({
+  items: [],
+  projects: [],
+  people: []
+})
+
+// Quick filter order per view type (global, not per config)
+const quickFilterOrder = ref<Record<ViewType, (keyof QuickFilters)[]>>({
   items: [],
   projects: [],
   people: []
@@ -102,6 +110,7 @@ function loadConfigurations() {
       allConfigurations.value = parsed.configs || []
       activeConfigIds.value = parsed.activeConfigIds || { items: '', projects: '', people: '' }
       configOrder.value = parsed.configOrder || { items: [], projects: [], people: [] }
+      quickFilterOrder.value = parsed.quickFilterOrder || { items: [], projects: [], people: [] }
     }
 
     // Ensure each view type has at least one configuration
@@ -138,7 +147,8 @@ function saveConfigurations() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       configs: allConfigurations.value,
       activeConfigIds: activeConfigIds.value,
-      configOrder: configOrder.value
+      configOrder: configOrder.value,
+      quickFilterOrder: quickFilterOrder.value
     }))
   } catch (error) {
     console.error('Error saving configurations:', error)
@@ -287,9 +297,16 @@ export function useFilterConfigs() {
     }
   }
 
+  const updateSearchQuery = (value: string) => {
+    if (activeConfig.value) {
+      updateConfiguration(activeConfig.value.id, { searchQuery: value })
+    }
+  }
+
   const clearAllFilters = () => {
     if (activeConfig.value) {
       updateConfiguration(activeConfig.value.id, { 
+        searchQuery: '',
         quickFilters: {}, 
         columnFilters: {} 
       })
@@ -299,9 +316,10 @@ export function useFilterConfigs() {
   // Check if any filters are active
   const hasActiveFilters = computed(() => {
     if (!activeConfig.value) return false
+    const search = activeConfig.value.searchQuery
     const quick = activeConfig.value.quickFilters
     const col = activeConfig.value.columnFilters
-    return Object.keys(quick).length > 0 || Object.keys(col).length > 0
+    return !!search || Object.keys(quick).length > 0 || Object.keys(col).length > 0
   })
 
   // Get active column filter keys (for UI display)
@@ -310,10 +328,10 @@ export function useFilterConfigs() {
     return Object.keys(activeConfig.value.columnFilters) as (keyof ColumnFilters)[]
   })
 
-  // Computed quick filter fields based on current view (with custom order if set)
+  // Computed quick filter fields based on current view (with global custom order if set)
   const quickFilterFields = computed(() => {
     const defaults = DEFAULT_QUICK_FILTERS_BY_VIEW[currentViewType.value]
-    const customOrder = activeConfig.value?.quickFilterOrder
+    const customOrder = quickFilterOrder.value[currentViewType.value]
     if (!customOrder || customOrder.length === 0) return defaults
     // Merge custom order with defaults (custom first, then any missing defaults)
     const result: (keyof QuickFilters)[] = []
@@ -327,9 +345,8 @@ export function useFilterConfigs() {
   })
 
   const updateQuickFilterOrder = (order: (keyof QuickFilters)[]) => {
-    if (activeConfig.value) {
-      updateConfiguration(activeConfig.value.id, { quickFilterOrder: order })
-    }
+    quickFilterOrder.value[currentViewType.value] = order
+    saveConfigurations()
   }
 
   const updateConfigOrder = (order: string[]) => {
@@ -351,6 +368,7 @@ export function useFilterConfigs() {
     deleteConfiguration,
     updateConfiguration,
     setActiveConfiguration,
+    updateSearchQuery,
     updateQuickFilter,
     updateQuickFilterOrder,
     updateConfigOrder,

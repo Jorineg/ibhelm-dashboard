@@ -147,15 +147,14 @@
           :options="allColumns"
           option-label="header"
           option-value="field"
+          :option-disabled="isColumnDisabled"
           placeholder="Select Columns"
           :max-selected-labels="0"
           class="column-selector"
+          @selectall-change="handleSelectAllChange"
         >
           <template #value>
-            <span>{{ localVisibleColumns.length }} columns selected</span>
-            <span v-if="hiddenEmptyColumnsCount > 0" class="hidden-columns-hint">
-              ({{ hiddenEmptyColumnsCount }} columns hidden)
-            </span>
+            <span>{{ enabledSelectedColumnsCount }} columns selected</span>
           </template>
         </MultiSelect>
       </div>
@@ -251,12 +250,13 @@
               :href="getRowPrimaryUrl(data)"
               :target="getRowLinkTarget(data)"
               rel="noopener noreferrer"
-              class="type-badge-link"
-              :style="getTypeBadgeStyle(data)"
+              class="type-cell-link"
               :title="getTypeBadgeTooltip(data)"
               @click="handleTypeBadgeClick($event, data)"
             >
-              {{ getTypeBadgeText(data) }}
+              <span class="type-badge" :style="getTypeBadgeStyle(data)">
+                {{ getTypeBadgeText(data) }}
+              </span>
             </a>
           </template>
         </Column>
@@ -274,6 +274,7 @@
               :class="{ sortable: col.sortable !== false }"
               @click="col.sortable !== false && handleHeaderClick(col.field)"
             >
+              <i class="pi pi-bars column-drag-handle"></i>
               <span class="column-header-text">{{ col.header }}</span>
               <i v-if="col.sortable !== false" :class="['sort-icon', getSortIcon(col.field)]" />
             </div>
@@ -564,6 +565,54 @@ const localVisibleColumns = computed({
   set: (value) => emit('update:visibleColumns', value)
 })
 
+// Static column visibility based on selected item types (moved here for use in availableColumns)
+const staticVisibleColumns = computed(() => {
+  if (props.viewType !== 'items' && props.viewType !== undefined) {
+    return null // Don't apply for projects/people views
+  }
+  return getVisibleColumnsForTypes(
+    props.showTasks,
+    props.showEmails,
+    props.showCraft,
+    props.showFiles,
+    props.selectedTaskTypes ?? null
+  )
+})
+
+// Column availability based on selected item types
+const availableColumns = computed(() => {
+  if (staticVisibleColumns.value !== null) {
+    return new Set(staticVisibleColumns.value)
+  }
+  // For non-items views, all columns are available
+  return new Set(props.columns.map(c => c.field))
+})
+
+// Check if a column should be disabled (greyed out) in the selector
+const isColumnDisabled = (option: { field: string }) => {
+  // Type column is always available
+  if (option.field === 'type') return false
+  return !availableColumns.value.has(option.field)
+}
+
+// Count only enabled (non-disabled) selected columns
+const enabledSelectedColumnsCount = computed(() => {
+  return props.visibleColumns.filter(field => availableColumns.value.has(field)).length
+})
+
+// Handle select-all: only select enabled columns, preserve disabled selections
+const handleSelectAllChange = (event: { checked: boolean }) => {
+  const disabledSelected = props.visibleColumns.filter(f => !availableColumns.value.has(f))
+  if (event.checked) {
+    const enabledFields = props.columns
+      .filter(col => availableColumns.value.has(col.field))
+      .map(col => col.field)
+    emit('update:visibleColumns', [...new Set([...enabledFields, ...disabledSelected])])
+  } else {
+    emit('update:visibleColumns', disabledSelected)
+  }
+}
+
 const localShowEmails = computed({
   get: () => props.showEmails,
   set: (value) => emit('update:showEmails', value)
@@ -616,19 +665,31 @@ const orderedVisibleColumnsWithoutType = computed(() => {
   return orderedVisibleColumns.value.filter(col => col.field !== 'type')
 })
 
-// Static column visibility based on selected item types
-const staticVisibleColumns = computed(() => {
-  if (props.viewType !== 'items' && props.viewType !== undefined) {
-    return null // Don't apply for projects/people views
-  }
-  return getVisibleColumnsForTypes(
-    props.showTasks,
-    props.showEmails,
-    props.showCraft,
-    props.showFiles,
-    props.selectedTaskTypes ?? null
-  )
-})
+// Handle PrimeVue column reorder
+const handleColumnReorder = (event: any) => {
+  const { dragIndex, dropIndex } = event
+  if (dragIndex === undefined || dropIndex === undefined) return
+  
+  // Account for frozen type column (index 0) if in items view
+  const hasTypeColumn = props.viewType === 'items' || !props.viewType
+  const offset = hasTypeColumn ? 1 : 0
+  const adjustedDragIndex = dragIndex - offset
+  const adjustedDropIndex = dropIndex - offset
+  
+  // Get current visible column order and apply the drag/drop
+  const currentOrder = [...orderedVisibleColumnsWithoutType.value.map(c => c.field)]
+  
+  if (adjustedDragIndex < 0 || adjustedDropIndex < 0 || adjustedDragIndex >= currentOrder.length) return
+  
+  const [moved] = currentOrder.splice(adjustedDragIndex, 1)
+  currentOrder.splice(adjustedDropIndex, 0, moved)
+  
+  // Merge with hidden columns (preserve their positions at the end)
+  const visibleSet = new Set(currentOrder)
+  const hiddenColumns = props.columnOrder.filter(f => !visibleSet.has(f))
+  
+  emit('update:columnOrder', [...currentOrder, ...hiddenColumns])
+}
 
 // Check if column should be shown based on selected item types
 const shouldShowColumn = (field: string): boolean => {
@@ -648,21 +709,6 @@ const shouldShowColumn = (field: string): boolean => {
     return value !== null && value !== undefined && value !== ''
   })
 }
-
-// Count columns that are hidden because they're not relevant to selected item types
-const hiddenEmptyColumnsCount = computed(() => {
-  // For items view, use static mapping
-  if (staticVisibleColumns.value !== null) {
-    return props.visibleColumns.filter(field => !staticVisibleColumns.value!.includes(field)).length
-  }
-  
-  // For other views, use cached/client-side visibility
-  if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
-    return props.visibleColumns.filter(field => !cachedColumnsWithData.value.has(field)).length
-  }
-  if (props.items.length === 0) return 0
-  return props.visibleColumns.filter(field => !shouldShowColumn(field)).length
-})
 
 // Get column style with width - use maxWidth to prevent columns from expanding with few columns
 const getColumnStyle = (col: ColumnType) => {
@@ -723,30 +769,6 @@ const getRowClass = (data: ViewDataItem) => {
   return index === props.selectedRow ? 'keyboard-selected' : ''
 }
 
-const handleColumnReorder = (event: any) => {
-  const { dragIndex, dropIndex } = event
-  if (dragIndex === undefined || dropIndex === undefined) return
-  
-  // Account for frozen type column (index 0) if in items view
-  const hasTypeColumn = props.viewType === 'items' || !props.viewType
-  const offset = hasTypeColumn ? 1 : 0
-  const adjustedDragIndex = dragIndex - offset
-  const adjustedDropIndex = dropIndex - offset
-  
-  // Get current visible column order and apply the drag/drop
-  const currentOrder = [...orderedVisibleColumnsWithoutType.value.map(c => c.field)]
-  
-  if (adjustedDragIndex < 0 || adjustedDropIndex < 0 || adjustedDragIndex >= currentOrder.length) return
-  
-  const [moved] = currentOrder.splice(adjustedDragIndex, 1)
-  currentOrder.splice(adjustedDropIndex, 0, moved)
-  
-  // Merge with hidden columns (preserve their positions at the end)
-  const visibleSet = new Set(currentOrder)
-  const hiddenColumns = props.columnOrder.filter(f => !visibleSet.has(f))
-  
-  emit('update:columnOrder', [...currentOrder, ...hiddenColumns])
-}
 
 const handleSort = (event: any) => {
   // Prevent sort during/right after column resize
@@ -1150,11 +1172,10 @@ onUnmounted(() => {
   min-width: 200px;
 }
 
-.hidden-columns-hint {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  margin-left: 0.5rem;
+/* Disabled column options (greyed out with checkmark preserved) */
+:deep(.p-multiselect-item[data-p-disabled="true"]) {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .item-type-toggles {
@@ -1383,6 +1404,19 @@ onUnmounted(() => {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-primary) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  cursor: grab;
+}
+
+.data-table :deep(.p-datatable-thead > tr > th:active) {
+  cursor: grabbing;
+}
+
+/* Column being dragged (PrimeVue adds p-highlight during drag) */
+.data-table :deep(.p-datatable-thead > tr > th.p-highlight) {
+  opacity: 0.5;
+  background: var(--accent-primary-dark) !important;
+  transform: scale(0.98);
+  transition: opacity 0.15s, transform 0.15s;
 }
 
 /* Prevent sort clicks during column resize */
@@ -1407,9 +1441,10 @@ onUnmounted(() => {
   z-index: 110 !important;
 }
 
-/* Type column body - inherit row background for striping/hover */
+/* Type column body - inherit row background for striping/hover, enable absolute positioning */
 .data-table :deep(.p-datatable-tbody > tr > .type-column) {
   background: inherit !important;
+  position: relative !important;
 }
 
 /* Disable resize handle on type column */
@@ -1541,8 +1576,21 @@ onUnmounted(() => {
   max-width: 150px;
 }
 
-/* Type Badge Link - clickable badge */
-.type-badge-link {
+/* Type Cell Link - fills entire cell */
+.type-cell-link {
+  position: absolute;
+  inset: 0;
+  display: flex !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Type Badge - styled button inside cell link */
+.type-badge {
   display: inline-block;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
@@ -1550,12 +1598,11 @@ onUnmounted(() => {
   font-weight: 600;
   letter-spacing: 0.5px;
   border: 1px solid;
-  text-decoration: none;
-  cursor: pointer;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
-.type-badge-link:hover {
+/* Hover animation triggers from parent cell hover */
+.type-cell-link:hover .type-badge {
   transform: scale(1.08);
   filter: brightness(1.15);
 }
@@ -1744,6 +1791,18 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.column-drag-handle {
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  margin-right: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.custom-sort-header:hover .column-drag-handle {
+  opacity: 1;
+}
+
 .custom-sort-header.sortable:hover .sort-icon {
   color: var(--text-secondary);
 }
@@ -1770,6 +1829,18 @@ onUnmounted(() => {
   width: 2px !important;
   background: var(--accent-primary) !important;
   z-index: 9999 !important;
+}
+
+/* Column reorder drop indicators */
+.p-datatable-reorder-indicator-up,
+.p-datatable-reorder-indicator-down {
+  color: var(--accent-primary) !important;
+  font-size: 1.25rem !important;
+}
+
+.p-datatable-reorder-indicator-up::before,
+.p-datatable-reorder-indicator-down::before {
+  color: var(--accent-primary) !important;
 }
 </style>
 

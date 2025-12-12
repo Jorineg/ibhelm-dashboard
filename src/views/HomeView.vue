@@ -59,7 +59,7 @@
         <DataTable
           ref="dataTableRef"
           :search-query="searchQuery"
-          @update:search-query="searchQuery = $event"
+          @update:search-query="updateSearchQuery($event)"
           @clear-search="clearSearch"
           :items="filteredAndSearchedItems"
           :columns="availableColumns"
@@ -136,7 +136,7 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration } = useFilterConfigs()
+const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
@@ -209,7 +209,7 @@ const {
 
 const exporting = ref(false)
 
-const searchQuery = ref('')
+const searchQuery = computed(() => activeConfig.value?.searchQuery || '')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
 
@@ -315,7 +315,6 @@ const availableColumns = computed<Column[]>(() => {
 // Switch view handler
 const switchView = async (view: ViewType) => {
   if (currentViewType.value === view) return
-  searchQuery.value = ''
   setCurrentView(view)
   
   // Wait for Vue to update the reactive state (activeConfig will change)
@@ -359,6 +358,7 @@ const dataFetchConfigKey = computed(() => {
     showCraft: activeConfig.value.showCraft,
     showFiles: activeConfig.value.showFiles,
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
+    searchQuery: activeConfig.value.searchQuery,
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters
   })
@@ -432,30 +432,8 @@ watch(dataFetchConfigKey, async (newKey, oldKey) => {
   }, debounceMs)
 }, { immediate: true })
 
-// Search debouncing
-let searchTimeout: number | null = null
-watch(searchQuery, () => {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  
-  searchTimeout = window.setTimeout(async () => {
-    if (activeConfig.value) {
-      await loadData(
-        activeConfig.value.showTasks,
-        activeConfig.value.showEmails,
-        activeConfig.value.showCraft ?? true,
-        activeConfig.value.showFiles ?? true,
-        searchQuery.value,
-        activeConfig.value,
-        activeConfig.value.sortConfig,
-        currentViewType.value,
-        selectedTaskTypes.value
-      )
-    }
-  }, 500)
-})
-
 const clearSearch = () => {
-  searchQuery.value = ''
+  updateSearchQuery('')
 }
 
 // Watch for visible columns changes

@@ -344,9 +344,10 @@ export interface FilterConfiguration {
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   sortConfig?: SortConfig
+  // Global text search
+  searchQuery?: string
   // Quick filters (always visible text inputs)
   quickFilters: QuickFilters
-  quickFilterOrder?: (keyof QuickFilters)[]  // Custom order for quick filters
   // Typed column filters
   columnFilters: ColumnFilters
   visibleColumns: string[]
