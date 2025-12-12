@@ -81,6 +81,17 @@ const quickFilterOrder = ref<Record<ViewType, (keyof QuickFilters)[]>>({
 // Current view type
 const currentViewType = ref<ViewType>('items')
 
+// Timing: when was config switch initiated (for perf logging)
+let configSwitchTimestamp: number | null = null
+export function getConfigSwitchTimestamp(): number | null {
+  const ts = configSwitchTimestamp
+  configSwitchTimestamp = null // Clear after reading
+  return ts
+}
+export function hasRecentConfigSwitch(): boolean {
+  return configSwitchTimestamp !== null
+}
+
 // Filtered configurations for current view only (sorted by custom order)
 const configurations = computed(() => {
   const viewConfigs = allConfigurations.value.filter(c => c.viewType === currentViewType.value)
@@ -294,6 +305,7 @@ export function useFilterConfigs() {
     if (config) {
       const viewType = config.viewType
       if (activeConfigIds.value[viewType] !== id) {
+        configSwitchTimestamp = performance.now() // Record click time
         pushToHistory(viewType)
       }
       activeConfigIds.value[viewType] = id

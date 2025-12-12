@@ -1,11 +1,39 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { generateQueryKey, getCachedQuery, setCachedQuery, formatCacheAge } from '@/lib/queryCache'
 import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
 
 const PAGE_SIZE = 50
 
 // Request versioning to handle race conditions when switching configs
 let requestVersion = 0
+
+// Build cache key for a query
+function buildCacheKey(
+  viewType: ViewType,
+  showTasks: boolean,
+  showEmails: boolean,
+  showCraft: boolean,
+  showFiles: boolean,
+  search: string,
+  filterConfig: FilterConfiguration | null,
+  sortConfig: SortConfig,
+  selectedTaskTypes: string[] | null
+): string {
+  return generateQueryKey({
+    viewType,
+    showTasks,
+    showEmails,
+    showCraft,
+    showFiles,
+    search,
+    quickFilters: filterConfig?.quickFilters,
+    columnFilters: filterConfig?.columnFilters,
+    sortField: sortConfig.field,
+    sortOrder: sortConfig.order,
+    selectedTaskTypes
+  })
+}
 
 // Static mapping: columns potentially filled per item type (based on mv_unified_items view)
 // Union of these sets gives visible columns for selected checkboxes
@@ -133,9 +161,13 @@ function buildUnifiedItemsParams(
 }
 
 export function useData() {
-  const items = ref<ViewDataItem[]>([])
+  // shallowRef: only track array reference changes, not deep property changes
+  // This dramatically reduces Vue's reactivity overhead for large data arrays
+  const items = shallowRef<ViewDataItem[]>([])
   const loading = ref(false)
   const countLoading = ref(false)
+  const revalidating = ref(false) // True when showing cached data while fetching fresh
+  const cacheTimestamp = ref<number | null>(null) // When cached data was fetched
   const hasMore = ref(true)
   const currentPage = ref(0)
   const searchQuery = ref('')
@@ -143,6 +175,9 @@ export function useData() {
   const currentSort = ref<SortConfig>({ field: 'sort_date', order: 'desc' })
   const currentViewType = ref<ViewType>('items')
   const error = ref<string | null>(null)
+  
+  // Formatted cache age for display
+  const cacheAge = computed(() => cacheTimestamp.value ? formatCacheAge(cacheTimestamp.value) : null)
 
   // Fetch unified items - data only, no count
   const fetchUnifiedItems = async (
@@ -270,7 +305,7 @@ export function useData() {
   // Data items are now directly from the view
   const dataItems = computed<ViewDataItem[]>(() => items.value)
 
-  // Load initial data - fetches items first, then count separately
+  // Load initial data - uses stale-while-revalidate: shows cache immediately, fetches fresh in background
   const loadData = async (
     showTasks = true,
     showEmails = true,
@@ -285,20 +320,45 @@ export function useData() {
     // Increment version and capture it for this request
     const thisRequestVersion = ++requestVersion
     
-    loading.value = true
-    countLoading.value = true
     currentPage.value = 0
-    items.value = []
     hasMore.value = true
     currentViewType.value = viewType
     error.value = null
-    totalCount.value = null
 
     // Update current sort if provided
     if (sortConfig) {
       currentSort.value = sortConfig
     }
+    
+    // Build cache key for this query
+    const cacheKey = buildCacheKey(
+      viewType, showTasks, showEmails, showCraft, showFiles,
+      search, filterConfig, currentSort.value, selectedTaskTypes
+    )
+    
+    // Check cache first
+    const cached = getCachedQuery<ViewDataItem[]>(cacheKey)
+    if (cached) {
+      // Show cached data immediately
+      items.value = cached.data
+      totalCount.value = cached.count
+      cacheTimestamp.value = cached.timestamp
+      hasMore.value = cached.data.length === PAGE_SIZE
+      loading.value = false
+      countLoading.value = false
+      revalidating.value = true // Indicate we're refreshing in background
+      console.log(`[CACHE] Hit for query, showing ${cached.data.length} items from ${formatCacheAge(cached.timestamp)}`)
+    } else {
+      // No cache - show loading state
+      items.value = []
+      totalCount.value = null
+      cacheTimestamp.value = null
+      loading.value = true
+      countLoading.value = true
+      revalidating.value = false
+    }
 
+    // Always fetch fresh data
     try {
       let result: { data: any[]; count?: number | null }
       
@@ -324,10 +384,12 @@ export function useData() {
       const stateStart = performance.now()
       items.value = result.data
       hasMore.value = result.data.length === PAGE_SIZE
+      cacheTimestamp.value = Date.now() // Fresh data
       loading.value = false
+      revalidating.value = false
       console.log(`[TIMING] State update: ${(performance.now() - stateStart).toFixed(0)}ms`)
       
-      // Now fetch count in background (after data is displayed)
+      // Fetch count in background (after data is displayed)
       try {
         let count: number
         switch (viewType) {
@@ -345,10 +407,15 @@ export function useData() {
         
         if (thisRequestVersion === requestVersion) {
           totalCount.value = count
+          // Update cache with fresh data and count
+          setCachedQuery(cacheKey, result.data, count)
         }
       } catch (countErr) {
         console.error('Error loading count:', countErr)
-        // Don't show error for count failure - data is already displayed
+        // Still cache data even if count fails
+        if (thisRequestVersion === requestVersion) {
+          setCachedQuery(cacheKey, result.data, null)
+        }
       } finally {
         if (thisRequestVersion === requestVersion) {
           countLoading.value = false
@@ -358,9 +425,13 @@ export function useData() {
       // Only update error if this is still the current request
       if (thisRequestVersion === requestVersion) {
         console.error('Error loading data:', err)
-        error.value = err instanceof Error ? err.message : 'Failed to load data. Please try again.'
+        // If we had cached data, keep showing it but indicate error
+        if (items.value.length === 0) {
+          error.value = err instanceof Error ? err.message : 'Failed to load data. Please try again.'
+        }
         loading.value = false
         countLoading.value = false
+        revalidating.value = false
       }
     }
   }
@@ -438,7 +509,8 @@ export function useData() {
       // Only update state if no new loadData has started (version unchanged)
       if (thisRequestVersion !== requestVersion) return
       
-      items.value.push(...result.data)
+      // Create new array for shallowRef reactivity (can't use push with shallowRef)
+      items.value = [...items.value, ...result.data]
       hasMore.value = result.data.length === PAGE_SIZE
     } catch (err) {
       if (thisRequestVersion === requestVersion) {
@@ -531,6 +603,8 @@ export function useData() {
     items.value = []
     loading.value = true
     countLoading.value = true
+    revalidating.value = false
+    cacheTimestamp.value = null
     hasMore.value = true
     totalCount.value = null
     error.value = null
@@ -545,6 +619,8 @@ export function useData() {
     dataItems,
     loading,
     countLoading,
+    revalidating,
+    cacheAge,
     hasMore,
     searchQuery,
     totalCount,

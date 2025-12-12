@@ -155,6 +155,7 @@
           <span class="results-line">displaying {{ itemCountData.loaded.toLocaleString() }}</span>
           <span class="results-line">of <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span><span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span> {{ itemCountData.viewLabel }}</span>
         </span>
+        <i v-if="props.revalidating" class="pi pi-spin pi-spinner revalidating-spinner" title="Refreshing data..."></i>
       </div>
 
       <div class="toolbar-right">
@@ -209,12 +210,16 @@
       <DataTablePrime
         ref="dataTableRef"
         :value="displayedItems"
+        dataKey="id"
         striped-rows
         :paginator="false"
         :rows="displayedItems.length"
         :reorderable-columns="true"
         removable-sort
         :row-class="getRowClass"
+        scrollable
+        scrollHeight="flex"
+        :virtualScrollerOptions="{ itemSize: 41 }"
         @row-click="handleRowClick"
         @column-reorder="handleColumnReorder"
         @sort="handleSort"
@@ -395,6 +400,7 @@ interface Props {
   columns: ColumnType[]
   loading: boolean
   countLoading?: boolean
+  revalidating?: boolean // True when showing cached data while fetching fresh
   error?: string | null
   visibleColumns: string[]
   columnOrder: string[]
@@ -1250,6 +1256,12 @@ onUnmounted(() => {
   font-size: 0.875rem;
   color: var(--text-tertiary);
   line-height: 1.2;
+}
+
+.revalidating-spinner {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+  margin-left: 0.5rem;
 }
 
 
