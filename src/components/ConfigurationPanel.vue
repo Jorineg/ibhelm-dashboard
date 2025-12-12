@@ -5,16 +5,26 @@
       <button class="mini-expand-btn" @click="expand" title="Expand filter configurations">
         <i class="pi pi-chevron-right"></i>
       </button>
-      <button
-        v-for="config in configurations"
-        :key="config.id"
-        :class="['mini-config-item', { active: config.id === activeConfigId }]"
-        @click="handleMiniConfigClick(config.id)"
-        :title="config.name"
-        :tabindex="isExpanded ? -1 : 0"
-      >
-        {{ truncateName(config.name) }}
-      </button>
+      <TransitionGroup name="config-list">
+        <button
+          v-for="config in sortedConfigurations"
+          :key="config.id"
+          :class="['mini-config-item', { 
+            active: config.id === activeConfigId,
+            dragging: draggedConfigId === config.id
+          }]"
+          @click="handleMiniConfigClick(config.id)"
+          :title="config.name"
+          :tabindex="isExpanded ? -1 : 0"
+          draggable="true"
+          @dragstart="onConfigDragStart($event, config.id)"
+          @dragover="onConfigDragOver($event, config.id)"
+          @drop="onConfigDrop"
+          @dragend="onConfigDragEnd"
+        >
+          {{ truncateName(config.name) }}
+        </button>
+      </TransitionGroup>
     </div>
 
     <!-- Expanded Panel (floating) -->
@@ -101,8 +111,71 @@ const {
   duplicateConfiguration,
   deleteConfiguration,
   updateConfiguration,
-  setActiveConfiguration
+  setActiveConfiguration,
+  updateConfigOrder
 } = useFilterConfigs()
+
+// Drag and drop state for mini config bar
+const draggedConfigId = ref<string | null>(null)
+const previewOrder = ref<string[] | null>(null)
+let lastSwapTime = 0
+
+// Sorted configurations with live preview during drag
+const sortedConfigurations = computed(() => {
+  if (previewOrder.value) {
+    return previewOrder.value
+      .map(id => configurations.value.find(c => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => c != null)
+  }
+  return configurations.value
+})
+
+const onConfigDragStart = (e: DragEvent, configId: string) => {
+  draggedConfigId.value = configId
+  previewOrder.value = configurations.value.map(c => c.id)
+  lastSwapTime = 0
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', configId)
+  }
+}
+
+const onConfigDragOver = (e: DragEvent, configId: string) => {
+  e.preventDefault()
+  if (!draggedConfigId.value || draggedConfigId.value === configId || !previewOrder.value) return
+  
+  // Throttle swaps to prevent flickering
+  const now = Date.now()
+  if (now - lastSwapTime < 150) return
+  
+  const currentIdx = previewOrder.value.indexOf(draggedConfigId.value)
+  const targetIdx = previewOrder.value.indexOf(configId)
+  if (currentIdx === -1 || targetIdx === -1 || currentIdx === targetIdx) return
+  
+  // Move item to new position
+  const newOrder = [...previewOrder.value]
+  newOrder.splice(currentIdx, 1)
+  newOrder.splice(targetIdx, 0, draggedConfigId.value)
+  previewOrder.value = newOrder
+  lastSwapTime = now
+}
+
+const onConfigDrop = (e: DragEvent) => {
+  e.preventDefault()
+  if (previewOrder.value) {
+    updateConfigOrder(previewOrder.value)
+  }
+  draggedConfigId.value = null
+  previewOrder.value = null
+}
+
+const onConfigDragEnd = () => {
+  if (previewOrder.value) {
+    updateConfigOrder(previewOrder.value)
+  }
+  draggedConfigId.value = null
+  previewOrder.value = null
+}
 
 const isExpanded = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
@@ -245,10 +318,15 @@ const handleMiniConfigClick = (configId: string) => {
   color: var(--text-secondary);
   font-size: 1rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-normal);
+  cursor: grab;
+  transition: background var(--transition-normal), border-color var(--transition-normal), 
+              color var(--transition-normal), opacity 0.15s, transform 0.2s ease;
   white-space: nowrap;
   text-align: left;
+}
+
+.mini-config-item:active {
+  cursor: grabbing;
 }
 
 .mini-config-item:hover {
@@ -260,6 +338,16 @@ const handleMiniConfigClick = (configId: string) => {
   background: var(--accent-primary-dark);
   border-color: var(--accent-primary);
   color: var(--text-primary);
+}
+
+.mini-config-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+/* Move transition for reordering */
+.config-list-move {
+  transition: transform 0.2s ease;
 }
 
 .mini-expand-btn {

@@ -3,6 +3,7 @@ import App from './App.vue'
 import router from './router'
 import PrimeVue from 'primevue/config'
 import { initErrorLogging } from './composables/useLogtail'
+import { setupGlobalSelectOnFocus } from './directives/selectOnFocus'
 
 // PrimeVue CSS - Dark Theme
 import 'primevue/resources/themes/lara-dark-blue/theme.css'
@@ -13,6 +14,7 @@ import 'primeicons/primeicons.css'
 import './styles/index.css'
 
 initErrorLogging()
+setupGlobalSelectOnFocus()
 
 const app = createApp(App)
 

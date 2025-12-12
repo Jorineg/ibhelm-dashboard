@@ -4,13 +4,21 @@
 
       <!-- Quick filters with action buttons -->
       <div class="filters-with-actions">
-        <div class="filters-grid">
+        <TransitionGroup name="filter-list" tag="div" class="filters-grid">
           <div 
-            v-for="filterName in quickFilterFields" 
+            v-for="filterName in sortedFilterFields" 
             :key="filterName"
-            class="filter-item"
+            :class="['filter-item', { dragging: draggedFilter === filterName }]"
+            draggable="true"
+            @dragstart="onDragStart($event, filterName)"
+            @dragover="onDragOver($event, filterName)"
+            @drop="onDrop"
+            @dragend="onDragEnd"
           >
-            <label :for="filterName">{{ formatFilterName(filterName) }}</label>
+            <label :for="filterName" class="filter-label">
+              <i class="pi pi-bars drag-handle"></i>
+              {{ formatFilterName(filterName) }}
+            </label>
             
             <!-- Project autocomplete -->
             <div v-if="filterName === 'project'" class="filter-input-with-info">
@@ -194,7 +202,7 @@
               size="large"
             />
           </div>
-        </div>
+        </TransitionGroup>
         
         <!-- Filter action buttons -->
         <div class="filter-actions-inline">
@@ -371,10 +379,69 @@ const {
   hasActiveFilters,
   activeColumnFilterKeys,
   updateQuickFilter,
+  updateQuickFilterOrder,
   updateColumnFilter,
   removeColumnFilter,
   clearAllFilters
 } = useFilterConfigs()
+
+// Drag and drop state
+const draggedFilter = ref<string | null>(null)
+const previewOrder = ref<string[] | null>(null)
+let lastSwapTime = 0
+
+// Sorted filter fields with live preview during drag
+const sortedFilterFields = computed(() => {
+  if (previewOrder.value) return previewOrder.value
+  return quickFilterFields.value
+})
+
+const onDragStart = (e: DragEvent, filterName: string) => {
+  draggedFilter.value = filterName
+  previewOrder.value = [...quickFilterFields.value]
+  lastSwapTime = 0
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', filterName)
+  }
+}
+
+const onDragOver = (e: DragEvent, filterName: string) => {
+  e.preventDefault()
+  if (!draggedFilter.value || draggedFilter.value === filterName || !previewOrder.value) return
+  
+  // Throttle swaps to prevent flickering
+  const now = Date.now()
+  if (now - lastSwapTime < 150) return
+  
+  const currentIdx = previewOrder.value.indexOf(draggedFilter.value)
+  const targetIdx = previewOrder.value.indexOf(filterName)
+  if (currentIdx === -1 || targetIdx === -1 || currentIdx === targetIdx) return
+  
+  // Move item to new position
+  const newOrder = [...previewOrder.value]
+  newOrder.splice(currentIdx, 1)
+  newOrder.splice(targetIdx, 0, draggedFilter.value)
+  previewOrder.value = newOrder
+  lastSwapTime = now
+}
+
+const onDrop = (e: DragEvent) => {
+  e.preventDefault()
+  if (previewOrder.value) {
+    updateQuickFilterOrder(previewOrder.value as any)
+  }
+  draggedFilter.value = null
+  previewOrder.value = null
+}
+
+const onDragEnd = () => {
+  if (previewOrder.value) {
+    updateQuickFilterOrder(previewOrder.value as any)
+  }
+  draggedFilter.value = null
+  previewOrder.value = null
+}
 
 // Computed: unique base fields that have active filters
 const activeBaseFields = computed(() => {
@@ -677,6 +744,42 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  cursor: grab;
+  transition: opacity 0.15s, transform 0.2s ease;
+  border-radius: var(--radius-md);
+  padding: 0.5rem;
+  margin: -0.5rem;
+}
+
+.filter-item:active {
+  cursor: grabbing;
+}
+
+.filter-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+/* Move transition for reordering */
+.filter-list-move {
+  transition: transform 0.2s ease;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drag-handle {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.filter-item:hover .drag-handle {
+  opacity: 1;
 }
 
 .filter-input-with-info {

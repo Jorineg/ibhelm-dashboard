@@ -150,7 +150,7 @@ const dialogTitle = computed(() => {
 
 
 // Fields to exclude from display
-const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url', 'thumbnail_path']
+const excludedFields = ['_raw', 'id', 'teamwork_url', 'missive_url', 'craft_url', 'thumbnail_path', 'storage_path']
 
 const displayFields = computed(() => {
   if (!props.item) return []

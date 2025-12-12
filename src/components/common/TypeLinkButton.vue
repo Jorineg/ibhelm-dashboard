@@ -1,13 +1,13 @@
 <template>
   <a
-    v-if="url && url !== '#'"
+    v-if="isVisible"
     :href="url"
     :target="linkTarget"
     rel="noopener noreferrer"
     class="type-link-button"
     :style="buttonStyle"
     :title="tooltip"
-    @click.stop
+    @click="handleClick"
   >
     <i :class="iconClass"></i>
     {{ label }}
@@ -17,6 +17,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, DataItem, PersonItem, ProjectItem } from '@/types'
 
 type ItemType = 'item' | 'person' | 'project'
@@ -28,7 +29,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const { emailColor, craftColor, personColor, projectColor, craftSpaceId, teamworkBaseUrl } = useAppearanceSettings()
+const { emailColor, craftColor, fileColor, personColor, projectColor, craftSpaceId, teamworkBaseUrl, filesBucket } = useAppearanceSettings()
 
 const transformCraftUrl = (url: string): string => {
   if (!url || !craftSpaceId.value) return url
@@ -36,6 +37,16 @@ const transformCraftUrl = (url: string): string => {
   if (!blockIdMatch) return url
   return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
 }
+
+const isFile = computed(() => {
+  if (props.itemType !== 'item') return false
+  return (props.item as DataItem).type?.toLowerCase() === 'file'
+})
+
+const isVisible = computed(() => {
+  if (isFile.value) return !!(props.item as DataItem).storage_path
+  return url.value && url.value !== '#'
+})
 
 const url = computed(() => {
   if (props.itemType === 'person') {
@@ -49,6 +60,7 @@ const url = computed(() => {
   }
   // Items
   const item = props.item as DataItem
+  if (item.type?.toLowerCase() === 'file') return '#' // handled via click
   if (item.teamwork_url) return item.teamwork_url
   if (item.missive_url) return item.missive_url
   if (item.craft_url) return transformCraftUrl(item.craft_url)
@@ -71,6 +83,7 @@ const label = computed(() => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'EMAIL'
   if (itemType === 'craft') return 'CRAFT'
+  if (itemType === 'file') return 'FILE'
   return item.task_type_name?.toUpperCase() || 'TASK'
 })
 
@@ -85,6 +98,7 @@ const iconClass = computed(() => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'pi pi-envelope'
   if (itemType === 'craft') return 'pi pi-file-edit'
+  if (itemType === 'file') return 'pi pi-file'
   return 'pi pi-check-square'
 })
 
@@ -99,7 +113,8 @@ const buttonStyle = computed(() => {
     const itemType = item.type?.toLowerCase()
     const isEmail = itemType === 'email'
     const isCraft = itemType === 'craft'
-    color = isEmail ? emailColor.value : isCraft ? craftColor.value : (item.task_type_color || '#4ade80')
+    const isFileType = itemType === 'file'
+    color = isEmail ? emailColor.value : isCraft ? craftColor.value : isFileType ? fileColor.value : (item.task_type_color || '#4ade80')
   }
   return {
     background: `${color}20`,
@@ -120,8 +135,32 @@ const tooltip = computed(() => {
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'Open in Missive'
   if (itemType === 'craft') return 'Open in Craft'
+  if (itemType === 'file') return 'Open file'
   return 'Open in Teamwork'
 })
+
+const handleClick = async (event: MouseEvent) => {
+  event.stopPropagation()
+  
+  if (!isFile.value) return // let default link behavior happen
+  
+  event.preventDefault()
+  const item = props.item as DataItem
+  if (!item.storage_path) return
+  
+  const { data, error } = await supabase.storage
+    .from(filesBucket.value)
+    .createSignedUrl(item.storage_path, 300)
+  
+  if (error) {
+    console.error('Error generating signed URL:', error)
+    return
+  }
+  
+  if (data?.signedUrl) {
+    window.open(data.signedUrl, '_blank')
+  }
+}
 </script>
 
 <style scoped>

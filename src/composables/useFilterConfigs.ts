@@ -56,12 +56,30 @@ const activeConfigIds = ref<Record<ViewType, string>>({
   people: ''
 })
 
+// Config order per view type (array of config IDs)
+const configOrder = ref<Record<ViewType, string[]>>({
+  items: [],
+  projects: [],
+  people: []
+})
+
 // Current view type
 const currentViewType = ref<ViewType>('items')
 
-// Filtered configurations for current view only
+// Filtered configurations for current view only (sorted by custom order)
 const configurations = computed(() => {
-  return allConfigurations.value.filter(c => c.viewType === currentViewType.value)
+  const viewConfigs = allConfigurations.value.filter(c => c.viewType === currentViewType.value)
+  const order = configOrder.value[currentViewType.value]
+  if (!order || order.length === 0) return viewConfigs
+  // Sort by order, configs not in order go to end
+  return viewConfigs.sort((a, b) => {
+    const aIdx = order.indexOf(a.id)
+    const bIdx = order.indexOf(b.id)
+    if (aIdx === -1 && bIdx === -1) return 0
+    if (aIdx === -1) return 1
+    if (bIdx === -1) return -1
+    return aIdx - bIdx
+  })
 })
 
 // Current active config ID for the current view
@@ -83,6 +101,7 @@ function loadConfigurations() {
       const parsed = JSON.parse(stored)
       allConfigurations.value = parsed.configs || []
       activeConfigIds.value = parsed.activeConfigIds || { items: '', projects: '', people: '' }
+      configOrder.value = parsed.configOrder || { items: [], projects: [], people: [] }
     }
 
     // Ensure each view type has at least one configuration
@@ -93,6 +112,7 @@ function loadConfigurations() {
         const config = defaultConfig(viewType)
         allConfigurations.value.push(config)
         activeConfigIds.value[viewType] = config.id
+        configOrder.value[viewType] = [config.id]
       } else if (!activeConfigIds.value[viewType] || !viewConfigs.find(c => c.id === activeConfigIds.value[viewType])) {
         activeConfigIds.value[viewType] = viewConfigs[0].id
       }
@@ -107,6 +127,7 @@ function loadConfigurations() {
       const config = defaultConfig(viewType)
       allConfigurations.value.push(config)
       activeConfigIds.value[viewType] = config.id
+      configOrder.value[viewType] = [config.id]
     }
   }
 }
@@ -116,7 +137,8 @@ function saveConfigurations() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       configs: allConfigurations.value,
-      activeConfigIds: activeConfigIds.value
+      activeConfigIds: activeConfigIds.value,
+      configOrder: configOrder.value
     }))
   } catch (error) {
     console.error('Error saving configurations:', error)
@@ -142,6 +164,7 @@ export function useFilterConfigs() {
     const config = defaultConfig(currentViewType.value)
     config.name = name || `Configuration ${configurations.value.length + 1}`
     allConfigurations.value.push(config)
+    configOrder.value[currentViewType.value].push(config.id)
     activeConfigIds.value[currentViewType.value] = config.id
     saveConfigurations()
     return config
@@ -160,6 +183,14 @@ export function useFilterConfigs() {
     }
 
     allConfigurations.value.push(duplicate)
+    // Insert after original in order
+    const order = configOrder.value[original.viewType]
+    const originalIdx = order.indexOf(id)
+    if (originalIdx !== -1) {
+      order.splice(originalIdx + 1, 0, duplicate.id)
+    } else {
+      order.push(duplicate.id)
+    }
     activeConfigIds.value[currentViewType.value] = duplicate.id
     saveConfigurations()
     return duplicate
@@ -173,14 +204,20 @@ export function useFilterConfigs() {
     const viewType = config.viewType
 
     allConfigurations.value.splice(index, 1)
+    // Remove from order
+    const orderIdx = configOrder.value[viewType].indexOf(id)
+    if (orderIdx !== -1) configOrder.value[viewType].splice(orderIdx, 1)
 
     if (activeConfigIds.value[viewType] === id) {
       const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
       if (viewConfigs.length > 0) {
-        activeConfigIds.value[viewType] = viewConfigs[0].id
+        // Use first in order if available
+        const order = configOrder.value[viewType]
+        activeConfigIds.value[viewType] = order[0] || viewConfigs[0].id
       } else {
         const newConfig = defaultConfig(viewType)
         allConfigurations.value.push(newConfig)
+        configOrder.value[viewType] = [newConfig.id]
         activeConfigIds.value[viewType] = newConfig.id
       }
     }
@@ -273,8 +310,32 @@ export function useFilterConfigs() {
     return Object.keys(activeConfig.value.columnFilters) as (keyof ColumnFilters)[]
   })
 
-  // Computed quick filter fields based on current view
-  const quickFilterFields = computed(() => DEFAULT_QUICK_FILTERS_BY_VIEW[currentViewType.value])
+  // Computed quick filter fields based on current view (with custom order if set)
+  const quickFilterFields = computed(() => {
+    const defaults = DEFAULT_QUICK_FILTERS_BY_VIEW[currentViewType.value]
+    const customOrder = activeConfig.value?.quickFilterOrder
+    if (!customOrder || customOrder.length === 0) return defaults
+    // Merge custom order with defaults (custom first, then any missing defaults)
+    const result: (keyof QuickFilters)[] = []
+    for (const field of customOrder) {
+      if (defaults.includes(field)) result.push(field)
+    }
+    for (const field of defaults) {
+      if (!result.includes(field)) result.push(field)
+    }
+    return result
+  })
+
+  const updateQuickFilterOrder = (order: (keyof QuickFilters)[]) => {
+    if (activeConfig.value) {
+      updateConfiguration(activeConfig.value.id, { quickFilterOrder: order })
+    }
+  }
+
+  const updateConfigOrder = (order: string[]) => {
+    configOrder.value[currentViewType.value] = order
+    saveConfigurations()
+  }
 
   return {
     configurations,
@@ -291,6 +352,8 @@ export function useFilterConfigs() {
     updateConfiguration,
     setActiveConfiguration,
     updateQuickFilter,
+    updateQuickFilterOrder,
+    updateConfigOrder,
     updateColumnFilter,
     removeColumnFilter,
     clearAllFilters

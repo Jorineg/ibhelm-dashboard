@@ -346,6 +346,7 @@ export interface FilterConfiguration {
   sortConfig?: SortConfig
   // Quick filters (always visible text inputs)
   quickFilters: QuickFilters
+  quickFilterOrder?: (keyof QuickFilters)[]  // Custom order for quick filters
   // Typed column filters
   columnFilters: ColumnFilters
   visibleColumns: string[]
