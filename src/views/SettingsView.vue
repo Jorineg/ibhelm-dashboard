@@ -21,6 +21,7 @@
               :is-source-outdated="isSourceOutdated"
               :is-files-outdated="isFilesOutdated"
               :is-thumbnails-outdated="isThumbnailsOutdated"
+              :is-attachments-outdated="isAttachmentsOutdated"
             />
           </div>
         </div>
@@ -78,6 +79,14 @@
           @rerun-linking="handleRerunProjectLinking"
         />
 
+        <!-- Files Section -->
+        <FilesSection
+          v-else-if="activeSection === 'files'"
+          :file-linking-run="fileLinkingRun"
+          :is-linking="isFileLinking"
+          @rerun-linking="handleRerunFileLinking"
+        />
+
         <!-- Cost Groups Section -->
         <CostGroupsSection
           v-else-if="activeSection === 'cost-groups'"
@@ -118,20 +127,21 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
+import { TaskTypesSection, PeopleSection, EmailsSection, FilesSection, CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
 import { useEmails } from '@/composables/useEmails'
+import { useFiles } from '@/composables/useFiles'
 import { useCostGroups } from '@/composables/useCostGroups'
 import { useLocations } from '@/composables/useLocations'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 
 const router = useRouter()
 const { user, signOut } = useAuth()
-const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated } = useSyncStatus()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
 
 const syncPopupVisible = ref(false)
 const toggleSyncPopup = () => { syncPopupVisible.value = !syncPopupVisible.value }
@@ -158,6 +168,13 @@ const {
 } = useEmails()
 
 const {
+  fileLinkingRun,
+  isLinking: isFileLinking,
+  rerunFileLinking,
+  fetchLatestFileLinkingRun
+} = useFiles()
+
+const {
   costGroupLinkingRun,
   isLinking: isCostGroupLinking,
   rerunCostGroupLinking,
@@ -176,6 +193,7 @@ const settingsSections = [
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
+  { id: 'files', label: 'Files', icon: 'pi pi-file' },
   { id: 'cost-groups', label: 'Cost Groups', icon: 'pi pi-dollar' },
   { id: 'locations', label: 'Locations', icon: 'pi pi-map-marker' },
   { id: 'general', label: 'General', icon: 'pi pi-cog' },
@@ -228,6 +246,16 @@ const handleRerunProjectLinking = async () => {
   }
 }
 
+// File Linking
+const handleRerunFileLinking = async () => {
+  try {
+    const runId = await rerunFileLinking()
+    console.log('File linking started with run ID:', runId)
+  } catch (error) {
+    console.error('Error starting file linking:', error)
+  }
+}
+
 // Cost Group Linking
 const handleRerunCostGroupLinking = async () => {
   try {
@@ -255,6 +283,7 @@ onMounted(async () => {
     fetchLatestExtractionRun(),
     fetchLatestPersonLinkingRun(),
     fetchLatestProjectLinkingRun(),
+    fetchLatestFileLinkingRun(),
     fetchLatestCostGroupLinkingRun(),
     fetchLatestLocationLinkingRun()
   ])

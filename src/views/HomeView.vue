@@ -36,6 +36,7 @@
               :is-source-outdated="isSourceOutdated"
               :is-files-outdated="isFilesOutdated"
               :is-thumbnails-outdated="isThumbnailsOutdated"
+              :is-attachments-outdated="isAttachmentsOutdated"
             />
           </div>
         </div>
@@ -138,7 +139,7 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 const router = useRouter()
 const { user, signOut } = useAuth()
 const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery } = useFilterConfigs()
-const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated } = useSyncStatus()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
 const { craftSpaceId, filesBucket } = useAppearanceSettings()

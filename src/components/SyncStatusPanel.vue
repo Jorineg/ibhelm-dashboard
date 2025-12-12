@@ -110,6 +110,47 @@
           </div>
         </div>
       </div>
+
+      <!-- Attachments download status -->
+      <div class="sync-source-item">
+        <div class="source-header">
+          <span class="source-icon">📎</span>
+          <span class="source-name">Attachments</span>
+          <span class="source-status" :class="attachmentsStatusClass">
+            <i :class="attachmentsStatusIcon"></i>
+          </span>
+        </div>
+        
+        <div class="source-details">
+          <div class="detail-row">
+            <span class="detail-label">Last download:</span>
+            <span 
+              class="detail-value time" 
+              :class="{ warning: isAttachmentsOutdated }"
+            >
+              {{ formatRelativeTime(syncStatus.attachments.lastProcessed) }}
+              <i v-if="isAttachmentsOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
+            </span>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Queue:</span>
+            <span v-if="syncStatus.attachments.pendingCount > 0 || syncStatus.attachments.processingCount > 0" class="detail-value queue pending">
+              {{ syncStatus.attachments.pendingCount }} pending<span v-if="syncStatus.attachments.processingCount > 0">, {{ syncStatus.attachments.processingCount }} downloading</span>
+            </span>
+            <span v-else class="detail-value queue ok">
+              ✓ downloaded
+            </span>
+          </div>
+          
+          <div v-if="syncStatus.attachments.failedCount > 0" class="detail-row">
+            <span class="detail-label">Failed:</span>
+            <span class="detail-value queue failed">
+              {{ syncStatus.attachments.failedCount }} failed
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -124,6 +165,7 @@ interface Props {
   isSourceOutdated: (source: SyncSourceStatus) => boolean
   isFilesOutdated: boolean
   isThumbnailsOutdated: boolean
+  isAttachmentsOutdated: boolean
 }
 
 const props = defineProps<Props>()
@@ -165,6 +207,20 @@ const thumbnailsStatusClass = computed((): string => {
 const thumbnailsStatusIcon = computed((): string => {
   if (props.syncStatus.thumbnails.pendingCount > 0) return 'pi pi-download'
   if (props.isThumbnailsOutdated) return 'pi pi-exclamation-triangle'
+  return 'pi pi-check'
+})
+
+const attachmentsStatusClass = computed((): string => {
+  if (props.syncStatus.attachments.failedCount > 0) return 'error'
+  if (props.syncStatus.attachments.pendingCount > 0 || props.syncStatus.attachments.processingCount > 0) return 'importing'
+  if (props.isAttachmentsOutdated) return 'outdated'
+  return 'ok'
+})
+
+const attachmentsStatusIcon = computed((): string => {
+  if (props.syncStatus.attachments.failedCount > 0) return 'pi pi-times'
+  if (props.syncStatus.attachments.pendingCount > 0 || props.syncStatus.attachments.processingCount > 0) return 'pi pi-download'
+  if (props.isAttachmentsOutdated) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
 })
 </script>
@@ -252,6 +308,11 @@ const thumbnailsStatusIcon = computed((): string => {
   background: rgba(245, 166, 35, 0.15);
 }
 
+.source-status.error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
 .source-details {
   display: flex;
   flex-direction: column;
@@ -300,6 +361,14 @@ const thumbnailsStatusIcon = computed((): string => {
 
 .detail-value.queue.ok {
   color: #4ade80;
+  font-weight: 500;
+}
+
+.detail-value.queue.failed {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
   font-weight: 500;
 }
 

@@ -28,12 +28,20 @@ export interface ThumbnailsStatus {
   pendingCount: number
 }
 
+export interface AttachmentsStatus {
+  lastProcessed: Date | null
+  pendingCount: number
+  processingCount: number
+  failedCount: number
+}
+
 export interface SyncStatus {
   teamwork: SyncSourceStatus
   missive: SyncSourceStatus
   craft: SyncSourceStatus
   files: FilesStatus
   thumbnails: ThumbnailsStatus
+  attachments: AttachmentsStatus
 }
 
 export type OverallStatus = 'synced' | 'importing' | 'outdated'
@@ -41,6 +49,7 @@ export type OverallStatus = 'synced' | 'importing' | 'outdated'
 const OUTDATED_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
 const FILES_OUTDATED_THRESHOLD_MS = 30 * 60 * 1000 // 30 minutes
 const THUMBNAILS_OUTDATED_THRESHOLD_MS = 60 * 1000 // 1 minute
+const ATTACHMENTS_OUTDATED_THRESHOLD_MS = 60 * 1000 // 1 minute
 
 export function useSyncStatus() {
   const syncStatus = ref<SyncStatus>({
@@ -48,7 +57,8 @@ export function useSyncStatus() {
     missive: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
     craft: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
     files: { lastEventTime: null, lastUpdated: null },
-    thumbnails: { lastProcessed: null, pendingCount: 0 }
+    thumbnails: { lastProcessed: null, pendingCount: 0 },
+    attachments: { lastProcessed: null, pendingCount: 0, processingCount: 0, failedCount: 0 }
   })
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -87,6 +97,14 @@ export function useSyncStatus() {
     if (t.pendingCount === 0) return false
     if (!t.lastProcessed) return true
     return (Date.now() - t.lastProcessed.getTime()) > THUMBNAILS_OUTDATED_THRESHOLD_MS
+  })
+
+  // Check if attachments download is outdated (queue not empty AND last processed >1 min ago)
+  const isAttachmentsOutdated = computed((): boolean => {
+    const a = syncStatus.value.attachments
+    if (a.pendingCount === 0 && a.processingCount === 0) return false
+    if (!a.lastProcessed) return true
+    return (Date.now() - a.lastProcessed.getTime()) > ATTACHMENTS_OUTDATED_THRESHOLD_MS
   })
 
   // Computed: overall status for header indicator
@@ -142,6 +160,13 @@ export function useSyncStatus() {
           lastProcessed: parseUtcTimestamp(row.last_processed_at),
           pendingCount: row.pending_count || 0
         }
+      } else if (row.source === 'attachments') {
+        syncStatus.value.attachments = {
+          lastProcessed: parseUtcTimestamp(row.last_processed_at),
+          pendingCount: row.pending_count || 0,
+          processingCount: row.processing_count || 0,
+          failedCount: row.failed_count || 0
+        }
       } else {
         const status: SyncSourceStatus = {
           lastScanned: parseUtcTimestamp(row.last_event_time),
@@ -187,6 +212,7 @@ export function useSyncStatus() {
     isSourceOutdated,
     isFilesOutdated,
     isThumbnailsOutdated,
+    isAttachmentsOutdated,
     fetchSyncStatus,
     startPolling,
     stopPolling

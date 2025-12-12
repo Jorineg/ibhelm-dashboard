@@ -157,6 +157,7 @@ export interface TaskTypeRule {
 export type { ExtractionRun } from '@/composables/useTaskTypes'
 export type { PersonLinkingRun } from '@/composables/usePeople'
 export type { ProjectLinkingRun } from '@/composables/useEmails'
+export type { FileLinkingRun } from '@/composables/useFiles'
 export type { CostGroupLinkingRun } from '@/composables/useCostGroups'
 export type { LocationLinkingRun } from '@/composables/useLocations'
 
