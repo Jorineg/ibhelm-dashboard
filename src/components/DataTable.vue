@@ -1320,7 +1320,7 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   display: flex;
   position: sticky;
   top: 0;
-  z-index: 200;
+  z-index: 100;
   background: var(--bg-tertiary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
