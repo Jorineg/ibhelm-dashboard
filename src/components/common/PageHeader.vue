@@ -48,9 +48,12 @@ defineEmits<{
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  position: relative;
+  padding-bottom: 2rem;
+  position: sticky;
+  top: 0;
   z-index: 200;
+  background: var(--bg-primary);
+  flex-shrink: 0;
 }
 
 .header-left {

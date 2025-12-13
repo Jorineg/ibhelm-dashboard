@@ -1,7 +1,7 @@
 <template>
   <div class="data-table-wrapper">
-    <!-- Toolbar -->
-    <div class="table-toolbar">
+    <!-- Column visibility selector -->
+    <div class="table-toolbar" ref="toolbarRef">
       <div class="toolbar-left">
         <!-- Search Bar -->
         <div class="search-wrapper">
@@ -998,13 +998,43 @@ const setupIntersectionObserver = () => {
   if (galleryScrollTrigger.value) observer.observe(galleryScrollTrigger.value)
 }
 
-watch(() => localViewMode.value, () => {
-  setTimeout(setupIntersectionObserver, 100)
-})
+// // Handle horizontal scroll to keep toolbar pinned
+// const handleParentScroll = () => {
+//   if (!parentScrollContainer || !toolbarRef.value) return
+//   const scrollLeft = parentScrollContainer.scrollLeft
+//   toolbarRef.value.style.transform = `translateX(${scrollLeft}px)`
+// }
 
-onUnmounted(() => {
-  if (observer) observer.disconnect()
-})
+// onMounted(() => {
+//   setupIntersectionObserver()
+  
+//   // Find parent scroll container (.center-content) and attach scroll listener
+//   let parent = toolbarRef.value?.parentElement
+//   while (parent) {
+//     const style = getComputedStyle(parent)
+//     if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+//         style.overflow === 'auto' || style.overflow === 'scroll') {
+//       parentScrollContainer = parent
+//       parent.addEventListener('scroll', handleParentScroll, { passive: true })
+//       break
+//     }
+//     parent = parent.parentElement
+//   }
+// })
+
+// // Re-setup observer when view mode changes
+// watch(() => localViewMode.value, () => {
+//   setTimeout(setupIntersectionObserver, 100)
+// })
+
+// onUnmounted(() => {
+//   if (observer) {
+//     observer.disconnect()
+//   }
+//   if (parentScrollContainer) {
+//     parentScrollContainer.removeEventListener('scroll', handleParentScroll)
+//   }
+// })
 
 // Exposed methods
 const focusSearch = () => {
@@ -1048,12 +1078,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
+  width: fit-content;
+    /* scrooling fix here*/
   min-width: 0;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+  /* Allow content to determine height, parent handles scroll */
+  flex: 1 0 auto;
   position: relative;
 }
 
@@ -1081,8 +1110,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   flex-shrink: 0;
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
-  position: relative;
+  position: sticky !important;
+  left: 0 !important;
   z-index: 150;
+  width: calc(100vw - 14rem);
+    /* scrooling fix here*/
 }
 
 .toolbar-left {
@@ -1277,12 +1309,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   color: var(--text-tertiary);
 }
 
-/* Table scroll container */
+/* Table scroll container - no scroll, parent handles both axes */
 .table-scroll-container {
-  overflow: auto;
-  flex: 1 1 0;
   min-width: 0;
-  min-height: 0;
+  width: fit-content; 
+  /* scrooling fix here*/
 }
 
 /* Div-based Table Styles */
@@ -1374,10 +1405,12 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   border-bottom: 1px solid var(--border-primary);
 }
 
-/* Table Body */
-.table-body {
-  display: flex;
-  flex-direction: column;
+/* Type column body - sticky left, inherit row background for striping/hover */
+.data-table :deep(.p-datatable-tbody > tr > .type-column) {
+  background: inherit !important;
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 2 !important;
 }
 
 .table-row {
@@ -1653,13 +1686,9 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   left: 0;
 }
 
-/* Gallery View */
+/* Gallery View - vertical scroll handled by parent */
 .gallery-view {
   padding: 2rem;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .gallery-grid {

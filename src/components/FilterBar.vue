@@ -1,5 +1,5 @@
 <template>
-  <div class="filter-bar">
+  <div class="filter-bar" ref="filterBarRef">
     <div class="filter-section">
 
       <!-- Quick filters with action buttons -->
@@ -461,7 +461,9 @@ const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, cl
 
 // Add filter dropdown state
 const addFilterRef = ref<HTMLElement | null>(null)
+const filterBarRef = ref<HTMLElement | null>(null)
 const showAddFilter = ref(false)
+let parentScrollContainer: HTMLElement | null = null
 
 const toggleAddFilterMenu = () => {
   showAddFilter.value = !showAddFilter.value
@@ -473,8 +475,38 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
-onMounted(() => document.addEventListener('click', handleClickOutside))
-onUnmounted(() => document.removeEventListener('click', handleClickOutside))
+/*
+// Handle horizontal scroll to keep filter bar pinned
+const handleParentScroll = () => {
+  if (!parentScrollContainer || !filterBarRef.value) return
+  const scrollLeft = parentScrollContainer.scrollLeft
+  filterBarRef.value.style.transform = `translateX(${scrollLeft}px)`
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  
+  // Find parent scroll container and attach scroll listener
+  let parent = filterBarRef.value?.parentElement
+  while (parent) {
+    const style = getComputedStyle(parent)
+    if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
+        style.overflow === 'auto' || style.overflow === 'scroll') {
+      parentScrollContainer = parent
+      parent.addEventListener('scroll', handleParentScroll, { passive: true })
+      break
+    }
+    parent = parent.parentElement
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+  if (parentScrollContainer) {
+    parentScrollContainer.removeEventListener('scroll', handleParentScroll)
+  }
+})
+*/
 
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
@@ -729,8 +761,11 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   padding: 2rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  position: relative;
   z-index: 160;
+  position: sticky !important;
+  left: 0 !important;
+  width: calc(100vw - 14rem);
+    /* scrooling fix here*/
 }
 
 .filter-section {

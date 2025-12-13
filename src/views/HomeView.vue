@@ -56,6 +56,7 @@
 
       <!-- Filters and Table (aligned container) -->
       <main class="center-content">
+        <main class="center-content-inner">
         <FilterBar v-if="activeView === 'items'" ref="filterBarRef" :available-columns="availableColumns" class="filters-section" />
         <DataTable
           ref="dataTableRef"
@@ -104,6 +105,9 @@
           @export="handleExport"
           @retry="handleRetry"
         />
+      </main>
+      <div style="width: 2rem; flex-shrink: 0; z-index: 1000; position: absolute; right: 1.2rem; top: 7rem; bottom: 0; background: var(--bg-primary);"></div>
+      <div style="width: 2rem; flex-shrink: 0;"></div>
       </main>
     </div>
 
@@ -948,6 +952,7 @@ onUnmounted(() => {
   height: 100%;
   background: var(--bg-primary);
   padding: 2rem;
+  padding-right: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1046,14 +1051,24 @@ onUnmounted(() => {
 
 .center-content {
   display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  flex-direction: row;
   min-width: 0;
   min-height: 0;
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
 }
 
+.center-content-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: fit-content;
+    /* scrooling fix here*/
+
+  min-height: 0;
+  flex: 1;
+  overflow: none;
+}
 .filters-section {
   min-width: 0;
   flex-shrink: 0;
