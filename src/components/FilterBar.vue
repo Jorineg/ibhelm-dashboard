@@ -764,7 +764,7 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   z-index: 160;
   position: sticky !important;
   left: 0 !important;
-  width: calc(100vw - 14rem);
+  width: calc(100vw - 13.1rem);
     /* scrooling fix here*/
 }
 

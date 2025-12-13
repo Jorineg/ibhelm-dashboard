@@ -49,6 +49,7 @@ defineEmits<{
   justify-content: space-between;
   align-items: center;
   padding-bottom: 2rem;
+  padding-right: 2.5rem;
   position: sticky;
   top: 0;
   z-index: 200;

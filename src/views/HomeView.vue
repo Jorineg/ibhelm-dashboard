@@ -106,8 +106,7 @@
           @retry="handleRetry"
         />
       </main>
-      <div style="width: 2rem; flex-shrink: 0; z-index: 1000; position: absolute; right: 1.2rem; top: 7rem; bottom: 0; background: var(--bg-primary);"></div>
-      <div style="width: 2rem; flex-shrink: 0;"></div>
+      <div style="width: 1.1rem; flex-shrink: 0; z-index: 1000; position: absolute; right: 1.2rem; top: 6.5rem; bottom: 0; background: var(--bg-primary);"></div>
       </main>
     </div>
 
@@ -225,7 +224,6 @@ const selectedCol = ref(0)
 const dataTableRef = ref<{ 
   focusSearch: () => void
   scrollToSelectedCell: () => void
-  scrollHorizontal: (dir: 'left' | 'right') => void
   getGalleryColumns: () => number
   scrollToSelectedGalleryItem: () => void
 } | null>(null)
@@ -765,8 +763,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
         scrollToSelected()
       }
     } else {
-      // Horizontal scroll in list view
-      dataTableRef.value?.scrollHorizontal('left')
+      // Horizontal scroll in list view - scroll the .center-content parent
+      document.querySelector('.center-content')?.scrollBy({ left: -200, behavior: 'smooth' })
     }
     return
   }
@@ -783,8 +781,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
         handleLoadMore()
       }
     } else {
-      // Horizontal scroll in list view
-      dataTableRef.value?.scrollHorizontal('right')
+      // Horizontal scroll in list view - scroll the .center-content parent
+      document.querySelector('.center-content')?.scrollBy({ left: 200, behavior: 'smooth' })
     }
     return
   }
@@ -1055,8 +1053,12 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   flex: 1;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: scroll;
+  scrollbar-color: var(--bg-tertiary) var(--bg-primary) !important;
 }
+
+
 
 .center-content-inner {
   display: flex;

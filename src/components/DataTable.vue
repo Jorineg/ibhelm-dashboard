@@ -1051,14 +1051,6 @@ const scrollToSelectedCell = () => {
   }
 }
 
-const scrollHorizontal = (direction: 'left' | 'right') => {
-  if (!scrollContainerRef.value) return
-  scrollContainerRef.value.scrollBy({
-    left: direction === 'right' ? 200 : -200,
-    behavior: 'smooth'
-  })
-}
-
 const scrollToSelectedGalleryItem = () => {
   if (props.selectedRow === undefined || props.selectedRow < 0) return
   if (!galleryGridRef.value) return
@@ -1068,12 +1060,11 @@ const scrollToSelectedGalleryItem = () => {
   }
 }
 
-defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryColumns, scrollToSelectedGalleryItem })
+defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSelectedGalleryItem })
 </script>
 
 <style scoped>
 .data-table-wrapper {
-  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   display: flex;
@@ -1113,7 +1104,7 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
   position: sticky !important;
   left: 0 !important;
   z-index: 150;
-  width: calc(100vw - 14rem);
+  width: calc(100vw - 13rem);
     /* scrooling fix here*/
 }
 
@@ -1688,7 +1679,7 @@ defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryCo
 
 /* Gallery View - vertical scroll handled by parent */
 .gallery-view {
-  padding: 2rem;
+  padding-top: 2rem;
 }
 
 .gallery-grid {
