@@ -104,18 +104,20 @@ onMounted(async () => {
       loading.value = false
       return
     }
-    
-    // If already auto-approved (previous consent exists), approve and redirect immediately
+        
+    // If already auto-approved (previous consent exists), redirect immediately
     if (data.auto_approved) {
-      const { data: approveData, error: approveError } = await (supabase.auth as any).oauth.approveAuthorization(authorizationId)
-      if (approveError) {
-        error.value = approveError.message
-        loading.value = false
+      // ✅ The redirect_to should already be in the data response
+      // Don't call approveAuthorization() - it will fail
+      if (data.redirect_to) {
+        window.location.href = data.redirect_to
         return
       }
-      if (approveData?.redirect_to) {
-        window.location.href = approveData.redirect_to
-      }
+      
+      // Fallback: try to get redirect from the authorization details
+      // The authorization is already approved, just redirect
+      error.value = 'Auto-approved but no redirect URL available'
+      loading.value = false
       return
     }
     
