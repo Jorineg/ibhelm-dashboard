@@ -21,6 +21,12 @@ const router = createRouter({
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
       meta: { requiresAuth: false }
+    },
+    {
+      path: '/oauth/consent',
+      name: 'oauth-consent',
+      component: () => import('@/views/OAuthConsentView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
@@ -31,9 +37,23 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.meta.requiresAuth
 
   if (requiresAuth && !session) {
+    // Store intended destination for redirect after login
+    const intendedPath = to.fullPath
+    if (intendedPath !== '/') {
+      sessionStorage.setItem('auth_redirect', intendedPath)
+    }
     next('/login')
-  } else if (to.path === '/login' && session) {
-    next('/')
+  } else if (session) {
+    // User is logged in - check for stored redirect (e.g., after magic link)
+    const redirect = sessionStorage.getItem('auth_redirect')
+    if (redirect && to.fullPath !== redirect) {
+      sessionStorage.removeItem('auth_redirect')
+      next(redirect)
+    } else if (to.path === '/login') {
+      next('/')
+    } else {
+      next()
+    }
   } else {
     next()
   }
