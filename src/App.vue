@@ -1,6 +1,6 @@
 <template>
   <router-view />
-  <div class="version-tag">{{ buildTime }}</div>
+  <div class="version-tag">V: {{ buildTime }}</div>
 </template>
 
 <script setup lang="ts">
