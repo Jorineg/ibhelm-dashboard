@@ -104,19 +104,35 @@ onMounted(async () => {
       loading.value = false
       return
     }
-        
+    
     // If already auto-approved (previous consent exists), redirect immediately
+    // DO NOT call approveAuthorization() - GoTrue already processed it
     if (data.auto_approved) {
-      // ✅ The redirect_to should already be in the data response
-      // Don't call approveAuthorization() - it will fail
+      console.log('[OAuthConsent] Auto-approved! Data:', JSON.stringify(data, null, 2))
+      
+      // Try redirect_to first
       if (data.redirect_to) {
+        console.log('[OAuthConsent] Using redirect_to:', data.redirect_to)
         window.location.href = data.redirect_to
         return
       }
       
-      // Fallback: try to get redirect from the authorization details
-      // The authorization is already approved, just redirect
-      error.value = 'Auto-approved but no redirect URL available'
+      // Fallback: construct redirect URL from authorization data
+      // When auto-approved, GoTrue already generated the authorization_code
+      if (data.redirect_uri && data.authorization_code) {
+        const redirectUrl = new URL(data.redirect_uri)
+        redirectUrl.searchParams.set('code', data.authorization_code)
+        if (data.state) {
+          redirectUrl.searchParams.set('state', data.state)
+        }
+        console.log('[OAuthConsent] Constructed redirect URL:', redirectUrl.toString())
+        window.location.href = redirectUrl.toString()
+        return
+      }
+      
+      // Last fallback: show error
+      console.error('[OAuthConsent] Auto-approved but cannot redirect. Data:', data)
+      error.value = 'Authorization was auto-approved but redirect URL could not be determined'
       loading.value = false
       return
     }
