@@ -106,7 +106,7 @@
           @retry="handleRetry"
         />
       </main>
-      <div style="width: 1.1rem; flex-shrink: 0; z-index: 1000; position: absolute; right: 1.2rem; top: 6.5rem; bottom: 0; background: var(--bg-primary);"></div>
+      <div style="width: 1.5rem; flex-shrink: 0; z-index: 1000; position: absolute; right: 0.8rem; top: 6.5rem; bottom: 0; background: var(--bg-primary);"></div>
       </main>
     </div>
 
@@ -1055,7 +1055,30 @@ onUnmounted(() => {
   flex: 1;
   overflow-x: auto;
   overflow-y: scroll;
-  scrollbar-color: var(--bg-tertiary) var(--bg-primary) !important;
+}
+
+/* 1. Target the scrollbar container */
+.center-content::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 10px;      /* Vertical scrollbar width */
+    height: 10px;     /* Horizontal scrollbar height */
+}
+
+.center-content::-webkit-scrollbar-corner {
+    background: var(--bg-primary) !important;
+}
+
+/* 2. Style the moving part (the thumb) */
+.center-content::-webkit-scrollbar-thumb {
+    background-color: var(--bg-tertiary); /* Dark grey color */
+    border-radius: 5px;       /* Rounded corners */
+    height: 10px;
+}
+
+/* 3. Style the track (optional, but good for contrast) */
+.center-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);  /* Or a specific color */
+    background-clip: padding-box;
 }
 
 

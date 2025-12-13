@@ -1304,6 +1304,7 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 .table-scroll-container {
   min-width: 0;
   width: fit-content; 
+  background-color: var(--bg-primary) !important;
   /* scrooling fix here*/
 }
 
