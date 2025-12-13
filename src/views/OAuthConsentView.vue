@@ -185,12 +185,42 @@ async function handleDeny() {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+/* PrimeVue Card internal sections - need :deep() to penetrate component */
+.consent-card :deep(.p-card-header) {
+  padding: 1.5rem 1.5rem 0;
+}
+
+.consent-card :deep(.p-card-body) {
+  padding: 1.5rem;
+}
+
+.consent-card :deep(.p-card-title) {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.consent-card :deep(.p-card-subtitle) {
+  color: var(--text-secondary);
+  margin-bottom: 1.25rem;
+}
+
+.consent-card :deep(.p-card-content) {
+  padding: 0;
+}
+
+.consent-card :deep(.p-card-footer) {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-primary);
+  margin-top: 1rem;
 }
 
 .consent-header {
   display: flex;
   justify-content: center;
-  padding: 2rem 0 1rem;
 }
 
 .consent-header i {
@@ -201,7 +231,7 @@ async function handleDeny() {
 .consent-details {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .redirect-uri {
@@ -210,10 +240,11 @@ async function handleDeny() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin: 0;
 }
 
 .redirect-uri code {
-  background: var(--surface-100);
+  background: var(--bg-tertiary);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.75rem;
