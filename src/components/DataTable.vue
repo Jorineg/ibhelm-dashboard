@@ -1,6 +1,6 @@
 <template>
   <div class="data-table-wrapper">
-    <!-- Column visibility selector -->
+    <!-- Toolbar -->
     <div class="table-toolbar">
       <div class="toolbar-left">
         <!-- Search Bar -->
@@ -58,7 +58,6 @@
         
         <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
           <template v-if="props.viewType === 'items' || !props.viewType">
-            
             <!-- Task type checkboxes -->
             <div 
               v-for="taskType in taskTypes" 
@@ -72,10 +71,7 @@
                   :input-id="`task-type-${taskType.id}`"
                   :binary="true"
                 />
-                <label 
-                  :for="`task-type-${taskType.id}`" 
-                  class="toggle-item-label"
-                >
+                <label :for="`task-type-${taskType.id}`" class="toggle-item-label">
                   {{ taskType.name }}
                 </label>
               </div>
@@ -90,47 +86,26 @@
             
             <div class="checkbox-group email-checkbox">
               <div class="email-checkbox-inner">
-                <Checkbox
-                  v-model="localShowEmails"
-                  input-id="show-emails"
-                  :binary="true"
-                />
+                <Checkbox v-model="localShowEmails" input-id="show-emails" :binary="true" />
                 <label for="show-emails" class="toggle-item-label">Email</label>
               </div>
-              <span 
-                class="email-color-bar"
-                :style="{ backgroundColor: emailColor }"
-              ></span>
+              <span class="email-color-bar" :style="{ backgroundColor: emailColor }"></span>
             </div>
             
             <div class="checkbox-group craft-checkbox">
               <div class="craft-checkbox-inner">
-                <Checkbox
-                  v-model="localShowCraft"
-                  input-id="show-craft"
-                  :binary="true"
-                />
+                <Checkbox v-model="localShowCraft" input-id="show-craft" :binary="true" />
                 <label for="show-craft" class="toggle-item-label">Craft</label>
               </div>
-              <span 
-                class="craft-color-bar"
-                :style="{ backgroundColor: craftColor }"
-              ></span>
+              <span class="craft-color-bar" :style="{ backgroundColor: craftColor }"></span>
             </div>
             
             <div class="checkbox-group file-checkbox">
               <div class="file-checkbox-inner">
-                <Checkbox
-                  v-model="localShowFiles"
-                  input-id="show-files"
-                  :binary="true"
-                />
+                <Checkbox v-model="localShowFiles" input-id="show-files" :binary="true" />
                 <label for="show-files" class="toggle-item-label">Files</label>
               </div>
-              <span 
-                class="file-color-bar"
-                :style="{ backgroundColor: fileColor }"
-              ></span>
+              <span class="file-color-bar" :style="{ backgroundColor: fileColor }"></span>
             </div>
           </template>
         </div>
@@ -182,7 +157,7 @@
       </div>
     </div>
 
-    <!-- Loading overlay - positioned outside scroll container -->
+    <!-- Loading overlay -->
     <div v-if="loading && !props.error" class="loading-overlay">
       <div class="loading-state">
         <i class="pi pi-spin pi-spinner loading-icon"></i>
@@ -196,112 +171,103 @@
         <i class="pi pi-exclamation-triangle error-icon"></i>
         <p class="error-title">Failed to load data</p>
         <p class="error-message">{{ props.error }}</p>
-        <Button 
-          label="Try Again" 
-          icon="pi pi-refresh" 
-          class="retry-btn"
-          @click="emit('retry')"
-        />
+        <Button label="Try Again" icon="pi pi-refresh" class="retry-btn" @click="emit('retry')" />
       </div>
     </div>
 
-    <!-- List View -->
+    <!-- List View (TanStack Table) -->
     <div v-show="localViewMode === 'list'" class="table-scroll-container" ref="scrollContainerRef">
-      <DataTablePrime
-        ref="dataTableRef"
-        :value="displayedItems"
-        dataKey="id"
-        striped-rows
-        :paginator="false"
-        :rows="displayedItems.length"
-        :reorderable-columns="true"
-        removable-sort
-        :row-class="getRowClass"
-        scrollHeight="flex"
-        :virtualScrollerOptions="{ itemSize: 41 }"
-        @row-click="handleRowClick"
-        @column-reorder="handleColumnReorder"
-        @sort="handleSort"
-        @column-resize-start="handleResizeStart"
-        @column-resize-end="handleResizeEnd"
-        class="data-table"
-        :class="{ 'is-resizing': isResizing }"
-        :resizable-columns="true"
-        column-resize-mode="expand"
-      >
-        <template #empty>
-          <div class="empty-state">
-            <i class="pi pi-inbox empty-icon"></i>
-            <p>No items found</p>
+      <div class="tanstack-table" :class="{ 'is-resizing': isResizing }">
+        <!-- Header Row -->
+        <div class="table-header-row">
+          <!-- Frozen Type Column Header -->
+          <div class="table-header-cell type-column-header frozen-col">
+            <div class="column-header-content">Type</div>
           </div>
-        </template>
-
-
-        <!-- Type Column (frozen on left, all views) -->
-        <Column
-          field="type"
-          header="Type"
-          frozen
-          :sortable="false"
-          :reorderable-column="false"
-          class="type-column"
-        >
-          <template #body="{ data }">
-            <a
-              :href="getRowPrimaryUrl(data)"
-              :target="getRowLinkTarget(data)"
+          <!-- Draggable Column Headers with TransitionGroup -->
+          <TransitionGroup name="column-reorder" tag="div" class="table-header-cells">
+            <div
+              v-for="colId in sortedColumnIds"
+              :key="colId"
+              class="table-header-cell"
+              :style="getHeaderStyleById(colId)"
+              :class="{ dragging: draggingColumnId === colId }"
+              draggable="true"
+              @dragstart="handleDragStart($event, colId)"
+              @dragover="handleDragOver($event, colId)"
+              @drop="handleDrop"
+              @dragend="handleDragEnd"
+            >
+              <div 
+                class="column-header-content" 
+                :class="{ sortable: isColumnSortable(colId) }"
+                @click="handleHeaderClickById(colId)"
+              >
+                <i class="pi pi-bars column-drag-handle"></i>
+                <span class="column-header-text">{{ getColumnHeader(colId) }}</span>
+                <i v-if="isColumnSortable(colId)" :class="['sort-icon', getSortIcon(colId)]" />
+          </div>
+              <!-- Resize Handle -->
+              <div
+                class="resize-handle"
+                @mousedown="startResizeById($event, colId)"
+                @touchstart="startResizeById($event, colId)"
+              ></div>
+            </div>
+          </TransitionGroup>
+        </div>
+        <!-- Body Rows -->
+        <div class="table-body">
+          <div
+            v-for="(row, rowIndex) in table.getRowModel().rows"
+            :key="row.id"
+            class="table-row"
+            :class="{ 
+              'keyboard-selected': rowIndex === props.selectedRow,
+              'row-odd': rowIndex % 2 === 0
+            }"
+            @click="handleRowClick(row.original)"
+          >
+            <!-- Frozen Type Column Cell -->
+            <div class="table-cell type-column-cell frozen-col">
+              <a
+                :href="getRowPrimaryUrl(row.original)"
+                :target="getRowLinkTarget(row.original)"
               rel="noopener noreferrer"
               class="type-cell-link"
-              :title="getTypeBadgeTooltip(data)"
-              @click="handleTypeBadgeClick($event, data)"
+                :title="getTypeBadgeTooltip(row.original)"
+                @click="handleTypeBadgeClick($event, row.original)"
             >
-              <span class="type-badge" :style="getTypeBadgeStyle(data)">
-                {{ getTypeBadgeText(data) }}
+                <span class="type-badge" :style="getTypeBadgeStyle(row.original)">
+                  {{ getTypeBadgeText(row.original) }}
               </span>
             </a>
-          </template>
-        </Column>
-
-        <Column
-          v-for="col in orderedVisibleColumnsWithoutType"
-          :key="col.field"
-          :field="col.field"
-          :sortable="false"
-          :style="getColumnStyle(col)"
-        >
-          <template #header>
-            <div 
-              class="custom-sort-header" 
-              :class="{ sortable: col.sortable !== false }"
-              @click="col.sortable !== false && handleHeaderClick(col.field)"
-            >
-              <i class="pi pi-bars column-drag-handle"></i>
-              <span class="column-header-text">{{ col.header }}</span>
-              <i v-if="col.sortable !== false" :class="['sort-icon', getSortIcon(col.field)]" />
             </div>
-          </template>
-          <template #body="{ data }">
-            <component
-              :is="getCellComponent(col.field, data)"
-              :data="data"
-              :field="col.field"
-            />
-          </template>
-        </Column>
-      </DataTablePrime>
-      <!-- Infinite scroll trigger for list view -->
+            <!-- Data Cells - follow same order as headers -->
+            <div
+              v-for="colId in sortedColumnIds"
+              :key="colId"
+              class="table-cell"
+              :style="getCellStyleById(colId)"
+            >
+              <component :is="renderCellById(row.original, colId)" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Infinite scroll trigger -->
       <div ref="scrollTrigger" class="scroll-trigger"></div>
     </div>
 
     <!-- Gallery View -->
-    <div v-show="localViewMode === 'gallery'" class="gallery-view" ref="galleryViewRef">
+    <div v-show="localViewMode === 'gallery'" class="gallery-view">
       <div class="gallery-grid" ref="galleryGridRef" :style="galleryGridStyle">
         <div
           v-for="(item, index) in displayedItems"
           :key="item.id"
           class="gallery-item"
           :class="{ 'keyboard-selected': index === props.selectedRow, 'compact': isCompactGrid }"
-          @click="handleRowClick({ data: item })"
+          @click="handleRowClick(item)"
         >
           <div class="gallery-item-header">
             <a
@@ -325,11 +291,7 @@
               class="gallery-thumbnail-img"
               @error="() => handleThumbnailError(item.thumbnail_path!)"
             />
-            <i
-              v-else
-              :class="getGalleryIcon(item)"
-              class="gallery-icon"
-            ></i>
+            <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
           </div>
           <div class="gallery-item-content">
             <h4>{{ getGalleryTitle(item) }}</h4>
@@ -377,9 +339,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
-import DataTablePrime from 'primevue/datatable'
-import Column from 'primevue/column'
+import { ref, computed, onMounted, onUnmounted, h, watch, TransitionGroup, type VNode } from 'vue'
+import {
+  useVueTable,
+  getCoreRowModel,
+  createColumnHelper,
+  type ColumnDef
+} from '@tanstack/vue-table'
 import MultiSelect from 'primevue/multiselect'
 import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
@@ -391,14 +357,14 @@ import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete, type ProjectSuggestion } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
-import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType, TaskType } from '@/types'
+import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType } from '@/types'
 
 interface Props {
   items: ViewDataItem[]
   columns: ColumnType[]
   loading: boolean
   countLoading?: boolean
-  revalidating?: boolean // True when showing cached data while fetching fresh
+  revalidating?: boolean
   error?: string | null
   visibleColumns: string[]
   columnOrder: string[]
@@ -412,18 +378,12 @@ interface Props {
   totalCount?: number | null
   sortConfig?: SortConfig
   viewType?: ViewType
-  // Task type filters
   selectedTaskTypes?: string[]
-  // Keyboard navigation
   selectedRow?: number
   selectedCol?: number
-  // Export state
   exporting?: boolean
-  // Filter config ID to track config changes
   filterConfigId?: string
-  // Project filter for people view
   projectFilter?: string
-  // Grid view columns per row
   gridColumns?: number
 }
 
@@ -452,168 +412,70 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// Task types from composable
+// Composables
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
-
-// Appearance settings from composable
 const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
-
-// Project autocomplete for people view
 const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
 
+// Refs
+const scrollTrigger = ref<HTMLElement | null>(null)
+const galleryScrollTrigger = ref<HTMLElement | null>(null)
+const scrollContainerRef = ref<HTMLElement | null>(null)
+const galleryGridRef = ref<HTMLElement | null>(null)
+
+// State
+const isResizing = ref(false)
+const resizingColumn = ref<string | null>(null)
+const resizeStartX = ref(0)
+const resizeStartWidth = ref(0)
+
+// Drag and drop state for column reordering (matches FilterBar pattern)
+const draggingColumnId = ref<string | null>(null)
+const previewColumnOrder = ref<string[] | null>(null)
+let lastSwapTime = 0
+
+// Cache for column visibility during loading
+const cachedColumnsWithData = ref<Set<string>>(new Set())
+const lastFilterConfigId = ref<string | undefined>(undefined)
+
+// Failed thumbnails
+const failedThumbnails = ref(new Set<string>())
+
+// Project autocomplete handlers
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
 const handleProjectSelect = (suggestion: ProjectSuggestion) => emit('update:projectFilter', suggestion.name)
 const handleProjectClear = () => { emit('update:projectFilter', ''); clearProjectSuggestions() }
 
-// Transform craft URL to include space ID
+// Transform craft URL
 const transformCraftUrl = (url: string): string => {
   if (!url || !craftSpaceId.value) return url
-  // URL format: craftdocs://open?blockId=xxx → craftdocs://open?spaceId=yyy&blockId=xxx
   const blockIdMatch = url.match(/blockId=([^&]+)/)
   if (!blockIdMatch) return url
   return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
 }
 
-// Initialize task types and appearance settings on mount
+// Initialize on mount
 onMounted(async () => {
   await Promise.all([initTaskTypes(), initAppearance()])
+  setupIntersectionObserver()
 })
 
-// Toggle a specific task type - directly emit the change
+// Task type toggles
 const toggleTaskType = (typeId: string) => {
-  const currentSelected = props.selectedTaskTypes || []
-  const index = currentSelected.indexOf(typeId)
-  let newSelection: string[]
-  
-  if (index === -1) {
-    newSelection = [...currentSelected, typeId]
-  } else {
-    newSelection = currentSelected.filter(id => id !== typeId)
-  }
+  const current = props.selectedTaskTypes || []
+  const newSelection = current.includes(typeId)
+    ? current.filter(id => id !== typeId)
+    : [...current, typeId]
   emit('update:selectedTaskTypes', newSelection)
 }
 
-// Check if a task type is selected - directly read from props
-const isTaskTypeSelected = (typeId: string) => {
-  const currentSelected = props.selectedTaskTypes || []
-  return currentSelected.includes(typeId)
-}
+const isTaskTypeSelected = (typeId: string) => (props.selectedTaskTypes || []).includes(typeId)
 
-const scrollTrigger = ref<HTMLElement | null>(null)
-const galleryScrollTrigger = ref<HTMLElement | null>(null)
-const scrollContainerRef = ref<HTMLElement | null>(null)
-const dataTableRef = ref<InstanceType<typeof DataTablePrime> | null>(null)
-const searchInputRef = ref<HTMLElement | null>(null)
-const galleryGridRef = ref<HTMLElement | null>(null)
-const galleryViewRef = ref<HTMLElement | null>(null)
-const isResizing = ref(false)
-let resizeTimeout: number | null = null
-
-// Cache columns that have data to preserve visibility during loading
-const cachedColumnsWithData = ref<Set<string>>(new Set())
-const lastFilterConfigId = ref<string | undefined>(undefined)
-
-// Expose methods for parent component
-const focusSearch = () => {
-  // PrimeVue InputText wraps the input, so we need to find it within the wrapper
-  const wrapper = document.querySelector('.search-wrapper')
-  const input = wrapper?.querySelector('input') as HTMLInputElement
-  input?.focus()
-}
-
-const scrollToSelectedCell = () => {
-  if (props.selectedRow === undefined || props.selectedRow < 0) return
-  const rows = scrollContainerRef.value?.querySelectorAll('.p-datatable-tbody > tr')
-  if (rows && rows[props.selectedRow]) {
-    rows[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }
-}
-
-const scrollHorizontal = (direction: 'left' | 'right') => {
-  if (!scrollContainerRef.value) return
-  const scrollAmount = 200
-  scrollContainerRef.value.scrollBy({
-    left: direction === 'right' ? scrollAmount : -scrollAmount,
-    behavior: 'smooth'
-  })
-}
-
-// Gallery grid dynamic style for zoom
-const gridColumns = computed(() => props.gridColumns || 4)
-const isCompactGrid = computed(() => gridColumns.value >= 8)
-
-const galleryGridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${gridColumns.value}, 1fr)`,
-  gap: isCompactGrid.value ? '0' : undefined
-}))
-
-// Get number of columns in gallery grid
-const getGalleryColumns = (): number => gridColumns.value
-
-// Scroll to selected gallery item
-const scrollToSelectedGalleryItem = () => {
-  if (props.selectedRow === undefined || props.selectedRow < 0) return
-  if (!galleryGridRef.value) return
-  const items = galleryGridRef.value.querySelectorAll('.gallery-item')
-  if (items && items[props.selectedRow]) {
-    items[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }
-}
-
-defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryColumns, scrollToSelectedGalleryItem })
-
+// Local v-model proxies
 const localVisibleColumns = computed({
   get: () => props.visibleColumns,
   set: (value) => emit('update:visibleColumns', value)
 })
-
-// Static column visibility based on selected item types (moved here for use in availableColumns)
-const staticVisibleColumns = computed(() => {
-  if (props.viewType !== 'items' && props.viewType !== undefined) {
-    return null // Don't apply for projects/people views
-  }
-  return getVisibleColumnsForTypes(
-    props.showTasks,
-    props.showEmails,
-    props.showCraft,
-    props.showFiles,
-    props.selectedTaskTypes ?? null
-  )
-})
-
-// Column availability based on selected item types
-const availableColumns = computed(() => {
-  if (staticVisibleColumns.value !== null) {
-    return new Set(staticVisibleColumns.value)
-  }
-  // For non-items views, all columns are available
-  return new Set(props.columns.map(c => c.field))
-})
-
-// Check if a column should be disabled (greyed out) in the selector
-const isColumnDisabled = (option: { field: string }) => {
-  // Type column is always available
-  if (option.field === 'type') return false
-  return !availableColumns.value.has(option.field)
-}
-
-// Count only enabled (non-disabled) selected columns
-const enabledSelectedColumnsCount = computed(() => {
-  return props.visibleColumns.filter(field => availableColumns.value.has(field)).length
-})
-
-// Handle select-all: only select enabled columns, preserve disabled selections
-const handleSelectAllChange = (event: { checked: boolean }) => {
-  const disabledSelected = props.visibleColumns.filter(f => !availableColumns.value.has(f))
-  if (event.checked) {
-    const enabledFields = props.columns
-      .filter(col => availableColumns.value.has(col.field))
-      .map(col => col.field)
-    emit('update:visibleColumns', [...new Set([...enabledFields, ...disabledSelected])])
-  } else {
-    emit('update:visibleColumns', disabledSelected)
-  }
-}
 
 const localShowEmails = computed({
   get: () => props.showEmails,
@@ -640,89 +502,54 @@ const viewModeOptions = [
   { label: 'Gallery', value: 'gallery', icon: 'pi pi-th-large' }
 ]
 
-const allColumns = computed(() => props.columns)
-
-const orderedVisibleColumns = computed(() => {
-  // Filter columns based on visibility and data
-  const visibleCols = props.columns.filter(col => 
-    props.visibleColumns.includes(col.field) &&
-    shouldShowColumn(col.field)
-  )
-
-  // Sort by columnOrder
-  return visibleCols.sort((a, b) => {
-    const indexA = props.columnOrder.indexOf(a.field)
-    const indexB = props.columnOrder.indexOf(b.field)
-    
-    if (indexA === -1 && indexB === -1) return 0
-    if (indexA === -1) return 1
-    if (indexB === -1) return -1
-    
-    return indexA - indexB
-  })
+// Column visibility logic
+const staticVisibleColumns = computed(() => {
+  if (props.viewType !== 'items' && props.viewType !== undefined) return null
+  return getVisibleColumnsForTypes(props.showTasks, props.showEmails, props.showCraft, props.showFiles, props.selectedTaskTypes ?? null)
 })
 
-// Exclude type column from the regular columns (it's rendered separately as frozen)
-const orderedVisibleColumnsWithoutType = computed(() => {
-  return orderedVisibleColumns.value.filter(col => col.field !== 'type')
+const availableColumns = computed(() => {
+  if (staticVisibleColumns.value !== null) return new Set(staticVisibleColumns.value)
+  return new Set(props.columns.map(c => c.field))
 })
 
-// Handle PrimeVue column reorder
-const handleColumnReorder = (event: any) => {
-  const { dragIndex, dropIndex } = event
-  if (dragIndex === undefined || dropIndex === undefined) return
-  
-  // Account for frozen type column (index 0) if in items view
-  const hasTypeColumn = props.viewType === 'items' || !props.viewType
-  const offset = hasTypeColumn ? 1 : 0
-  const adjustedDragIndex = dragIndex - offset
-  const adjustedDropIndex = dropIndex - offset
-  
-  // Get current visible column order and apply the drag/drop
-  const currentOrder = [...orderedVisibleColumnsWithoutType.value.map(c => c.field)]
-  
-  if (adjustedDragIndex < 0 || adjustedDropIndex < 0 || adjustedDragIndex >= currentOrder.length) return
-  
-  const [moved] = currentOrder.splice(adjustedDragIndex, 1)
-  currentOrder.splice(adjustedDropIndex, 0, moved)
-  
-  // Merge with hidden columns (preserve their positions at the end)
-  const visibleSet = new Set(currentOrder)
-  const hiddenColumns = props.columnOrder.filter(f => !visibleSet.has(f))
-  
-  emit('update:columnOrder', [...currentOrder, ...hiddenColumns])
+const isColumnDisabled = (option: { field: string }) => {
+  if (option.field === 'type') return false
+  return !availableColumns.value.has(option.field)
 }
 
-// Check if column should be shown based on selected item types
-const shouldShowColumn = (field: string): boolean => {
-  // For items view, use static mapping
-  if (staticVisibleColumns.value !== null) {
-    return staticVisibleColumns.value.includes(field)
+const enabledSelectedColumnsCount = computed(() => 
+  props.visibleColumns.filter(field => availableColumns.value.has(field)).length
+)
+
+const handleSelectAllChange = (event: { checked: boolean }) => {
+  const disabledSelected = props.visibleColumns.filter(f => !availableColumns.value.has(f))
+  if (event.checked) {
+    const enabledFields = props.columns.filter(col => availableColumns.value.has(col.field)).map(col => col.field)
+    emit('update:visibleColumns', [...new Set([...enabledFields, ...disabledSelected])])
+  } else {
+    emit('update:visibleColumns', disabledSelected)
   }
-  
-  // For other views, use client-side check
+}
+
+const allColumns = computed(() => props.columns)
+
+// Should show column based on item types
+const shouldShowColumn = (field: string): boolean => {
+  if (staticVisibleColumns.value !== null) return staticVisibleColumns.value.includes(field)
   if (props.loading && props.items.length === 0 && props.filterConfigId === lastFilterConfigId.value) {
     return cachedColumnsWithData.value.has(field)
   }
   if (props.items.length === 0) return true
-
   return props.items.some(item => {
     const value = item[field]
     return value !== null && value !== undefined && value !== ''
   })
 }
 
-// Get column style with width - use maxWidth to prevent columns from expanding with few columns
-const getColumnStyle = (col: ColumnType) => {
-  const width = props.columnWidths[col.field] || col.width || '150px'
-  return { width, maxWidth: width }
-}
-
-// Update cache when items change (for views without static mapping: projects/people)
+// Update cache when items change
 watch(() => props.items, (items) => {
-  // Skip if using static mapping (items view)
   if (staticVisibleColumns.value !== null) return
-  
   if (items.length > 0) {
     const columnsWithData = new Set<string>()
     props.columns.forEach(col => {
@@ -737,139 +564,166 @@ watch(() => props.items, (items) => {
   }
 }, { immediate: true })
 
-// Reset cache when filter config changes
 watch(() => props.filterConfigId, (newId, oldId) => {
-  if (newId !== oldId && oldId !== undefined) {
-    cachedColumnsWithData.value = new Set()
-  }
+  if (newId !== oldId && oldId !== undefined) cachedColumnsWithData.value = new Set()
 })
 
 const displayedItems = computed(() => props.items)
 
-// Object for count display with loading state
-const itemCountData = computed(() => {
-  const loaded = displayedItems.value.length
-  const viewLabel = props.viewType === 'projects' ? 'projects' 
-    : props.viewType === 'people' ? 'people' 
-    : 'items'
-  return {
-    loaded,
+// Item count display
+const itemCountData = computed(() => ({
+  loaded: displayedItems.value.length,
     total: props.totalCount,
-    viewLabel,
+  viewLabel: props.viewType === 'projects' ? 'projects' : props.viewType === 'people' ? 'people' : 'items',
     isCountLoading: props.countLoading ?? false
-  }
+}))
+
+// TanStack Table column definitions
+const columnHelper = createColumnHelper<ViewDataItem>()
+
+const tableColumns = computed<ColumnDef<ViewDataItem, any>[]>(() => {
+  // Filter columns that should be visible
+  const visibleCols = props.columns.filter(col => 
+    props.visibleColumns.includes(col.field) && shouldShowColumn(col.field) && col.field !== 'type'
+  )
+  
+  return visibleCols.map(col => 
+    columnHelper.accessor(row => row[col.field], {
+      id: col.field,
+      header: col.header,
+      enableSorting: col.sortable !== false,
+      size: parseInt(props.columnWidths[col.field] || col.width || '150') || 150,
+      minSize: 50,
+      maxSize: 800,
+    })
+  )
 })
 
-const handleRowClick = (event: { data: DataItem }) => {
-  emit('rowClick', event.data)
+// TanStack Table instance
+const table = useVueTable({
+  get data() { return displayedItems.value },
+  get columns() { return tableColumns.value },
+  getCoreRowModel: getCoreRowModel(),
+  manualSorting: true,
+  enableColumnResizing: true,
+  columnResizeMode: 'onChange',
+})
+
+// Sorted column IDs - uses preview order during drag for live reordering
+const sortedColumnIds = computed(() => {
+  // If dragging, use preview order for smooth live reorder
+  if (previewColumnOrder.value) return previewColumnOrder.value
+  
+  // Get visible column IDs from table
+  const visibleColIds = tableColumns.value.map(c => c.id).filter((id): id is string => !!id)
+  const order = props.columnOrder.filter(f => f !== 'type')
+  
+  // Sort by columnOrder
+  return [...visibleColIds].sort((a, b) => {
+    const indexA = order.indexOf(a)
+    const indexB = order.indexOf(b)
+    if (indexA === -1 && indexB === -1) return 0
+    if (indexA === -1) return 1
+    if (indexB === -1) return -1
+    return indexA - indexB
+  })
+})
+
+// Get column header text
+const getColumnHeader = (colId: string): string => {
+  const col = props.columns.find(c => c.field === colId)
+  return col?.header || colId
 }
 
-// Row class for keyboard selection
-const getRowClass = (data: ViewDataItem) => {
-  if (props.selectedRow === undefined || props.selectedRow < 0) return ''
-  const index = displayedItems.value.indexOf(data)
-  return index === props.selectedRow ? 'keyboard-selected' : ''
+// Get column def by ID
+const getColumnDef = (colId: string) => {
+  return props.columns.find(c => c.field === colId)
 }
 
+// Header style with width by column ID
+const getHeaderStyleById = (colId: string) => {
+  const col = getColumnDef(colId)
+  const defaultWidth = col?.width || '150px'
+  const width = props.columnWidths[colId] || defaultWidth
+  return { width, minWidth: width, maxWidth: width }
+}
 
-const handleSort = (event: any) => {
-  // Prevent sort during/right after column resize
+// Cell style with width by column ID
+const getCellStyleById = (colId: string) => {
+  const col = getColumnDef(colId)
+  const defaultWidth = col?.width || '150px'
+  const width = props.columnWidths[colId] || defaultWidth
+  return { width, minWidth: width, maxWidth: width }
+}
+
+// Check if column is sortable
+const isColumnSortable = (colId: string): boolean => {
+  const col = getColumnDef(colId)
+  return col?.sortable !== false
+}
+
+// Handle header click by column ID
+const handleHeaderClickById = (colId: string) => {
   if (isResizing.value) return
+  if (!isColumnSortable(colId)) return
   
-  // PrimeVue sort event: { sortField: string, sortOrder: 1 | -1 | 0 }
-  const field = event.sortField
-  const order = event.sortOrder === 1 ? 'asc' : 'desc'
-  
-  // If sortOrder is 0 (removed), use view-appropriate default
-  if (event.sortOrder === 0 || !field) {
-    emit('sort', getDefaultSort())
-  } else {
-    emit('sort', { field, order })
-  }
-}
-
-// Get default sort config based on view type
-const getDefaultSort = (): SortConfig => {
-  switch (props.viewType) {
-    case 'projects': return { field: 'name', order: 'asc' }
-    case 'people': return { field: 'display_name', order: 'asc' }
-    default: return { field: 'sort_date', order: 'desc' }
-  }
-}
-
-// Custom header click handler for sorting (bypasses PrimeVue's internal sorting)
-const handleHeaderClick = (field: string) => {
-  if (isResizing.value) return
-  
-  // Toggle sort order: if same field, flip direction; if different field, start with asc
   const currentField = props.sortConfig?.field
   const currentOrder = props.sortConfig?.order
   
-  if (currentField === field) {
-    // Same field - toggle or remove
+  if (currentField === colId) {
     if (currentOrder === 'asc') {
-      emit('sort', { field, order: 'desc' })
+      emit('sort', { field: colId, order: 'desc' })
     } else {
-      // Was desc, remove sort (use view-appropriate default)
       emit('sort', getDefaultSort())
     }
   } else {
-    // New field - start with asc
-    emit('sort', { field, order: 'asc' })
+    emit('sort', { field: colId, order: 'asc' })
   }
 }
 
-// Track column resize to prevent sort trigger
-const handleResizeStart = () => {
+// Start resize by column ID
+const startResizeById = (event: MouseEvent | TouchEvent, colId: string) => {
+  event.preventDefault()
+  event.stopPropagation()
+  
   isResizing.value = true
-  if (resizeTimeout) clearTimeout(resizeTimeout)
+  resizingColumn.value = colId
+  
+  const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
+  resizeStartX.value = clientX
+  const col = getColumnDef(colId)
+  const defaultWidth = col?.width || '150px'
+  resizeStartWidth.value = parseInt(props.columnWidths[colId] || defaultWidth) || 150
+  
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+  document.addEventListener('touchmove', onResize)
+  document.addEventListener('touchend', stopResize)
 }
 
-const handleResizeEnd = () => {
-  // Delay resetting to prevent sort from firing on mouseup
-  // 200ms gives enough buffer for the click event to be blocked
-  resizeTimeout = window.setTimeout(() => {
-    isResizing.value = false
-  }, 200)
-}
+// Render cell by column ID and row data
+const renderCellById = (data: ViewDataItem, colId: string): VNode => {
+  const value = data[colId]
 
-// Sort icon helper for custom header templates
-const getSortIcon = (field: string) => {
-  if (props.sortConfig?.field !== field) return 'pi pi-sort-alt'
-  return props.sortConfig.order === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'
-}
-
-const getCellComponent = (field: string, data: DataItem) => {
-  const value = data[field]
-
-  // Type field is rendered separately in frozen column
-  if (field === 'type') {
-    return h('span', '—')
-  }
-
-  // Task type column (separate from type)
-  if (field === 'task_type_name' && value) {
+  // Task type column
+  if (colId === 'task_type_name' && value) {
     const color = data.task_type_color || '#6366f1'
     return h('div', { class: 'task-type-cell' }, [
-      h('span', { 
-        class: 'task-type-dot',
-        style: { background: color }
-      }),
-      h('span', value)
+      h('span', { class: 'task-type-dot', style: { background: color } }),
+      h('span', String(value))
     ])
   }
 
-  // Recipients column - render as email tags
-  if (field === 'recipients' && Array.isArray(value) && value.length > 0) {
-    const emails = value
-      .map(r => r.contact?.email)
-      .filter((email): email is string => !!email)
+  // Recipients column
+  if (colId === 'recipients' && Array.isArray(value) && value.length > 0) {
+    const emails = value.map(r => r.contact?.email).filter((email): email is string => !!email)
     if (emails.length === 0) return h('span', '—')
     return h('div', { class: 'recipients-tags' }, 
       emails.map((email, idx) => h('span', { key: idx, class: 'recipient-tag' }, email))
     )
   }
 
+  // Arrays
   if (Array.isArray(value)) {
     return h('div', value.map((item, idx) => 
       h('div', { key: idx, class: 'array-item' }, 
@@ -878,33 +732,123 @@ const getCellComponent = (field: string, data: DataItem) => {
     ))
   }
 
+  // Objects
   if (typeof value === 'object' && value !== null) {
     return h('span', value.name || value.email || JSON.stringify(value))
   }
 
-  // Format dates
-  if (field.includes('date') || field.includes('at')) {
+  // Dates
+  if (colId.includes('date') || colId.includes('at')) {
     if (value && typeof value === 'string') {
       const date = new Date(value)
       if (!isNaN(date.getTime())) {
-        return h('span', date.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        }))
+        return h('span', date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }))
       }
     }
   }
 
-  return h('span', value || '—')
+  return h('span', value != null ? String(value) : '—')
 }
 
-const truncateText = (text: string, maxLength: number): string => {
-  if (!text || text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
+// Sorting
+const getSortIcon = (field: string) => {
+  if (props.sortConfig?.field !== field) return 'pi pi-sort-alt'
+  return props.sortConfig.order === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'
 }
 
-// Type badge helpers for clickable badges
+const getDefaultSort = (): SortConfig => {
+  switch (props.viewType) {
+    case 'projects': return { field: 'name', order: 'asc' }
+    case 'people': return { field: 'display_name', order: 'asc' }
+    default: return { field: 'sort_date', order: 'desc' }
+  }
+}
+
+const onResize = (event: MouseEvent | TouchEvent) => {
+  if (!resizingColumn.value) return
+  
+  const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX
+  const diff = clientX - resizeStartX.value
+  const newWidth = Math.max(50, Math.min(800, resizeStartWidth.value + diff))
+  
+  const newWidths = { ...props.columnWidths, [resizingColumn.value]: `${newWidth}px` }
+  emit('update:columnWidths', newWidths)
+}
+
+const stopResize = () => {
+    isResizing.value = false
+  resizingColumn.value = null
+  
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', onResize)
+  document.removeEventListener('touchend', stopResize)
+}
+
+// Column Drag and Drop Reordering - matches FilterBar pattern for smooth animations
+const handleDragStart = (event: DragEvent, columnId: string) => {
+  if (isResizing.value) {
+    event.preventDefault()
+    return
+  }
+  
+  draggingColumnId.value = columnId
+  // Initialize preview order with current sorted order
+  previewColumnOrder.value = [...sortedColumnIds.value]
+  lastSwapTime = 0
+  
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', columnId)
+  }
+}
+
+const handleDragOver = (event: DragEvent, targetColumnId: string) => {
+  event.preventDefault()
+  if (!draggingColumnId.value || draggingColumnId.value === targetColumnId || !previewColumnOrder.value) return
+  
+  // Throttle swaps to prevent flickering (150ms like FilterBar)
+  const now = Date.now()
+  if (now - lastSwapTime < 150) return
+  
+  const currentIdx = previewColumnOrder.value.indexOf(draggingColumnId.value)
+  const targetIdx = previewColumnOrder.value.indexOf(targetColumnId)
+  if (currentIdx === -1 || targetIdx === -1 || currentIdx === targetIdx) return
+  
+  // Move item to new position - this triggers TransitionGroup animation
+  const newOrder = [...previewColumnOrder.value]
+  newOrder.splice(currentIdx, 1)
+  newOrder.splice(targetIdx, 0, draggingColumnId.value)
+  previewColumnOrder.value = newOrder
+  lastSwapTime = now
+}
+
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault()
+  commitColumnOrder()
+}
+
+const handleDragEnd = () => {
+  commitColumnOrder()
+}
+
+const commitColumnOrder = () => {
+  if (previewColumnOrder.value) {
+    // Merge with hidden columns
+    const visibleSet = new Set(previewColumnOrder.value)
+    const hiddenColumns = props.columnOrder.filter(f => !visibleSet.has(f) && f !== 'type')
+    emit('update:columnOrder', [...previewColumnOrder.value, ...hiddenColumns])
+  }
+  draggingColumnId.value = null
+  previewColumnOrder.value = null
+}
+
+// Row click
+const handleRowClick = (item: ViewDataItem) => {
+  emit('rowClick', item as DataItem)
+}
+
+// Type badge helpers
 const getTypeBadgeText = (item: ViewDataItem): string => {
   if (props.viewType === 'people') return 'PERSON'
   if (props.viewType === 'projects') return 'PROJECT'
@@ -942,17 +886,15 @@ const getRowPrimaryUrl = (item: ViewDataItem): string => {
     const projectId = item.id
     return baseUrl && projectId ? `${baseUrl.replace(/\/$/, '')}/app/projects/${projectId}` : '#'
   }
-  // Items view
   if (item.teamwork_url) return item.teamwork_url
   if (item.missive_url) return item.missive_url
   if (item.craft_url) return transformCraftUrl(item.craft_url)
-  // Files are handled by click handler, use javascript:void(0) to prevent navigation
   if (item.type?.toLowerCase() === 'file') return 'javascript:void(0)'
   return '#'
 }
 
-const getRowLinkTarget = (item: ViewDataItem): string => {
-  if (props.viewType === 'people') return '_self' // mailto opens in same context
+const getRowLinkTarget = (_item: ViewDataItem): string => {
+  if (props.viewType === 'people') return '_self'
   return '_blank'
 }
 
@@ -971,63 +913,50 @@ const getTypeBadgeTooltip = (item: ViewDataItem): string => {
   return 'Open in Teamwork'
 }
 
-// Handle type badge click - special handling for files
 const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
   event.stopPropagation()
   
   const itemType = item.type?.toLowerCase()
-  
-  // For files, generate signed URL and open
   if (itemType === 'file') {
     event.preventDefault()
-    
-    if (!item.storage_path) {
-      console.error('File has no storage_path:', item)
-      return
-    }
+    if (!item.storage_path) return
     
     const { data, error } = await supabase.storage
       .from(filesBucket.value)
-      .createSignedUrl(item.storage_path, 300) // 5 minute expiry
+      .createSignedUrl(item.storage_path, 300)
     
-    if (error) {
-      console.error('Error generating signed URL:', error)
-      return
-    }
-    
-    if (data?.signedUrl) {
+    if (!error && data?.signedUrl) {
       window.open(data.signedUrl, '_blank')
     }
-    return
   }
-  
-  // For non-files, let the default link behavior happen (href is set)
 }
 
-// Thumbnail URL helper - public bucket
+// Thumbnail helpers
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const getThumbnailUrl = (thumbnailPath: string): string => {
-  return `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
-}
+const getThumbnailUrl = (thumbnailPath: string): string => 
+  `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
 
-// Track failed thumbnails to show fallback icon
-const failedThumbnails = ref(new Set<string>())
 const handleThumbnailError = (thumbnailPath: string) => {
   failedThumbnails.value.add(thumbnailPath)
 }
-const shouldShowThumbnail = (item: ViewDataItem): boolean => {
-  return !!item.thumbnail_path && !failedThumbnails.value.has(item.thumbnail_path)
-}
 
-// Gallery view helpers
+const shouldShowThumbnail = (item: ViewDataItem): boolean => 
+  !!item.thumbnail_path && !failedThumbnails.value.has(item.thumbnail_path)
+
+// Gallery helpers
+const gridColumns = computed(() => props.gridColumns || 4)
+const isCompactGrid = computed(() => gridColumns.value >= 8)
+
+const galleryGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${gridColumns.value}, 1fr)`,
+  gap: isCompactGrid.value ? '0' : undefined
+}))
+
+const getGalleryColumns = (): number => gridColumns.value
+
 const getGalleryIcon = (item: ViewDataItem): string => {
-  if (props.viewType === 'projects') {
-    return 'pi pi-folder'
-  }
-  if (props.viewType === 'people') {
-    return item.is_company ? 'pi pi-building' : 'pi pi-user'
-  }
-  // Items view
+  if (props.viewType === 'projects') return 'pi pi-folder'
+  if (props.viewType === 'people') return item.is_company ? 'pi pi-building' : 'pi pi-user'
   const itemType = item.type?.toLowerCase()
   if (itemType === 'email') return 'pi pi-envelope'
   if (itemType === 'craft') return 'pi pi-file-edit'
@@ -1035,28 +964,26 @@ const getGalleryIcon = (item: ViewDataItem): string => {
   return 'pi pi-check-square'
 }
 
-
 const getGalleryTitle = (item: ViewDataItem): string => {
-  if (props.viewType === 'people') {
-    return item.display_name || 'Unknown'
-  }
+  if (props.viewType === 'people') return item.display_name || 'Unknown'
   return item.name || 'Untitled'
 }
 
 const getGalleryDescription = (item: ViewDataItem): string => {
-  if (props.viewType === 'people') {
-    return item.notes || item.primary_email || ''
-  }
+  if (props.viewType === 'people') return item.notes || item.primary_email || ''
   return item.description || ''
+}
+
+const truncateText = (text: string, maxLength: number): string => {
+  if (!text || text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
 }
 
 // Infinite scroll
 let observer: IntersectionObserver | null = null
 
 const setupIntersectionObserver = () => {
-  if (observer) {
-    observer.disconnect()
-  }
+  if (observer) observer.disconnect()
   
   observer = new IntersectionObserver(
     (entries) => {
@@ -1067,30 +994,51 @@ const setupIntersectionObserver = () => {
     { threshold: 0.1 }
   )
   
-  // Observe whichever trigger is currently rendered
-  if (scrollTrigger.value) {
-    observer.observe(scrollTrigger.value)
-  }
-  if (galleryScrollTrigger.value) {
-    observer.observe(galleryScrollTrigger.value)
-  }
+  if (scrollTrigger.value) observer.observe(scrollTrigger.value)
+  if (galleryScrollTrigger.value) observer.observe(galleryScrollTrigger.value)
 }
 
-onMounted(() => {
-  setupIntersectionObserver()
-})
-
-// Re-setup observer when view mode changes
 watch(() => localViewMode.value, () => {
-  // Wait for DOM to update
   setTimeout(setupIntersectionObserver, 100)
 })
 
 onUnmounted(() => {
-  if (observer) {
-    observer.disconnect()
-  }
+  if (observer) observer.disconnect()
 })
+
+// Exposed methods
+const focusSearch = () => {
+  const wrapper = document.querySelector('.search-wrapper')
+  const input = wrapper?.querySelector('input') as HTMLInputElement
+  input?.focus()
+}
+
+const scrollToSelectedCell = () => {
+  if (props.selectedRow === undefined || props.selectedRow < 0) return
+  const rows = scrollContainerRef.value?.querySelectorAll('.table-row')
+  if (rows && rows[props.selectedRow]) {
+    rows[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+const scrollHorizontal = (direction: 'left' | 'right') => {
+  if (!scrollContainerRef.value) return
+  scrollContainerRef.value.scrollBy({
+    left: direction === 'right' ? 200 : -200,
+    behavior: 'smooth'
+  })
+}
+
+const scrollToSelectedGalleryItem = () => {
+  if (props.selectedRow === undefined || props.selectedRow < 0) return
+  if (!galleryGridRef.value) return
+  const items = galleryGridRef.value.querySelectorAll('.gallery-item')
+  if (items && items[props.selectedRow]) {
+    items[props.selectedRow].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+defineExpose({ focusSearch, scrollToSelectedCell, scrollHorizontal, getGalleryColumns, scrollToSelectedGalleryItem })
 </script>
 
 <style scoped>
@@ -1103,18 +1051,17 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  /* Fill available space */
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   position: relative;
 }
 
-/* Loading overlay - stays fixed in visible area */
+/* Loading overlay */
 .loading-overlay {
   position: absolute;
   inset: 0;
-  top: 80px; /* Below toolbar */
+  top: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1160,21 +1107,10 @@ onUnmounted(() => {
   color: var(--text-primary) !important;
 }
 
-/* Match toolbar inputs to filter bar inputs (34px / 2.125rem) */
-:deep(.toolbar-input.p-inputtext),
-:deep(.toolbar-input.p-multiselect) {
-  height: 2.125rem !important;
-  min-height: 2.125rem !important;
-  padding: 0.5rem 0.75rem !important;
-  font-size: 0.9rem !important;
-}
-
-
 .column-selector {
   min-width: 200px;
 }
 
-/* Disabled column options (greyed out with checkmark preserved) */
 :deep(.p-multiselect-item[data-p-disabled="true"]) {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1194,12 +1130,6 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.toggle-label {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
 .checkbox-group {
   display: flex;
   align-items: center;
@@ -1212,7 +1142,6 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-/* Unified item type checkbox styling */
 .task-type-checkbox,
 .email-checkbox,
 .craft-checkbox,
@@ -1262,16 +1191,9 @@ onUnmounted(() => {
   margin-left: 0.5rem;
 }
 
-
-/* Shimmer effect for count loading */
 .count-shimmer {
   display: inline-block;
-  background: linear-gradient(
-    90deg,
-    var(--text-disabled) 25%,
-    var(--text-tertiary) 50%,
-    var(--text-disabled) 75%
-  );
+  background: linear-gradient(90deg, var(--text-disabled) 25%, var(--text-tertiary) 50%, var(--text-disabled) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 3px;
@@ -1316,13 +1238,8 @@ onUnmounted(() => {
   right: 1.5rem;
 }
 
-/* Project filter for people view */
 .project-filter-wrapper {
   width: 220px;
-}
-
-.project-filter-wrapper :deep(.autocomplete-input) {
-  font-size: 0.95rem !important;
 }
 
 .project-option {
@@ -1348,7 +1265,6 @@ onUnmounted(() => {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .project-status.active {
@@ -1361,7 +1277,7 @@ onUnmounted(() => {
   color: var(--text-tertiary);
 }
 
-/* Table scroll container - handles both horizontal and vertical scroll */
+/* Table scroll container */
 .table-scroll-container {
   overflow: auto;
   flex: 1 1 0;
@@ -1369,134 +1285,304 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.data-table {
+/* Div-based Table Styles */
+.tanstack-table {
+  display: flex;
+  flex-direction: column;
   width: max-content;
   min-width: 100%;
 }
 
-.data-table :deep(.p-datatable-wrapper) {
-  overflow: visible !important;
+/* Header Row - must be above body frozen cells */
+.table-header-row {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--bg-tertiary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.data-table :deep(.p-datatable) {
-  overflow: visible !important;
+.table-header-cells {
+  display: flex;
 }
 
-.data-table :deep(.p-datatable-table) {
-  table-layout: auto;
-  min-width: 100%;
-}
-
-/* Ensure columns respect their set widths */
-.data-table :deep(.p-datatable-thead > tr > th),
-.data-table :deep(.p-datatable-tbody > tr > td) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-wrap: break-word;
-  box-sizing: border-box;
-}
-
-.data-table :deep(.p-datatable-thead) {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 100 !important;
-}
-
-.data-table :deep(.p-datatable-thead > tr > th) {
-  padding: 1.25rem 1rem !important;
-  background: var(--bg-tertiary) !important;
-  border-color: var(--border-primary) !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+.table-header-cell {
+  padding: 1.25rem 1rem;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+  font-weight: 600;
+  color: var(--text-primary);
+  position: relative;
+  user-select: none;
   cursor: grab;
+  flex-shrink: 0;
 }
 
-.data-table :deep(.p-datatable-thead > tr > th:active) {
+.table-header-cell:active {
   cursor: grabbing;
 }
 
-/* Column being dragged (PrimeVue adds p-highlight during drag) */
-.data-table :deep(.p-datatable-thead > tr > th.p-highlight) {
-  opacity: 0.5;
-  background: var(--accent-primary-dark) !important;
-  transform: scale(0.98);
-  transition: opacity 0.15s, transform 0.15s;
+.table-header-cell.dragging {
+  opacity: 0.4;
+  background: var(--accent-primary-dark);
+  transform: scale(0.95);
 }
 
-/* Prevent sort clicks during column resize */
-.data-table.is-resizing :deep(.p-datatable-thead > tr > th) {
-  pointer-events: none !important;
+/* TransitionGroup animation for column reordering */
+.column-reorder-move {
+  transition: transform 0.2s ease;
 }
 
-/* But allow the resize handle itself to work */
-.data-table.is-resizing :deep(.p-column-resizer) {
-  pointer-events: auto !important;
+.column-reorder-enter-active,
+.column-reorder-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-/* Type column - frozen, not resizable, fixed width (shrink-to-fit trick) */
-.data-table :deep(.type-column) {
+.column-reorder-enter-from,
+.column-reorder-leave-to {
+  opacity: 0;
+}
+
+/* Frozen type column */
+.frozen-col {
   position: sticky !important;
   left: 0 !important;
-  z-index: 2 !important;
-  width: 1% !important;
-  white-space: nowrap !important;
+  background: var(--bg-tertiary) !important;
+  width: 85px !important;
+  min-width: 85px !important;
+  max-width: 85px !important;
+  flex-shrink: 0 !important;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.15);
 }
 
-/* Type column header - add margin to widen the column */
-.data-table :deep(.type-column .p-column-header-content) {
-  margin: 0 1rem;
+/* Type column header - highest z-index */
+.type-column-header {
+  cursor: default !important;
+  z-index: 210 !important;
+  border-bottom: 1px solid var(--border-primary);
 }
 
-/* Type column in header - must be above both thead (z-index 100) and body type cells */
-.data-table :deep(.p-datatable-thead .type-column) {
-  z-index: 110 !important;
+/* Type column cells - lower than header row */
+.type-column-cell {
+  position: relative;
+  z-index: 10 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-bottom: 1px solid var(--border-primary);
 }
 
-/* Type column body - inherit row background for striping/hover, enable absolute positioning */
-.data-table :deep(.p-datatable-tbody > tr > .type-column) {
-  background: inherit !important;
-  position: relative !important;
+/* Table Body */
+.table-body {
+  display: flex;
+  flex-direction: column;
 }
 
-/* Disable resize handle on type column */
-.data-table :deep(.type-column .p-column-resizer) {
-  display: none !important;
-}
-
-/* Ensure resize handle is positioned correctly */
-.data-table :deep(.p-column-resizer) {
-  position: absolute !important;
-  right: 0 !important;
-  top: 0 !important;
-  width: 8px !important;
-  height: 100% !important;
-  cursor: col-resize !important;
-}
-
-.data-table :deep(.p-datatable-tbody > tr > td) {
-  padding: 1rem !important;
-  border-color: var(--border-primary) !important;
-  max-height: 4.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.data-table :deep(.p-datatable-tbody > tr > td > *) {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-word;
-}
-
-.data-table :deep(tbody tr) {
+.table-row {
+  display: flex;
   cursor: pointer;
+  background: var(--bg-secondary);
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
 }
 
-.data-table :deep(tbody tr:hover) {
+.table-row.row-odd {
+  background: var(--bg-tertiary);
+}
+
+.table-row:hover {
   background: var(--bg-hover) !important;
 }
 
+.table-row.keyboard-selected {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+  background: var(--accent-primary-dark) !important;
+}
+
+/* Inherit row background for frozen column */
+.table-row .frozen-col {
+  background: inherit !important;
+}
+
+.table-cell {
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+/* Ensure cell content doesn't overflow */
+.table-cell > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Column header content */
+.column-header-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.column-header-content.sortable {
+  cursor: pointer;
+}
+
+.column-drag-handle {
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  margin-right: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.table-header-cell:hover .column-drag-handle {
+  opacity: 1;
+}
+
+.column-header-text {
+  margin-right: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sort-icon {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sort-icon.pi-sort-amount-up-alt,
+.sort-icon.pi-sort-amount-down {
+  color: var(--accent-primary);
+}
+
+/* Resize handle */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover,
+.tanstack-table.is-resizing .resize-handle {
+  background: var(--accent-primary);
+}
+
+/* Table body */
+.tanstack-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.tanstack-table tbody tr {
+  cursor: pointer;
+  background: var(--bg-secondary);
+}
+
+.tanstack-table tbody tr:nth-child(odd) {
+  background: var(--bg-tertiary);
+}
+
+.tanstack-table tbody tr:hover {
+  background: var(--bg-hover) !important;
+}
+
+.tanstack-table tbody tr.keyboard-selected {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+  background: var(--accent-primary-dark) !important;
+}
+
+/* Type cell link */
+.type-cell-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  width: 100%;
+  height: 100%;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  width: 58px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.type-cell-link:hover .type-badge {
+  transform: scale(1.08);
+  filter: brightness(1.15);
+}
+
+/* Task type cell */
+.task-type-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.task-type-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Recipients tags */
+.recipients-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.recipient-tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* Empty and loading states */
 .empty-state,
 .loading-state,
 .error-state {
@@ -1520,11 +1606,10 @@ onUnmounted(() => {
   color: var(--accent-primary);
 }
 
-/* Error overlay */
 .error-overlay {
   position: absolute;
   inset: 0;
-  top: 80px; /* Below toolbar */
+  top: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1561,79 +1646,11 @@ onUnmounted(() => {
   border-color: var(--accent-secondary) !important;
 }
 
-.array-item:not(:last-child) {
-  margin-bottom: 0.25rem;
-}
-
-/* Recipients tags */
-.recipients-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.recipient-tag {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
-}
-
-/* Type Cell Link - fills entire cell */
-.type-cell-link {
-  position: absolute;
-  inset: 0;
-  display: flex !important;
-  -webkit-line-clamp: unset !important;
-  -webkit-box-orient: unset !important;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-/* Type Badge - styled button inside cell link - FIXED width */
-.type-badge {
-  display: inline-block;
-  padding: 0.3rem 0.4rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  border: 1px solid;
-  width: 58px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-
-/* Hover animation triggers from parent cell hover */
-.type-cell-link:hover .type-badge {
-  transform: scale(1.08);
-  filter: brightness(1.15);
-}
-
-/* Task Type Cell */
-.task-type-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.task-type-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.scroll-trigger {
+  height: 20px;
+  margin: 1rem 0;
+  position: sticky;
+  left: 0;
 }
 
 /* Gallery View */
@@ -1683,7 +1700,6 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
-/* Gallery type badge link - clickable */
 .gallery-type-badge-link {
   display: inline-block;
   padding: 0.25rem 0.6rem;
@@ -1776,86 +1792,6 @@ onUnmounted(() => {
   background: rgba(245, 166, 35, 0.2);
   color: #f5a623;
 }
-
-.scroll-trigger {
-  height: 20px;
-  margin: 1rem 0;
-  position: sticky;
-  left: 0;
-}
-
-/* Keyboard navigation selection */
-.data-table :deep(.p-datatable-tbody > tr.keyboard-selected) {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
-  background: var(--accent-primary-dark) !important;
-}
-
-.data-table :deep(.p-datatable-tbody > tr.keyboard-selected > td) {
-  background: inherit !important;
-}
-
-/* Custom sort header */
-.custom-sort-header {
-  display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.custom-sort-header.sortable {
-  cursor: pointer;
-}
-
-.column-drag-handle {
-  color: var(--text-tertiary);
-  font-size: 0.7rem;
-  margin-right: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.custom-sort-header:hover .column-drag-handle {
-  opacity: 1;
-}
-
-.custom-sort-header.sortable:hover .sort-icon {
-  color: var(--text-secondary);
-}
-
-.column-header-text {
-  margin-right: 0.5rem;
-}
-
-.sort-icon {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-}
-
-.sort-icon.pi-sort-amount-up-alt,
-.sort-icon.pi-sort-amount-down {
-  color: var(--accent-primary);
-}
-
 </style>
 
-<!-- Unscoped styles for elements appended to body (like resize helper) -->
-<style>
-.p-column-resizer-helper {
-  width: 2px !important;
-  background: var(--accent-primary) !important;
-  z-index: 9999 !important;
-}
-
-/* Column reorder drop indicators */
-.p-datatable-reorder-indicator-up,
-.p-datatable-reorder-indicator-down {
-  color: var(--accent-primary) !important;
-  font-size: 1.25rem !important;
-}
-
-.p-datatable-reorder-indicator-up::before,
-.p-datatable-reorder-indicator-down::before {
-  color: var(--accent-primary) !important;
-}
-</style>
 
