@@ -351,10 +351,10 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput } from '@/components/common'
+import { InfoTooltip, AutocompleteInput, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
-import { useProjectAutocomplete, type ProjectSuggestion } from '@/composables/useAutocomplete'
+import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType } from '@/types'
@@ -443,7 +443,7 @@ const failedThumbnails = ref(new Set<string>())
 
 // Project autocomplete handlers
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
-const handleProjectSelect = (suggestion: ProjectSuggestion) => emit('update:projectFilter', suggestion.name)
+const handleProjectSelect = (suggestion: AutocompleteSuggestion) => emit('update:projectFilter', suggestion.name as string)
 const handleProjectClear = () => { emit('update:projectFilter', ''); clearProjectSuggestions() }
 
 // Transform craft URL

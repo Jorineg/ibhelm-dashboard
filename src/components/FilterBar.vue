@@ -30,7 +30,7 @@
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="name"
                 secondary-field="company_name"
-                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
                 @search="handleProjectSearch"
                 @select="handleProjectSelect"
                 @clear="handleProjectClear"
@@ -63,7 +63,7 @@
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="display_name"
                 secondary-field="primary_email"
-                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
                 @search="handlePersonSearch"
                 @select="handlePersonSelect"
                 @clear="handlePersonClear"
@@ -103,7 +103,7 @@
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="code"
                 secondary-field="name"
-                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
                 @search="handleCostGroupSearch"
                 @select="handleCostGroupSelect"
                 @clear="handleCostGroupClear"
@@ -136,7 +136,7 @@
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="name"
                 secondary-field="path"
-                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
                 @search="handleLocationSearch"
                 @select="handleLocationSelect"
                 @clear="handleLocationClear"
@@ -169,7 +169,7 @@
                 :placeholder="`Filter by ${formatFilterName(filterName)}`"
                 primary-field="name"
                 secondary-field="source"
-                @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+                @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
                 @search="handleTagSearch"
                 @select="handleTagSelect"
                 @clear="handleTagClear"
@@ -197,7 +197,7 @@
               v-else
               :id="filterName"
               :model-value="activeConfig?.quickFilters[filterName] || ''"
-              @update:model-value="(value: string) => updateQuickFilter(filterName, value)"
+              @update:model-value="(value?: string) => updateQuickFilter(filterName, value || '')"
               :placeholder="`Filter by ${formatFilterName(filterName)}`"
               size="large"
             />
@@ -262,7 +262,7 @@
           <div v-if="getColumnTypeByBase(baseField) === 'text'" class="column-filter-control">
             <InputText
               :model-value="getTextFilterValue(baseField)"
-              @update:model-value="(v: string) => setTextFilter(baseField, v)"
+              @update:model-value="(v?: string) => setTextFilter(baseField, v || '')"
               placeholder="Contains..."
               size="small"
             />
@@ -303,7 +303,7 @@
                 <label>From:</label>
                 <Calendar
                   :model-value="getDateMin(baseField)"
-                  @update:model-value="(v: Date | null) => setDateMin(baseField, v)"
+                  @update:model-value="(v) => setDateMin(baseField, v instanceof Date ? v : null)"
                   dateFormat="yy-mm-dd"
                   :show-icon="true"
                   :show-button-bar="true"
@@ -314,7 +314,7 @@
                 <label>To:</label>
                 <Calendar
                   :model-value="getDateMax(baseField)"
-                  @update:model-value="(v: Date | null) => setDateMax(baseField, v)"
+                  @update:model-value="(v) => setDateMax(baseField, v instanceof Date ? v : null)"
                   dateFormat="yy-mm-dd"
                   :show-icon="true"
                   :show-button-bar="true"
@@ -325,7 +325,7 @@
             <div class="date-null-option">
               <TriStateCheckbox
                 :model-value="getDateIsNull(baseField)"
-                @update:model-value="(v: boolean | null) => setDateIsNull(baseField, v)"
+                @update:model-value="(v) => setDateIsNull(baseField, v ?? null)"
               />
               <span>{{ getDateNullLabel(baseField) }}</span>
             </div>
@@ -359,19 +359,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
 import MultiSelect from 'primevue/multiselect'
 import Calendar from 'primevue/calendar'
 import TriStateCheckbox from 'primevue/tristatecheckbox'
-import { AutocompleteInput, InfoTooltip } from '@/components/common'
+import { AutocompleteInput, InfoTooltip, type AutocompleteSuggestion } from '@/components/common'
 import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
 import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
-import type { ProjectSuggestion, PersonSuggestion, CostGroupSuggestion, LocationSuggestion, TagSuggestion } from '@/composables/useAutocomplete'
 
 const {
   activeConfig,
@@ -386,8 +385,8 @@ const {
 } = useFilterConfigs()
 
 // Drag and drop state
-const draggedFilter = ref<string | null>(null)
-const previewOrder = ref<string[] | null>(null)
+const draggedFilter = ref<keyof QuickFilters | null>(null)
+const previewOrder = ref<(keyof QuickFilters)[] | null>(null)
 let lastSwapTime = 0
 
 // Sorted filter fields with live preview during drag
@@ -396,7 +395,7 @@ const sortedFilterFields = computed(() => {
   return quickFilterFields.value
 })
 
-const onDragStart = (e: DragEvent, filterName: string) => {
+const onDragStart = (e: DragEvent, filterName: keyof QuickFilters) => {
   draggedFilter.value = filterName
   previewOrder.value = [...quickFilterFields.value]
   lastSwapTime = 0
@@ -406,7 +405,7 @@ const onDragStart = (e: DragEvent, filterName: string) => {
   }
 }
 
-const onDragOver = (e: DragEvent, filterName: string) => {
+const onDragOver = (e: DragEvent, filterName: keyof QuickFilters) => {
   e.preventDefault()
   if (!draggedFilter.value || draggedFilter.value === filterName || !previewOrder.value) return
   
@@ -429,7 +428,7 @@ const onDragOver = (e: DragEvent, filterName: string) => {
 const onDrop = (e: DragEvent) => {
   e.preventDefault()
   if (previewOrder.value) {
-    updateQuickFilterOrder(previewOrder.value as any)
+    updateQuickFilterOrder(previewOrder.value)
   }
   draggedFilter.value = null
   previewOrder.value = null
@@ -437,7 +436,7 @@ const onDrop = (e: DragEvent) => {
 
 const onDragEnd = () => {
   if (previewOrder.value) {
-    updateQuickFilterOrder(previewOrder.value as any)
+    updateQuickFilterOrder(previewOrder.value)
   }
   draggedFilter.value = null
   previewOrder.value = null
@@ -461,52 +460,13 @@ const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, cl
 
 // Add filter dropdown state
 const addFilterRef = ref<HTMLElement | null>(null)
-const filterBarRef = ref<HTMLElement | null>(null)
 const showAddFilter = ref(false)
-let parentScrollContainer: HTMLElement | null = null
 
 const toggleAddFilterMenu = () => {
   showAddFilter.value = !showAddFilter.value
 }
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (addFilterRef.value && !addFilterRef.value.contains(event.target as Node)) {
-    showAddFilter.value = false
-  }
-}
 
-/*
-// Handle horizontal scroll to keep filter bar pinned
-const handleParentScroll = () => {
-  if (!parentScrollContainer || !filterBarRef.value) return
-  const scrollLeft = parentScrollContainer.scrollLeft
-  filterBarRef.value.style.transform = `translateX(${scrollLeft}px)`
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  
-  // Find parent scroll container and attach scroll listener
-  let parent = filterBarRef.value?.parentElement
-  while (parent) {
-    const style = getComputedStyle(parent)
-    if (style.overflowX === 'auto' || style.overflowX === 'scroll' || 
-        style.overflow === 'auto' || style.overflow === 'scroll') {
-      parentScrollContainer = parent
-      parent.addEventListener('scroll', handleParentScroll, { passive: true })
-      break
-    }
-    parent = parent.parentElement
-  }
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  if (parentScrollContainer) {
-    parentScrollContainer.removeEventListener('scroll', handleParentScroll)
-  }
-})
-*/
 
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
@@ -519,10 +479,7 @@ const formatFilterName = (name: string) => {
   return labels[name] || name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ')
 }
 
-// Refs for quick filter inputs
-const filterInputRefs = ref<Record<string, HTMLElement | null>>({})
-
-const focusQuickFilter = (filterName: string) => {
+const focusQuickFilter = (filterName: keyof QuickFilters) => {
   // Find the autocomplete or input element for this filter
   const container = document.querySelector(`[id="${filterName}"]`) as HTMLElement
   if (container) {
@@ -546,24 +503,9 @@ const getBaseField = (filterKey: keyof ColumnFilters): string => {
     .replace(/_is_null$/, '')
 }
 
-const getColumnDef = (filterKey: keyof ColumnFilters): FilterableColumn | undefined => {
-  const baseField = getBaseField(filterKey)
-  return FILTERABLE_COLUMNS.find(c => c.field === baseField)
-}
-
-const getColumnLabel = (filterKey: keyof ColumnFilters): string => {
-  const def = getColumnDef(filterKey)
-  return def?.label || getBaseField(filterKey)
-}
-
 const getColumnLabelByBase = (baseField: string): string => {
   const def = FILTERABLE_COLUMNS.find(c => c.field === baseField)
   return def?.label || baseField
-}
-
-const getColumnType = (filterKey: keyof ColumnFilters): string => {
-  const def = getColumnDef(filterKey)
-  return def?.type || 'text'
 }
 
 const getColumnTypeByBase = (baseField: string): string => {
@@ -735,23 +677,23 @@ const selectFilter = (col: FilterableColumn) => {
 
 // Autocomplete handlers
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
-const handleProjectSelect = (suggestion: ProjectSuggestion) => updateQuickFilter('project', suggestion.name)
+const handleProjectSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('project', suggestion.name as string)
 const handleProjectClear = () => { updateQuickFilter('project', ''); clearProjectSuggestions() }
 
 const handlePersonSearch = (searchText: string) => searchPersons(searchText)
-const handlePersonSelect = (suggestion: PersonSuggestion) => updateQuickFilter('involved_person', suggestion.display_name)
+const handlePersonSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('involved_person', suggestion.display_name as string)
 const handlePersonClear = () => { updateQuickFilter('involved_person', ''); clearPersonSuggestions() }
 
 const handleCostGroupSearch = (searchText: string) => searchCostGroups(searchText)
-const handleCostGroupSelect = (suggestion: CostGroupSuggestion) => updateQuickFilter('kostengruppe', String(suggestion.code))
+const handleCostGroupSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('kostengruppe', String(suggestion.code))
 const handleCostGroupClear = () => { updateQuickFilter('kostengruppe', ''); clearCostGroupSuggestions() }
 
 const handleLocationSearch = (searchText: string) => searchLocations(searchText)
-const handleLocationSelect = (suggestion: LocationSuggestion) => updateQuickFilter('location', suggestion.name)
+const handleLocationSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('location', suggestion.name as string)
 const handleLocationClear = () => { updateQuickFilter('location', ''); clearLocationSuggestions() }
 
 const handleTagSearch = (searchText: string) => searchTags(searchText)
-const handleTagSelect = (suggestion: TagSuggestion) => updateQuickFilter('tags', suggestion.name)
+const handleTagSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('tags', suggestion.name as string)
 const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestions() }
 </script>
 
