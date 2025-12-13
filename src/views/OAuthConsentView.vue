@@ -7,61 +7,60 @@
     </div>
 
     <!-- Error state -->
-    <Message v-else-if="error" severity="error" :closable="false">
-      {{ error }}
-    </Message>
+    <div v-else-if="error" class="consent-card">
+      <div class="error-content">
+        <i class="pi pi-times-circle"></i>
+        <h2>Authorization Error</h2>
+        <p>{{ error }}</p>
+      </div>
+    </div>
 
     <!-- Consent form -->
-    <Card v-else-if="authDetails" class="consent-card">
-      <template #header>
-        <div class="consent-header">
-          <i class="pi pi-shield"></i>
+    <div v-else-if="authDetails" class="consent-card">
+      <div class="consent-header">
+        <i class="pi pi-shield"></i>
+        <h1>Authorization Request</h1>
+        <p><strong>{{ authDetails.client?.name || 'An application' }}</strong> wants to access your account</p>
+      </div>
+
+      <div class="consent-content">
+        <div class="redirect-uri">
+          <i class="pi pi-external-link"></i>
+          <span>Will redirect to: <code>{{ authDetails.redirect_uri }}</code></span>
         </div>
-      </template>
-      <template #title>
-        Authorization Request
-      </template>
-      <template #subtitle>
-        <strong>{{ authDetails.client?.name || 'An application' }}</strong> wants to access your account
-      </template>
-      <template #content>
-        <div class="consent-details">
-          <p class="redirect-uri">
-            <i class="pi pi-external-link"></i>
-            Will redirect to: <code>{{ authDetails.redirect_uri }}</code>
-          </p>
-          <div v-if="authDetails.scopes?.length" class="scopes-section">
-            <h4>This application is requesting permission to:</h4>
-            <ul class="scopes-list">
-              <li v-for="scope in authDetails.scopes" :key="scope">
-                <i class="pi pi-check"></i>
-                {{ scopeDescriptions[scope] || scope }}
-              </li>
-            </ul>
-          </div>
-          <Message severity="info" :closable="false" class="info-message">
-            By clicking "Allow", you authorize this application to access the information listed above.
-          </Message>
+
+        <div v-if="authDetails.scopes?.length" class="scopes-section">
+          <h4>This application is requesting permission to:</h4>
+          <ul class="scopes-list">
+            <li v-for="scope in authDetails.scopes" :key="scope">
+              <i class="pi pi-check"></i>
+              {{ scopeDescriptions[scope] || scope }}
+            </li>
+          </ul>
         </div>
-      </template>
-      <template #footer>
-        <div class="consent-actions">
-          <Button 
-            label="Deny" 
-            severity="secondary" 
-            outlined
-            :loading="submitting"
-            @click="handleDeny"
-          />
-          <Button 
-            label="Allow" 
-            severity="success"
-            :loading="submitting"
-            @click="handleApprove"
-          />
+
+        <div class="info-box">
+          <i class="pi pi-info-circle"></i>
+          <span>By clicking "Allow", you authorize this application to access the information listed above.</span>
         </div>
-      </template>
-    </Card>
+      </div>
+
+      <div class="consent-footer">
+        <Button 
+          label="Deny" 
+          severity="secondary" 
+          outlined
+          :loading="submitting"
+          @click="handleDeny"
+        />
+        <Button 
+          label="Allow" 
+          severity="success"
+          :loading="submitting"
+          @click="handleApprove"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -70,9 +69,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import Button from 'primevue/button'
-import Card from 'primevue/card'
 import ProgressSpinner from 'primevue/progressspinner'
-import Message from 'primevue/message'
 
 const route = useRoute()
 
@@ -105,6 +102,20 @@ onMounted(async () => {
     if (authError || !data) {
       error.value = authError?.message || 'Invalid authorization request'
       loading.value = false
+      return
+    }
+    
+    // If already auto-approved (previous consent exists), approve and redirect immediately
+    if (data.auto_approved) {
+      const { data: approveData, error: approveError } = await (supabase.auth as any).oauth.approveAuthorization(authorizationId)
+      if (approveError) {
+        error.value = approveError.message
+        loading.value = false
+        return
+      }
+      if (approveData?.redirect_to) {
+        window.location.href = approveData.redirect_to
+      }
       return
     }
     
@@ -185,62 +196,52 @@ async function handleDeny() {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-/* PrimeVue Card internal sections - need :deep() to penetrate component */
-.consent-card :deep(.p-card-header) {
-  padding: 1.5rem 1.5rem 0;
-}
-
-.consent-card :deep(.p-card-body) {
-  padding: 1.5rem;
-}
-
-.consent-card :deep(.p-card-title) {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.consent-card :deep(.p-card-subtitle) {
-  color: var(--text-secondary);
-  margin-bottom: 1.25rem;
-}
-
-.consent-card :deep(.p-card-content) {
-  padding: 0;
-}
-
-.consent-card :deep(.p-card-footer) {
-  padding: 1rem 1.5rem 1.5rem;
-  border-top: 1px solid var(--border-primary);
-  margin-top: 1rem;
+  box-shadow: var(--shadow-xl);
 }
 
 .consent-header {
-  display: flex;
-  justify-content: center;
+  text-align: center;
+  padding: 2.5rem 2.5rem 0;
 }
 
 .consent-header i {
-  font-size: 2.5rem;
+  font-size: 3rem;
   color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  display: block;
 }
 
-.consent-details {
+.consent-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+}
+
+.consent-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.consent-content {
+  padding: 2rem 2.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .redirect-uri {
   font-size: 0.875rem;
   color: var(--text-secondary);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
-  margin: 0;
+}
+
+.redirect-uri i {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
 }
 
 .redirect-uri code {
@@ -253,8 +254,9 @@ async function handleDeny() {
 
 .scopes-section h4 {
   margin: 0 0 0.75rem;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .scopes-list {
@@ -263,28 +265,68 @@ async function handleDeny() {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .scopes-list li {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  gap: 0.625rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
 .scopes-list .pi-check {
-  color: var(--green-500);
+  color: #22c55e;
+  font-size: 0.875rem;
 }
 
-.info-message {
-  margin: 0;
+.info-box {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: #93c5fd;
 }
 
-.consent-actions {
+.info-box i {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: #60a5fa;
+}
+
+.consent-footer {
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
+  padding: 1.5rem 2.5rem;
+  border-top: 1px solid var(--border-primary);
+}
+
+.error-content {
+  text-align: center;
+  padding: 3rem 2.5rem;
+}
+
+.error-content i {
+  font-size: 3rem;
+  color: #ef4444;
+  margin-bottom: 1.5rem;
+}
+
+.error-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+}
+
+.error-content p {
+  color: var(--text-secondary);
+  margin: 0;
 }
 </style>
 
