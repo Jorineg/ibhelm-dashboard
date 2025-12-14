@@ -38,6 +38,12 @@ export function useAuth() {
     }
   }
 
+  const verifyOtp = async (email: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'magiclink' })
+    if (error) throw new Error(error.message || 'Invalid code')
+    return data
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) {
@@ -102,6 +108,7 @@ export function useAuth() {
     user,
     loading,
     signInWithMagicLink,
+    verifyOtp,
     signOut,
     checkAuth
   }

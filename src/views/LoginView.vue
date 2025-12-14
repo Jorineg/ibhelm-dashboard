@@ -35,8 +35,31 @@
         <div v-else class="success-message">
           <i class="pi pi-check-circle"></i>
           <h3>Check your email</h3>
-          <p>We've sent a magic link to <strong>{{ email }}</strong></p>
-          <p class="hint">Click the link in the email to sign in.</p>
+          <p>We've sent a magic link and code to <strong>{{ email }}</strong></p>
+          
+          <div class="otp-section">
+            <div class="input-group">
+              <label for="otp">Enter code from email</label>
+              <InputText 
+                id="otp"
+                v-model="otpCode" 
+                placeholder="123456"
+                class="otp-input"
+                :disabled="loading"
+                @keyup.enter="handleVerifyOtp"
+              />
+            </div>
+            <Button 
+              label="Verify Code" 
+              icon="pi pi-sign-in" 
+              @click="handleVerifyOtp"
+              :loading="loading"
+              :disabled="!otpCode || loading"
+              class="verify-button"
+            />
+          </div>
+          
+          <p class="hint">Or click the link in the email to sign in.</p>
           <Button 
             label="Send another link" 
             link 
@@ -59,9 +82,10 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useAuth } from '@/composables/useAuth'
 
-const { signInWithMagicLink } = useAuth()
+const { signInWithMagicLink, verifyOtp } = useAuth()
 
 const email = ref('')
+const otpCode = ref('')
 const loading = ref(false)
 const error = ref('')
 const magicLinkSent = ref(false)
@@ -98,8 +122,22 @@ const handleSignIn = async () => {
   }
 }
 
+const handleVerifyOtp = async () => {
+  if (!otpCode.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    await verifyOtp(email.value, otpCode.value)
+  } catch (err: any) {
+    error.value = err.message || 'Invalid code'
+  } finally {
+    loading.value = false
+  }
+}
+
 const resetForm = () => {
   magicLinkSent.value = false
+  otpCode.value = ''
   error.value = ''
 }
 </script>
@@ -197,6 +235,25 @@ const resetForm = () => {
 .success-message .hint {
   font-size: 0.9rem;
   color: var(--text-tertiary);
+}
+
+.otp-section {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.otp-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1.25rem;
+  text-align: center;
+  letter-spacing: 0.5em;
+}
+
+.verify-button {
+  width: 100%;
+  justify-content: center;
+  padding: 0.875rem;
 }
 
 .resend-button {
