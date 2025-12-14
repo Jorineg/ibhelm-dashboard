@@ -51,9 +51,18 @@ export function useAuth() {
     checkAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       user.value = session?.user ?? null
       loading.value = false
+      
+      // After login, check for OAuth return URL and redirect
+      if (event === 'SIGNED_IN' && session) {
+        const oauthReturn = sessionStorage.getItem('oauthReturnUrl')
+        if (oauthReturn) {
+          sessionStorage.removeItem('oauthReturnUrl')
+          window.location.href = oauthReturn
+        }
+      }
     })
 
     return () => {

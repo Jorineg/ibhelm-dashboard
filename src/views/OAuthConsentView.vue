@@ -105,8 +105,15 @@ onMounted(async () => {
       return
     }
     
-    // If already auto-approved (previous consent exists), redirect immediately
-    // DO NOT call approveAuthorization() - GoTrue already processed it
+    // Case 1: GoTrue returns just redirect_url - authorization already processed
+    // This happens when user clicks authorize again for an already-approved auth
+    if (data.redirect_url && !data.authorization_id) {
+      console.log('[OAuthConsent] Already processed, redirecting to:', data.redirect_url)
+      window.location.href = data.redirect_url
+      return
+    }
+    
+    // Case 2: auto_approved flag set - previous consent exists
     if (data.auto_approved) {
       console.log('[OAuthConsent] Auto-approved! Data:', JSON.stringify(data, null, 2))
       
