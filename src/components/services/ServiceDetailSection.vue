@@ -122,7 +122,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'start', name: string): void
   (e: 'stop', name: string): void
   (e: 'restart', name: string): void
@@ -146,14 +146,6 @@ watch(() => props.logs, () => {
     }
   })
 })
-
-const emit = defineEmits<{
-  (e: 'start', name: string): void
-  (e: 'stop', name: string): void
-  (e: 'restart', name: string): void
-  (e: 'update', name: string): void
-  (e: 'refresh-logs', name: string, container?: string): void
-}>()
 
 const refreshLogs = () => {
   if (props.service) {
