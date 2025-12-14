@@ -33,21 +33,40 @@ const router = createRouter({
 
 // Auth guard
 router.beforeEach(async (to, from, next) => {
+  console.log('[Router] beforeEach START', {
+    to: to.fullPath,
+    from: from.fullPath,
+    currentUrl: window.location.href,
+    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
+    authRedirect: sessionStorage.getItem('auth_redirect')
+  })
+  
   const { data: { session } } = await supabase.auth.getSession()
   const requiresAuth = to.meta.requiresAuth
+  
+  console.log('[Router] Session check', {
+    hasSession: !!session,
+    userId: session?.user?.id,
+    requiresAuth
+  })
 
   if (requiresAuth && !session) {
     // For OAuth consent, store full URL for hard redirect after login
     if (to.path === '/oauth/consent') {
-      sessionStorage.setItem('oauthReturnUrl', window.location.href)
+      const fullUrl = window.location.href
+      console.log('[Router] Storing oauthReturnUrl:', fullUrl)
+      sessionStorage.setItem('oauthReturnUrl', fullUrl)
     } else if (to.fullPath !== '/') {
+      console.log('[Router] Storing auth_redirect:', to.fullPath)
       sessionStorage.setItem('auth_redirect', to.fullPath)
     }
+    console.log('[Router] No session, redirecting to /login')
     next('/login')
   } else if (session) {
     // Check for OAuth return URL first (needs hard redirect)
     const oauthReturn = sessionStorage.getItem('oauthReturnUrl')
     if (oauthReturn) {
+      console.log('[Router] Found oauthReturnUrl, hard redirecting to:', oauthReturn)
       sessionStorage.removeItem('oauthReturnUrl')
       window.location.href = oauthReturn
       return
@@ -55,14 +74,18 @@ router.beforeEach(async (to, from, next) => {
     // Check for stored redirect (e.g., after magic link)
     const redirect = sessionStorage.getItem('auth_redirect')
     if (redirect && to.fullPath !== redirect) {
+      console.log('[Router] Found auth_redirect, navigating to:', redirect)
       sessionStorage.removeItem('auth_redirect')
       next(redirect)
     } else if (to.path === '/login') {
+      console.log('[Router] Already logged in, redirecting from /login to /')
       next('/')
     } else {
+      console.log('[Router] Proceeding to:', to.fullPath)
       next()
     }
   } else {
+    console.log('[Router] No auth required, proceeding to:', to.fullPath)
     next()
   }
 })

@@ -86,13 +86,23 @@ const scopeDescriptions: Record<string, string> = {
 }
 
 onMounted(async () => {
+  console.log('[OAuthConsent] onMounted', {
+    fullUrl: window.location.href,
+    query: route.query,
+    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
+    authRedirect: sessionStorage.getItem('auth_redirect')
+  })
+  
   const authorizationId = route.query.authorization_id as string
   
   if (!authorizationId) {
+    console.log('[OAuthConsent] Missing authorization_id')
     error.value = 'Missing authorization_id parameter'
     loading.value = false
     return
   }
+
+  console.log('[OAuthConsent] authorization_id:', authorizationId)
 
   // User auth check is handled by router guard which preserves the redirect
 

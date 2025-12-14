@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useAuth } from '@/composables/useAuth'
@@ -66,16 +66,32 @@ const loading = ref(false)
 const error = ref('')
 const magicLinkSent = ref(false)
 
+onMounted(() => {
+  console.log('[LoginView] onMounted', {
+    currentUrl: window.location.href,
+    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
+    authRedirect: sessionStorage.getItem('auth_redirect')
+  })
+})
+
 const handleSignIn = async () => {
   if (!email.value) return
+  
+  console.log('[LoginView] handleSignIn', {
+    email: email.value,
+    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
+    authRedirect: sessionStorage.getItem('auth_redirect')
+  })
   
   loading.value = true
   error.value = ''
   
   try {
     await signInWithMagicLink(email.value)
+    console.log('[LoginView] Magic link sent successfully')
     magicLinkSent.value = true
   } catch (err: any) {
+    console.error('[LoginView] Magic link error:', err)
     error.value = err.message || 'Failed to send magic link'
   } finally {
     loading.value = false
