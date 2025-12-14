@@ -69,8 +69,8 @@ const magicLinkSent = ref(false)
 onMounted(() => {
   console.log('[LoginView] onMounted', {
     currentUrl: window.location.href,
-    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-    authRedirect: sessionStorage.getItem('auth_redirect')
+    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+    authRedirect: localStorage.getItem('auth_redirect')
   })
 })
 
@@ -79,8 +79,8 @@ const handleSignIn = async () => {
   
   console.log('[LoginView] handleSignIn', {
     email: email.value,
-    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-    authRedirect: sessionStorage.getItem('auth_redirect')
+    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+    authRedirect: localStorage.getItem('auth_redirect')
   })
   
   loading.value = true

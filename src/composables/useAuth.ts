@@ -52,8 +52,8 @@ export function useAuth() {
   onMounted(() => {
     console.log('[useAuth] onMounted', {
       currentUrl: window.location.href,
-      oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-      authRedirect: sessionStorage.getItem('auth_redirect')
+      oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+      authRedirect: localStorage.getItem('auth_redirect')
     })
     checkAuth()
 
@@ -63,8 +63,8 @@ export function useAuth() {
         event,
         hasSession: !!session,
         userId: session?.user?.id,
-        oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-        authRedirect: sessionStorage.getItem('auth_redirect')
+        oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+        authRedirect: localStorage.getItem('auth_redirect')
       })
       
       user.value = session?.user ?? null
@@ -74,21 +74,21 @@ export function useAuth() {
       if (event === 'SIGNED_IN' && session) {
         console.log('[useAuth] SIGNED_IN event detected, checking for redirects...')
         
-        // OAuth consent needs full URL redirect
-        const oauthReturn = sessionStorage.getItem('oauthReturnUrl')
+        // OAuth consent needs full URL redirect (use localStorage - shared across tabs for magic link)
+        const oauthReturn = localStorage.getItem('oauthReturnUrl')
         if (oauthReturn) {
           console.log('[useAuth] Found oauthReturnUrl, redirecting to:', oauthReturn)
-          sessionStorage.removeItem('oauthReturnUrl')
+          localStorage.removeItem('oauthReturnUrl')
           window.location.href = oauthReturn
           return
         }
         
         // Normal protected route redirect
-        const authRedirect = sessionStorage.getItem('auth_redirect')
+        const authRedirect = localStorage.getItem('auth_redirect')
         if (authRedirect) {
           const fullUrl = window.location.origin + authRedirect
           console.log('[useAuth] Found auth_redirect, redirecting to:', fullUrl)
-          sessionStorage.removeItem('auth_redirect')
+          localStorage.removeItem('auth_redirect')
           window.location.href = fullUrl
           return
         }

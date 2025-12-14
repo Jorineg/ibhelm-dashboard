@@ -89,8 +89,8 @@ onMounted(async () => {
   console.log('[OAuthConsent] onMounted', {
     fullUrl: window.location.href,
     query: route.query,
-    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-    authRedirect: sessionStorage.getItem('auth_redirect')
+    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+    authRedirect: localStorage.getItem('auth_redirect')
   })
   
   const authorizationId = route.query.authorization_id as string

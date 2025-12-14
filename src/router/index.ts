@@ -37,8 +37,8 @@ router.beforeEach(async (to, from, next) => {
     to: to.fullPath,
     from: from.fullPath,
     currentUrl: window.location.href,
-    oauthReturnUrl: sessionStorage.getItem('oauthReturnUrl'),
-    authRedirect: sessionStorage.getItem('auth_redirect')
+    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+    authRedirect: localStorage.getItem('auth_redirect')
   })
   
   const { data: { session } } = await supabase.auth.getSession()
@@ -52,30 +52,31 @@ router.beforeEach(async (to, from, next) => {
 
   if (requiresAuth && !session) {
     // For OAuth consent, store full URL for hard redirect after login
+    // Use localStorage (not sessionStorage) because magic link opens in new tab
     if (to.path === '/oauth/consent') {
       const fullUrl = window.location.href
       console.log('[Router] Storing oauthReturnUrl:', fullUrl)
-      sessionStorage.setItem('oauthReturnUrl', fullUrl)
+      localStorage.setItem('oauthReturnUrl', fullUrl)
     } else if (to.fullPath !== '/') {
       console.log('[Router] Storing auth_redirect:', to.fullPath)
-      sessionStorage.setItem('auth_redirect', to.fullPath)
+      localStorage.setItem('auth_redirect', to.fullPath)
     }
     console.log('[Router] No session, redirecting to /login')
     next('/login')
   } else if (session) {
     // Check for OAuth return URL first (needs hard redirect)
-    const oauthReturn = sessionStorage.getItem('oauthReturnUrl')
+    const oauthReturn = localStorage.getItem('oauthReturnUrl')
     if (oauthReturn) {
       console.log('[Router] Found oauthReturnUrl, hard redirecting to:', oauthReturn)
-      sessionStorage.removeItem('oauthReturnUrl')
+      localStorage.removeItem('oauthReturnUrl')
       window.location.href = oauthReturn
       return
     }
     // Check for stored redirect (e.g., after magic link)
-    const redirect = sessionStorage.getItem('auth_redirect')
+    const redirect = localStorage.getItem('auth_redirect')
     if (redirect && to.fullPath !== redirect) {
       console.log('[Router] Found auth_redirect, navigating to:', redirect)
-      sessionStorage.removeItem('auth_redirect')
+      localStorage.removeItem('auth_redirect')
       next(redirect)
     } else if (to.path === '/login') {
       console.log('[Router] Already logged in, redirecting from /login to /')
