@@ -2,6 +2,13 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
+// Immediate log to verify this file is loaded
+console.log('[useAuth] MODULE LOADED', {
+  timestamp: new Date().toISOString(),
+  oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+  authRedirect: localStorage.getItem('auth_redirect')
+})
+
 const user = ref<User | null>(null)
 const loading = ref(true)
 
@@ -70,30 +77,19 @@ export function useAuth() {
       user.value = session?.user ?? null
       loading.value = false
       
-      // After login, check for pending redirects (handles timing issue where session isn't ready during initial router guard)
+      // After login, handle cross-tab auth sync
       if (event === 'SIGNED_IN' && session) {
-        console.log('[useAuth] SIGNED_IN event detected, checking for redirects...')
+        console.log('[useAuth] SIGNED_IN event detected')
         
-        // OAuth consent needs full URL redirect (use localStorage - shared across tabs for magic link)
-        const oauthReturn = localStorage.getItem('oauthReturnUrl')
-        if (oauthReturn) {
-          console.log('[useAuth] Found oauthReturnUrl, redirecting to:', oauthReturn)
-          localStorage.removeItem('oauthReturnUrl')
-          window.location.href = oauthReturn
+        // If on login page, just redirect to home
+        // The magic link tab handles OAuth redirect via router guard (avoids double-processing)
+        if (window.location.pathname === '/login') {
+          console.log('[useAuth] On login page, redirecting to home')
+          window.location.href = window.location.origin
           return
         }
         
-        // Normal protected route redirect
-        const authRedirect = localStorage.getItem('auth_redirect')
-        if (authRedirect) {
-          const fullUrl = window.location.origin + authRedirect
-          console.log('[useAuth] Found auth_redirect, redirecting to:', fullUrl)
-          localStorage.removeItem('auth_redirect')
-          window.location.href = fullUrl
-          return
-        }
-        
-        console.log('[useAuth] No pending redirects found')
+        console.log('[useAuth] Not on login page, letting router handle redirects')
       }
     })
 

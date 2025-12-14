@@ -1,3 +1,5 @@
+console.log('[main.ts] SCRIPT START', { timestamp: new Date().toISOString() })
+
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'

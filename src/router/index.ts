@@ -1,6 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 
+// Immediate log to verify this file is loaded
+console.log('[Router] MODULE LOADED', { 
+  timestamp: new Date().toISOString(),
+  oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
+  authRedirect: localStorage.getItem('auth_redirect')
+})
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
