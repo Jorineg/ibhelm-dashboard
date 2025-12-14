@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -104,9 +104,15 @@ export function useAuth() {
     }
   })
 
+  // Check if user has admin role
+  const isAdmin = computed(() => {
+    return user.value?.app_metadata?.role === 'admin'
+  })
+
   return {
     user,
     loading,
+    isAdmin,
     signInWithMagicLink,
     verifyOtp,
     signOut,

@@ -43,6 +43,9 @@
       </template>
       
       <template #actions>
+        <button v-if="isAdmin" class="services-btn" @click="goToServices" title="Services">
+          <i class="pi pi-server"></i>
+        </button>
         <button class="settings-btn" @click="goToSettings" title="Settings">
           <i class="pi pi-cog"></i>
         </button>
@@ -140,7 +143,7 @@ import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
-const { user, signOut } = useAuth()
+const { user, signOut, isAdmin } = useAuth()
 const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
@@ -413,6 +416,10 @@ const handleSignOut = async () => {
 
 const goToSettings = () => {
   router.push('/settings')
+}
+
+const goToServices = () => {
+  router.push('/services')
 }
 
 // Event handlers
@@ -1013,6 +1020,27 @@ onUnmounted(() => {
   transform: translateX(-50%);
   margin-top: 0.5rem;
   z-index: 9999;
+}
+
+/* Services button (admin only) */
+.services-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.services-btn i {
+  font-size: 1.4rem;
+}
+
+.services-btn:hover {
+  color: var(--accent-primary);
 }
 
 /* Settings button */
