@@ -55,12 +55,20 @@ export function useAuth() {
       user.value = session?.user ?? null
       loading.value = false
       
-      // After login, check for OAuth return URL and redirect
+      // After login, check for pending redirects (handles timing issue where session isn't ready during initial router guard)
       if (event === 'SIGNED_IN' && session) {
+        // OAuth consent needs full URL redirect
         const oauthReturn = sessionStorage.getItem('oauthReturnUrl')
         if (oauthReturn) {
           sessionStorage.removeItem('oauthReturnUrl')
           window.location.href = oauthReturn
+          return
+        }
+        // Normal protected route redirect
+        const authRedirect = sessionStorage.getItem('auth_redirect')
+        if (authRedirect) {
+          sessionStorage.removeItem('auth_redirect')
+          window.location.href = window.location.origin + authRedirect
         }
       }
     })
