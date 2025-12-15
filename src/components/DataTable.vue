@@ -294,6 +294,18 @@
               :loading="isEmailBodyLoading(String(item.id))"
               :attachments="getEmailAttachments(String(item.id))"
             />
+            <!-- Craft markdown preview -->
+            <div 
+              v-else-if="isCraft(item)"
+              class="craft-preview-wrapper"
+              :ref="(el) => setCraftItemRef(el as HTMLElement, String(item.id))"
+              :data-item-id="item.id"
+            >
+              <CraftPreview
+                :markdown="getCraftBody(String(item.id))"
+                :loading="isCraftBodyLoading(String(item.id))"
+              />
+            </div>
             <!-- File thumbnail -->
             <img
               v-else-if="shouldShowThumbnail(item)"
@@ -303,7 +315,12 @@
               class="gallery-thumbnail-img"
               @error="() => handleThumbnailError(item.thumbnail_path!)"
             />
-            <!-- Fallback icon -->
+            <!-- File placeholder (no thumbnail) -->
+            <FilePlaceholder
+              v-else-if="item.type?.toLowerCase() === 'file'"
+              :filename="item.name || 'Unknown'"
+            />
+            <!-- Fallback icon for other types -->
             <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
           </div>
           <div class="gallery-item-content">
@@ -364,7 +381,7 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput, EmailPreview, type AutocompleteSuggestion } from '@/components/common'
+import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
@@ -468,6 +485,11 @@ interface EmailAttachmentFile {
 }
 const emailAttachments = ref<Map<string, EmailAttachmentFile[]>>(new Map())
 
+// Craft markdown body cache for preview
+const craftBodies = ref<Map<string, string>>(new Map())
+const loadingCraftBodies = ref<Set<string>>(new Set())
+const craftItemRefs = ref<Map<string, HTMLElement>>(new Map())
+
 // Project autocomplete handlers
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
 const handleProjectSelect = (suggestion: AutocompleteSuggestion) => emit('update:projectFilter', suggestion.name as string)
@@ -486,6 +508,7 @@ onMounted(async () => {
   await Promise.all([initTaskTypes(), initAppearance()])
   setupIntersectionObserver()
   setupEmailBodyObserver()
+  setupCraftBodyObserver()
 })
 
 // Task type toggles
@@ -525,16 +548,20 @@ const localViewMode = computed({
   set: (value) => emit('update:viewMode', value)
 })
 
-// Re-setup email observer when view mode changes to gallery
+// Re-setup observers when view mode changes to gallery
 watch(() => localViewMode.value, (mode) => {
   if (mode === 'gallery') {
-    setTimeout(setupEmailBodyObserver, 100)
+    setTimeout(() => {
+      setupEmailBodyObserver()
+      setupCraftBodyObserver()
+    }, 100)
   }
 })
 
-// Cleanup email observer
+// Cleanup observers
 onUnmounted(() => {
   if (emailBodyObserver) emailBodyObserver.disconnect()
+  if (craftBodyObserver) craftBodyObserver.disconnect()
 })
 
 const viewModeOptions = [
@@ -985,8 +1012,11 @@ const shouldShowThumbnail = (item: ViewDataItem): boolean =>
 
 // Email preview helpers
 const isEmail = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'email'
+const isCraft = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'craft'
 const getEmailBody = (itemId: string): string | null => emailBodies.value.get(itemId) ?? null
 const isEmailBodyLoading = (itemId: string): boolean => loadingEmailBodies.value.has(itemId)
+const getCraftBody = (itemId: string): string | null => craftBodies.value.get(itemId) ?? null
+const isCraftBodyLoading = (itemId: string): boolean => loadingCraftBodies.value.has(itemId)
 
 const loadEmailBodies = async (messageIds: string[]) => {
   const toLoad = messageIds.filter(id => !emailBodies.value.has(id) && !loadingEmailBodies.value.has(id))
@@ -1022,6 +1052,26 @@ const loadEmailBodies = async (messageIds: string[]) => {
 const getEmailAttachments = (itemId: string): EmailAttachmentFile[] => 
   emailAttachments.value.get(itemId) ?? []
 
+// Load craft markdown bodies
+const loadCraftBodies = async (documentIds: string[]) => {
+  const toLoad = documentIds.filter(id => !craftBodies.value.has(id) && !loadingCraftBodies.value.has(id))
+  if (toLoad.length === 0) return
+  
+  toLoad.forEach(id => loadingCraftBodies.value.add(id))
+  
+  const { data, error } = await supabase.rpc('get_craft_markdowns', { p_document_ids: toLoad })
+  
+  toLoad.forEach(id => loadingCraftBodies.value.delete(id))
+  
+  if (!error && data) {
+    for (const row of data) {
+      if (row.markdown) {
+        craftBodies.value.set(row.document_id, row.markdown)
+      }
+    }
+  }
+}
+
 // Email preview IntersectionObserver for lazy loading
 let emailBodyObserver: IntersectionObserver | null = null
 
@@ -1056,6 +1106,43 @@ const setEmailItemRef = (el: HTMLElement | null, itemId: string) => {
     const existing = emailItemRefs.value.get(itemId)
     if (existing) emailBodyObserver?.unobserve(existing)
     emailItemRefs.value.delete(itemId)
+  }
+}
+
+// Craft preview IntersectionObserver for lazy loading
+let craftBodyObserver: IntersectionObserver | null = null
+
+const setupCraftBodyObserver = () => {
+  if (craftBodyObserver) craftBodyObserver.disconnect()
+  
+  craftBodyObserver = new IntersectionObserver(
+    (entries) => {
+      const visibleCraftIds = entries
+        .filter(e => e.isIntersecting)
+        .map(e => (e.target as HTMLElement).dataset.itemId)
+        .filter((id): id is string => !!id && !craftBodies.value.has(id))
+      
+      if (visibleCraftIds.length > 0) {
+        loadCraftBodies(visibleCraftIds)
+      }
+    },
+    { threshold: 0.1, rootMargin: '100px' }
+  )
+  
+  // Observe all craft items
+  craftItemRefs.value.forEach((el) => {
+    craftBodyObserver?.observe(el)
+  })
+}
+
+const setCraftItemRef = (el: HTMLElement | null, itemId: string) => {
+  if (el) {
+    craftItemRefs.value.set(itemId, el)
+    craftBodyObserver?.observe(el)
+  } else {
+    const existing = craftItemRefs.value.get(itemId)
+    if (existing) craftBodyObserver?.unobserve(existing)
+    craftItemRefs.value.delete(itemId)
   }
 }
 
@@ -1881,6 +1968,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   overflow: hidden;
+}
+
+.craft-preview-wrapper {
+  width: 100%;
+  height: 100%;
 }
 
 .gallery-thumbnail-img {

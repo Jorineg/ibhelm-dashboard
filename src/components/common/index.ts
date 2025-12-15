@@ -10,4 +10,5 @@ export { default as AutocompleteInput, type AutocompleteSuggestion } from './Aut
 export { default as ColorPickerField } from './ColorPickerField.vue'
 export { default as TypeLinkButton } from './TypeLinkButton.vue'
 export { default as EmailPreview } from './EmailPreview.vue'
-
+export { default as CraftPreview } from './CraftPreview.vue'
+export { default as FilePlaceholder } from './FilePlaceholder.vue'

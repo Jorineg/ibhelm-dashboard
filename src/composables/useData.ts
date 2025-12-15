@@ -51,7 +51,7 @@ export const COLUMNS_BY_TYPE: Record<string, string[]> = {
     'created_at', 'updated_at', 'missive_url'
   ],
   craft: [
-    'name', 'body', 'created_at', 'updated_at', 'craft_url'
+    'name', 'description', 'project', 'body', 'created_at', 'updated_at', 'craft_url'
   ],
   file: [
     'name', 'description', 'project', 'location', 'location_path',
