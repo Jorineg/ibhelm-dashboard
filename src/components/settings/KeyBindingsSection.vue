@@ -57,7 +57,7 @@ const shortcutGroups: { id: string; label: string; actions: (keyof KeyBindings)[
   {
     id: 'actions',
     label: 'Item Actions',
-    actions: ['openLink', 'openDetail', 'closeDialog']
+    actions: ['openLink', 'openDetail', 'peek', 'closeDialog']
   },
   {
     id: 'config_mgmt',

@@ -149,6 +149,7 @@
           option-label="label"
           option-value="value"
           class="view-mode-toggle"
+          @click="blurActiveElement"
         >
           <template #option="slotProps">
             <i :class="slotProps.option.icon"></i>
@@ -227,6 +228,8 @@
               'row-odd': rowIndex % 2 === 0
             }"
             @click="handleRowClick(row.original)"
+            @mouseenter="emit('update:hoveredRow', rowIndex)"
+            @mouseleave="emit('update:hoveredRow', -1)"
           >
             <!-- Frozen Type Column Cell -->
             <div class="table-cell type-column-cell frozen-col">
@@ -268,6 +271,8 @@
           class="gallery-item"
           :class="{ 'keyboard-selected': index === props.selectedRow, 'compact': isCompactGrid }"
           @click="handleRowClick(item)"
+          @mouseenter="emit('update:hoveredRow', index)"
+          @mouseleave="emit('update:hoveredRow', -1)"
         >
           <div class="gallery-item-header">
             <a
@@ -433,6 +438,7 @@ interface Props {
   selectedTaskTypes?: string[]
   selectedRow?: number
   selectedCol?: number
+  hoveredRow?: number
   exporting?: boolean
   filterConfigId?: string
   projectFilter?: string
@@ -452,6 +458,7 @@ interface Emits {
   (e: 'update:selectedTaskTypes', value: string[]): void
   (e: 'update:selectedRow', value: number): void
   (e: 'update:selectedCol', value: number): void
+  (e: 'update:hoveredRow', value: number): void
   (e: 'update:projectFilter', value: string): void
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
@@ -590,6 +597,8 @@ const viewModeOptions = [
   { label: 'List', value: 'list', icon: 'pi pi-list' },
   { label: 'Gallery', value: 'gallery', icon: 'pi pi-th-large' }
 ]
+
+const blurActiveElement = () => (document.activeElement as HTMLElement)?.blur()
 
 // Column visibility logic
 const staticVisibleColumns = computed(() => {
@@ -1924,6 +1933,7 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 /* Gallery View - vertical scroll handled by parent */
 .gallery-view {
   padding-top: 2rem;
+  padding-right: 1.5rem;
 }
 
 .gallery-grid {

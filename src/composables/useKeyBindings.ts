@@ -26,6 +26,7 @@ export interface KeyBindings {
   // Item actions
   openLink: KeyBinding
   openDetail: KeyBinding
+  peek: KeyBinding
   closeDialog: KeyBinding
   // Config management
   newConfig: KeyBinding
@@ -73,6 +74,7 @@ const defaultBindings: KeyBindings = {
   // Item actions
   openLink: { key: 'Enter', description: 'Open item link', group: 'actions' },
   openDetail: { key: '.', description: 'Toggle detail popup', group: 'actions' },
+  peek: { key: ' ', description: 'Peek detail (hold)', group: 'actions' },
   closeDialog: { key: 'Escape', description: 'Close dialog / blur input', group: 'actions' },
   // Config management
   newConfig: { key: 'f', description: 'Create new filter config', group: 'config_mgmt' },

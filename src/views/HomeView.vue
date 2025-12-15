@@ -86,6 +86,7 @@
           :selected-task-types="selectedTaskTypes"
           :selected-row="selectedRow"
           :selected-col="selectedCol"
+          :hovered-row="hoveredRow"
           :exporting="exporting"
           :filter-config-id="activeConfig?.id"
           :project-filter="activeConfig?.quickFilters?.project || ''"
@@ -101,6 +102,7 @@
           @update:selected-task-types="handleUpdateSelectedTaskTypes"
           @update:selected-row="selectedRow = $event"
           @update:selected-col="selectedCol = $event"
+          @update:hovered-row="hoveredRow = $event"
           @update:project-filter="handleUpdateProjectFilter"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
@@ -220,10 +222,12 @@ const exporting = ref(false)
 const searchQuery = computed(() => activeConfig.value?.searchQuery || '')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
+const isPeeking = ref(false)
 
 // Keyboard navigation
 const selectedRow = ref(-1)
 const selectedCol = ref(0)
+const hoveredRow = ref(-1)
 const dataTableRef = ref<{ 
   focusSearch: () => void
   scrollToSelectedCell: () => void
@@ -643,6 +647,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     }
     if (detailDialogVisible.value) {
       detailDialogVisible.value = false
+      isPeeking.value = false
       return
     }
     if (selectedRow.value >= 0) {
@@ -656,11 +661,28 @@ const handleKeyDown = (event: KeyboardEvent) => {
     event.preventDefault()
     if (detailDialogVisible.value) {
       detailDialogVisible.value = false
+      isPeeking.value = false
     } else if (selectedRow.value >= 0) {
       const item = filteredAndSearchedItems.value[selectedRow.value]
       if (item) {
         selectedItem.value = item
         detailDialogVisible.value = true
+      }
+    }
+    return
+  }
+  
+  // Peek detail (hold key to show, release to hide)
+  if (key === bindings.peek.key && !isTyping && !detailDialogVisible.value) {
+    event.preventDefault()
+    // Use selected row, or hovered row if nothing selected
+    const targetRow = selectedRow.value >= 0 ? selectedRow.value : hoveredRow.value
+    if (targetRow >= 0) {
+      const item = filteredAndSearchedItems.value[targetRow]
+      if (item) {
+        selectedItem.value = item
+        detailDialogVisible.value = true
+        isPeeking.value = true
       }
     }
     return
@@ -935,6 +957,19 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
+// Handle peek key release
+const handleKeyUp = (event: KeyboardEvent) => {
+  if (isPeeking.value && event.key === keyBindings.value.peek.key) {
+    detailDialogVisible.value = false
+    isPeeking.value = false
+  }
+}
+
+// Reset isPeeking when dialog closes (e.g., by clicking outside)
+watch(detailDialogVisible, (visible) => {
+  if (!visible) isPeeking.value = false
+})
+
 // Reset selection when data changes
 watch(() => filteredAndSearchedItems.value.length, () => {
   if (selectedRow.value >= filteredAndSearchedItems.value.length) {
@@ -945,10 +980,12 @@ watch(() => filteredAndSearchedItems.value.length, () => {
 onMounted(async () => {
   await initTaskTypes()
   document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keyup', handleKeyUp)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
+  document.removeEventListener('keyup', handleKeyUp)
 })
 </script>
 

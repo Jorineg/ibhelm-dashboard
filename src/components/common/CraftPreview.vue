@@ -1,9 +1,9 @@
 <template>
   <div
     class="craft-preview"
-    :class="{ 'has-content': !!markdown, loading }"
-    @mousemove="onMouseMove"
-    @mouseleave="onMouseLeave"
+    :class="{ 'has-content': !!markdown, loading, 'detail-mode': detailMode }"
+    @mousemove="!detailMode && onMouseMove($event)"
+    @mouseleave="!detailMode && onMouseLeave()"
   >
     <iframe
       v-if="markdown"
@@ -11,6 +11,7 @@
       :srcdoc="renderedHtml"
       sandbox="allow-same-origin"
       class="craft-iframe"
+      :class="{ scrollable: detailMode }"
       @load="onIframeLoad"
     />
     <div v-else-if="loading" class="loading-state">
@@ -29,10 +30,12 @@ import { marked } from 'marked'
 interface Props {
   markdown: string | null
   loading?: boolean
+  detailMode?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loading: false
+  loading: false,
+  detailMode: false
 })
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
@@ -223,6 +226,10 @@ onUnmounted(() => {
   height: 100%;
   border: none;
   pointer-events: none;
+}
+
+.craft-iframe.scrollable {
+  pointer-events: auto;
 }
 
 .loading-state,
