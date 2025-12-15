@@ -306,6 +306,21 @@
                 :loading="isCraftBodyLoading(String(item.id))"
               />
             </div>
+            <!-- Task preview (includes name, description, tags, assignee, progress) -->
+            <TaskPreview
+              v-else-if="isTask(item)"
+              :name="item.name || ''"
+              :description="item.description"
+              :task-type-slug="item.task_type_slug"
+              :task-type-color="item.task_type_color"
+              :status="item.status"
+              :priority="item.priority"
+              :progress="item.progress"
+              :due-date="item.due_date"
+              :created-at="item.created_at"
+              :tags="item.tags"
+              :assigned-to="item.assigned_to"
+            />
             <!-- File thumbnail -->
             <img
               v-else-if="shouldShowThumbnail(item)"
@@ -323,7 +338,8 @@
             <!-- Fallback icon for other types -->
             <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
           </div>
-          <div class="gallery-item-content">
+          <!-- Content below thumbnail (hidden for tasks since TaskPreview includes name) -->
+          <div v-if="!isTask(item)" class="gallery-item-content">
             <h4>{{ getGalleryTitle(item) }}</h4>
             <p v-if="getGalleryDescription(item)" class="gallery-description">
               {{ truncateText(getGalleryDescription(item), 100) }}
@@ -355,6 +371,12 @@
               </template>
             </div>
           </div>
+          <!-- Task items: minimal footer with project only -->
+          <div v-else class="gallery-item-footer">
+            <span v-if="item.project" class="footer-project" :title="item.project">
+              <i class="pi pi-folder"></i> {{ truncateText(item.project, 25) }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -381,7 +403,7 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, type AutocompleteSuggestion } from '@/components/common'
+import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
@@ -1010,9 +1032,10 @@ const handleThumbnailError = (thumbnailPath: string) => {
 const shouldShowThumbnail = (item: ViewDataItem): boolean => 
   !!item.thumbnail_path && !failedThumbnails.value.has(item.thumbnail_path)
 
-// Email preview helpers
+// Type check helpers
 const isEmail = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'email'
 const isCraft = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'craft'
+const isTask = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'task'
 const getEmailBody = (itemId: string): string | null => emailBodies.value.get(itemId) ?? null
 const isEmailBodyLoading = (itemId: string): boolean => loadingEmailBodies.value.has(itemId)
 const getCraftBody = (itemId: string): string | null => craftBodies.value.get(itemId) ?? null
@@ -2037,6 +2060,28 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 .meta-item.internal {
   background: rgba(245, 166, 35, 0.2);
   color: #f5a623;
+}
+
+/* Task items: full-height thumbnail, minimal footer */
+.gallery-item-footer {
+  padding: 0.5rem 0;
+  min-height: 0;
+}
+
+.footer-project {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer-project i {
+  font-size: 0.7rem;
+  flex-shrink: 0;
 }
 </style>
 
