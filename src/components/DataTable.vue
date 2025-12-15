@@ -1,7 +1,7 @@
 <template>
   <div class="data-table-wrapper">
     <!-- Column visibility selector -->
-    <div class="table-toolbar" ref="toolbarRef">
+    <div class="table-toolbar" :class="{ 'wide-view': props.viewType === 'projects' || props.viewType === 'people' }" ref="toolbarRef">
       <div class="toolbar-left">
         <!-- Search Bar -->
         <div class="search-wrapper">
@@ -56,8 +56,7 @@
           </AutocompleteInput>
         </div>
         
-        <div class="item-type-toggles" :class="{ 'no-bg': props.viewType === 'items' || !props.viewType }">
-          <template v-if="props.viewType === 'items' || !props.viewType">
+        <div v-if="props.viewType === 'items' || !props.viewType" class="item-type-toggles no-bg">
             <!-- Task type checkboxes -->
             <div 
               v-for="taskType in taskTypes" 
@@ -107,7 +106,6 @@
               </div>
               <span class="file-color-bar" :style="{ backgroundColor: fileColor }"></span>
             </div>
-          </template>
         </div>
         
         <MultiSelect
@@ -1105,6 +1103,10 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   left: 0 !important;
   z-index: 150;
   width: calc(100vw - 13rem);
+}
+
+.table-toolbar.wide-view {
+  width: calc(100vw - 4.3rem);
     /* scrooling fix here*/
 }
 

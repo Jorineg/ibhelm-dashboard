@@ -52,6 +52,7 @@ export function useServices() {
   const getAuthHeaders = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) {
+      console.error('[useServices] No session/token available')
       throw new Error('Not authenticated')
     }
     return {
@@ -75,14 +76,16 @@ export function useServices() {
       const response = await fetch(`${SERVICE_AGENT_URL}/services`, { headers })
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch services: ${response.statusText}`)
+        const text = await response.text()
+        console.error('[useServices] fetchServices failed:', response.status, text)
+        throw new Error(`Failed to fetch services: ${response.status} ${response.statusText}`)
       }
       
       const data = await response.json()
       services.value = data.services
     } catch (e: any) {
       error.value = e.message
-      console.error('Error fetching services:', e)
+      console.error('[useServices] Error fetching services:', e)
     } finally {
       loading.value = false
     }
@@ -96,17 +99,21 @@ export function useServices() {
       const response = await fetch(`${SERVICE_AGENT_URL}/config`, { headers })
       
       if (!response.ok) {
+        const text = await response.text()
+        console.error('[useServices] fetchConfigurations failed:', response.status, text)
         if (response.status === 403) {
+          console.warn('[useServices] User is not admin, hiding configurations')
           configurations.value = []
           return
         }
-        throw new Error(`Failed to fetch configurations: ${response.statusText}`)
+        throw new Error(`Failed to fetch configurations: ${response.status}`)
       }
       
       const data = await response.json()
-      configurations.value = data.configurations
+      configurations.value = data.configurations || []
     } catch (e: any) {
-      console.error('Error fetching configurations:', e)
+      console.error('[useServices] Error fetching configurations:', e)
+      configurations.value = []
     } finally {
       configLoading.value = false
     }
