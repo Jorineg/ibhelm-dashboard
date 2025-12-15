@@ -282,15 +282,28 @@
               {{ getTypeBadgeText(item) }}
             </a>
           </div>
-          <div class="gallery-item-thumbnail">
+          <div 
+            class="gallery-item-thumbnail"
+            :ref="(el) => isEmail(item) ? setEmailItemRef(el as HTMLElement, String(item.id)) : null"
+            :data-item-id="item.id"
+          >
+            <!-- Email iframe preview -->
+            <EmailPreview
+              v-if="isEmail(item)"
+              :html-body="getEmailBody(String(item.id))"
+              :loading="isEmailBodyLoading(String(item.id))"
+              :attachments="getEmailAttachments(String(item.id))"
+            />
+            <!-- File thumbnail -->
             <img
-              v-if="shouldShowThumbnail(item)"
+              v-else-if="shouldShowThumbnail(item)"
               :src="getThumbnailUrl(item.thumbnail_path!)"
               :alt="item.name"
               loading="lazy"
               class="gallery-thumbnail-img"
               @error="() => handleThumbnailError(item.thumbnail_path!)"
             />
+            <!-- Fallback icon -->
             <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
           </div>
           <div class="gallery-item-content">
@@ -351,7 +364,7 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput, type AutocompleteSuggestion } from '@/components/common'
+import { InfoTooltip, AutocompleteInput, EmailPreview, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
@@ -441,6 +454,20 @@ const lastFilterConfigId = ref<string | undefined>(undefined)
 // Failed thumbnails
 const failedThumbnails = ref(new Set<string>())
 
+// Email HTML body cache for iframe previews
+const emailBodies = ref<Map<string, string>>(new Map())
+const loadingEmailBodies = ref<Set<string>>(new Set())
+const emailItemRefs = ref<Map<string, HTMLElement>>(new Map())
+
+// Email attachment files cache
+interface EmailAttachmentFile {
+  file_id: string
+  filename: string
+  storage_path: string
+  thumbnail_path: string | null
+}
+const emailAttachments = ref<Map<string, EmailAttachmentFile[]>>(new Map())
+
 // Project autocomplete handlers
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
 const handleProjectSelect = (suggestion: AutocompleteSuggestion) => emit('update:projectFilter', suggestion.name as string)
@@ -458,6 +485,7 @@ const transformCraftUrl = (url: string): string => {
 onMounted(async () => {
   await Promise.all([initTaskTypes(), initAppearance()])
   setupIntersectionObserver()
+  setupEmailBodyObserver()
 })
 
 // Task type toggles
@@ -495,6 +523,18 @@ const localShowFiles = computed({
 const localViewMode = computed({
   get: () => props.viewMode,
   set: (value) => emit('update:viewMode', value)
+})
+
+// Re-setup email observer when view mode changes to gallery
+watch(() => localViewMode.value, (mode) => {
+  if (mode === 'gallery') {
+    setTimeout(setupEmailBodyObserver, 100)
+  }
+})
+
+// Cleanup email observer
+onUnmounted(() => {
+  if (emailBodyObserver) emailBodyObserver.disconnect()
 })
 
 const viewModeOptions = [
@@ -942,6 +982,82 @@ const handleThumbnailError = (thumbnailPath: string) => {
 
 const shouldShowThumbnail = (item: ViewDataItem): boolean => 
   !!item.thumbnail_path && !failedThumbnails.value.has(item.thumbnail_path)
+
+// Email preview helpers
+const isEmail = (item: ViewDataItem): boolean => item.type?.toLowerCase() === 'email'
+const getEmailBody = (itemId: string): string | null => emailBodies.value.get(itemId) ?? null
+const isEmailBodyLoading = (itemId: string): boolean => loadingEmailBodies.value.has(itemId)
+
+const loadEmailBodies = async (messageIds: string[]) => {
+  const toLoad = messageIds.filter(id => !emailBodies.value.has(id) && !loadingEmailBodies.value.has(id))
+  if (toLoad.length === 0) return
+  
+  toLoad.forEach(id => loadingEmailBodies.value.add(id))
+  
+  // Load HTML bodies and attachments in parallel
+  const [bodiesResult, ...attachmentResults] = await Promise.all([
+    supabase.rpc('get_email_html_bodies', { p_message_ids: toLoad }),
+    ...toLoad.map(id => supabase.rpc('get_email_files', { p_message_id: id }).then(r => ({ id, ...r })))
+  ])
+  
+  toLoad.forEach(id => loadingEmailBodies.value.delete(id))
+  
+  // Store HTML bodies
+  if (!bodiesResult.error && bodiesResult.data) {
+    for (const row of bodiesResult.data) {
+      if (row.html_body) {
+        emailBodies.value.set(row.message_id, row.html_body)
+      }
+    }
+  }
+  
+  // Store attachments
+  for (const result of attachmentResults) {
+    if (!result.error && result.data) {
+      emailAttachments.value.set(result.id, result.data as EmailAttachmentFile[])
+    }
+  }
+}
+
+const getEmailAttachments = (itemId: string): EmailAttachmentFile[] => 
+  emailAttachments.value.get(itemId) ?? []
+
+// Email preview IntersectionObserver for lazy loading
+let emailBodyObserver: IntersectionObserver | null = null
+
+const setupEmailBodyObserver = () => {
+  if (emailBodyObserver) emailBodyObserver.disconnect()
+  
+  emailBodyObserver = new IntersectionObserver(
+    (entries) => {
+      const visibleEmailIds = entries
+        .filter(e => e.isIntersecting)
+        .map(e => (e.target as HTMLElement).dataset.itemId)
+        .filter((id): id is string => !!id && !emailBodies.value.has(id))
+      
+      if (visibleEmailIds.length > 0) {
+        loadEmailBodies(visibleEmailIds)
+      }
+    },
+    { threshold: 0.1, rootMargin: '100px' }
+  )
+  
+  // Observe all email items
+  emailItemRefs.value.forEach((el) => {
+    emailBodyObserver?.observe(el)
+  })
+}
+
+const setEmailItemRef = (el: HTMLElement | null, itemId: string) => {
+  if (el) {
+    emailItemRefs.value.set(itemId, el)
+    emailBodyObserver?.observe(el)
+  } else {
+    const existing = emailItemRefs.value.get(itemId)
+    if (existing) emailBodyObserver?.unobserve(existing)
+    emailItemRefs.value.delete(itemId)
+  }
+}
 
 // Gallery helpers
 const gridColumns = computed(() => props.gridColumns || 4)
