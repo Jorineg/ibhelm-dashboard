@@ -49,8 +49,10 @@
             <template #option="{ suggestion }">
               <div class="project-option">
                 <span class="project-name">{{ suggestion.name }}</span>
-                <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
-                <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
+                <div class="project-meta">
+                  <span v-if="suggestion.company_name" class="project-company">{{ suggestion.company_name }}</span>
+                  <span v-if="suggestion.status" class="project-status" :class="suggestion.status">{{ suggestion.status }}</span>
+                </div>
               </div>
             </template>
           </AutocompleteInput>
@@ -1267,37 +1269,50 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   width: 220px;
 }
 
-.project-option {
+:deep(.project-option) {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
 }
 
-.project-name {
+:deep(.project-name) {
   color: var(--text-primary);
   font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.project-company {
+:deep(.project-meta) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  flex-shrink: 0;
+}
+
+:deep(.project-company) {
   color: var(--text-tertiary);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
 }
 
-.project-status {
-  margin-left: auto;
-  padding: 0.15rem 0.5rem;
+:deep(.project-status) {
+  padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
 }
 
-.project-status.active {
+:deep(.project-status.active) {
   background: rgba(74, 222, 128, 0.15);
   color: #4ade80;
 }
 
-.project-status.completed {
+:deep(.project-status.completed) {
   background: rgba(148, 163, 184, 0.15);
   color: var(--text-tertiary);
 }
