@@ -13,6 +13,7 @@
     <template #header>
       <div class="dialog-header-content">
         <TypeLinkButton v-if="item" :item="item" :item-type="detectedItemType" />
+        <ExtensionBadge v-if="isFile && item" :extension="(item as DataItem).file_extension" :storage-path="(item as DataItem).storage_path" large />
         <span class="dialog-title">{{ dialogTitle }}</span>
       </div>
     </template>
@@ -246,7 +247,7 @@ import Dialog from 'primevue/dialog'
 import Checkbox from 'primevue/checkbox'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
-import { TypeLinkButton, EmailPreview, CraftPreview, FilePlaceholder, FilePreview } from '@/components/common'
+import { TypeLinkButton, EmailPreview, CraftPreview, FilePlaceholder, FilePreview, ExtensionBadge } from '@/components/common'
 import { supabase } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
@@ -501,6 +502,16 @@ const formatFieldName = (key: string): string => {
     .join(' ')
 }
 
+// Format a single recipient object to "Name <email>"
+const formatRecipient = (recipient: any): string => {
+  const contact = recipient?.contact
+  if (!contact) return ''
+  const name = contact.name?.trim()
+  const email = contact.email
+  if (name && email) return `${name} <${email}>`
+  return name || email || ''
+}
+
 const formatValue = (value: any): string => {
   if (value === null || value === undefined) return '—'
   if (value === '') return '—'
@@ -521,6 +532,8 @@ const formatValue = (value: any): string => {
   
   // Format objects
   if (typeof value === 'object') {
+    // Recipient object with contact subobject
+    if (value.contact && value.recipient_type) return formatRecipient(value)
     if (value.name) return value.name
     if (value.first_name && value.last_name) return `${value.first_name} ${value.last_name}`
     if (value.email) return value.email

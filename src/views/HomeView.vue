@@ -150,7 +150,7 @@ const { activeConfig, configurations, updateConfiguration, setCurrentView, curre
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
-const { craftSpaceId, filesBucket } = useAppearanceSettings()
+const { craftSpaceId, filesBucket, hideCompletedTasks } = useAppearanceSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -261,6 +261,7 @@ const itemColumns: Column[] = [
   { field: 'due_date', header: 'Due Date', sortable: true, width: '150px' },
   { field: 'priority', header: 'Priority', sortable: true, width: '120px' },
   { field: 'progress', header: 'Progress', sortable: true, width: '100px' },
+  { field: 'accumulated_estimated_minutes', header: 'Est. Minutes', sortable: true, width: '120px' },
   { field: 'tasklist', header: 'Tasklist', sortable: true, width: '150px' },
   { field: 'creator', header: 'Creator', sortable: true, width: '200px' },
   { field: 'assigned_to', header: 'Assigned To', sortable: false, width: '200px' },
@@ -268,6 +269,7 @@ const itemColumns: Column[] = [
   { field: 'recipients', header: 'Recipients', sortable: false, width: '250px' },
   { field: 'conversation_subject', header: 'Conversation', sortable: true, width: '250px' },
   { field: 'attachment_count', header: 'Attachments', sortable: true, width: '120px' },
+  { field: 'file_extension', header: 'File Ext.', sortable: true, width: '100px' },
   { field: 'created_at', header: 'Created', sortable: true, width: '150px' },
   { field: 'updated_at', header: 'Updated', sortable: true, width: '150px' }
 ]
@@ -344,7 +346,8 @@ const dataFetchConfigKey = computed(() => {
     selectedTaskTypes: activeConfig.value.selectedTaskTypes,
     searchQuery: activeConfig.value.searchQuery,
     quickFilters: activeConfig.value.quickFilters,
-    columnFilters: activeConfig.value.columnFilters
+    columnFilters: activeConfig.value.columnFilters,
+    hideCompletedTasks: hideCompletedTasks.value
   })
 })
 
@@ -374,7 +377,8 @@ watch(dataFetchConfigKey, (newKey) => {
   const doLoad = () => {
     loadData(
       params.showTasks, params.showEmails, params.showCraft, params.showFiles,
-      params.search, params.config, params.sortConfig, params.viewType, params.taskTypes
+      params.search, params.config, params.sortConfig, params.viewType, params.taskTypes,
+      hideCompletedTasks.value
     )
   }
   
@@ -442,7 +446,8 @@ const handleLoadMore = async () => {
       searchQuery.value,
       activeConfig.value,
       currentViewType.value,
-      selectedTaskTypes.value
+      selectedTaskTypes.value,
+      hideCompletedTasks.value
     )
   }
 }
@@ -538,7 +543,8 @@ const handleSort = async (sortConfig: SortConfig) => {
       activeConfig.value,
       sortConfig,
       currentViewType.value,
-      selectedTaskTypes.value
+      selectedTaskTypes.value,
+      hideCompletedTasks.value
     )
   }
 }
@@ -554,7 +560,8 @@ const handleRetry = async () => {
       activeConfig.value,
       activeConfig.value.sortConfig,
       currentViewType.value,
-      selectedTaskTypes.value
+      selectedTaskTypes.value,
+      hideCompletedTasks.value
     )
   }
 }
@@ -572,7 +579,8 @@ const handleExport = async () => {
       searchQuery.value,
       activeConfig.value || null,
       currentViewType.value,
-      selectedTaskTypes.value
+      selectedTaskTypes.value,
+      hideCompletedTasks.value
     )
     
     // Get visible columns only, plus type and link

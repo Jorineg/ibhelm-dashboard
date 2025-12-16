@@ -100,6 +100,26 @@
         </span>
       </div>
     </div>
+
+    <div class="general-section">
+      <h4>Hide Completed Tasks</h4>
+      <p class="section-hint">
+        When enabled, tasks with status "completed" will be hidden from the Items view by default.
+      </p>
+      <div class="checkbox-row">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            v-model="localHideCompletedTasks"
+            @change="handleSaveHideCompletedTasks"
+          />
+          <span class="checkbox-text">Hide completed tasks</span>
+        </label>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
   </SectionCard>
 </template>
 
@@ -113,18 +133,21 @@ const {
   teamworkBaseUrl, 
   costGroupPrefixes,
   locationPrefix,
+  hideCompletedTasks,
   saving, 
   initialize, 
   updateCraftSpaceId, 
   updateTeamworkBaseUrl,
   updateCostGroupPrefixes,
-  updateLocationPrefix
+  updateLocationPrefix,
+  updateHideCompletedTasks
 } = useAppearanceSettings()
 
 const localSpaceId = ref('')
 const localTeamworkUrl = ref('')
 const localPrefixes = ref<string[]>([])
 const localLocationPrefix = ref('')
+const localHideCompletedTasks = ref(false)
 const newPrefix = ref('')
 
 const handleSaveSpaceId = async () => {
@@ -142,6 +165,12 @@ const handleSaveTeamworkUrl = async () => {
 const handleSaveLocationPrefix = async () => {
   if (localLocationPrefix.value !== locationPrefix.value) {
     await updateLocationPrefix(localLocationPrefix.value)
+  }
+}
+
+const handleSaveHideCompletedTasks = async () => {
+  if (localHideCompletedTasks.value !== hideCompletedTasks.value) {
+    await updateHideCompletedTasks(localHideCompletedTasks.value)
   }
 }
 
@@ -175,12 +204,17 @@ watch(locationPrefix, (newValue) => {
   localLocationPrefix.value = newValue
 }, { immediate: true })
 
+watch(hideCompletedTasks, (newValue) => {
+  localHideCompletedTasks.value = newValue
+}, { immediate: true })
+
 onMounted(async () => {
   await initialize()
   localSpaceId.value = craftSpaceId.value
   localTeamworkUrl.value = teamworkBaseUrl.value
   localPrefixes.value = [...costGroupPrefixes.value]
   localLocationPrefix.value = locationPrefix.value
+  localHideCompletedTasks.value = hideCompletedTasks.value
 })
 </script>
 
@@ -300,6 +334,32 @@ onMounted(async () => {
 
 .prefix-input-single {
   max-width: 120px;
+}
+
+/* Checkbox */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.checkbox-text {
+  font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .add-prefix-btn {

@@ -275,17 +275,20 @@
           @mouseleave="emit('update:hoveredRow', -1)"
         >
           <div class="gallery-item-header">
-            <a
-              :href="getRowPrimaryUrl(item)"
-              :target="getRowLinkTarget(item)"
-              rel="noopener noreferrer"
-              class="gallery-type-badge-link"
-              :style="getTypeBadgeStyle(item)"
-              :title="getTypeBadgeTooltip(item)"
-              @click="handleTypeBadgeClick($event, item)"
-            >
-              {{ getTypeBadgeText(item) }}
-            </a>
+            <div class="gallery-header-left">
+              <a
+                :href="getRowPrimaryUrl(item)"
+                :target="getRowLinkTarget(item)"
+                rel="noopener noreferrer"
+                class="gallery-type-badge-link"
+                :style="getTypeBadgeStyle(item)"
+                :title="getTypeBadgeTooltip(item)"
+                @click="handleTypeBadgeClick($event, item)"
+              >
+                {{ getTypeBadgeText(item) }}
+              </a>
+              <ExtensionBadge v-if="item.type?.toLowerCase() === 'file'" :extension="item.file_extension" :storage-path="item.storage_path" />
+            </div>
           </div>
           <div 
             class="gallery-item-thumbnail"
@@ -408,7 +411,7 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, type AutocompleteSuggestion } from '@/components/common'
+import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, ExtensionBadge, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
@@ -1972,6 +1975,12 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   display: flex;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.gallery-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .gallery-type-badge-link {

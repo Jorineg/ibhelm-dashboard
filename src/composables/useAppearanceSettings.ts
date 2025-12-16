@@ -13,7 +13,8 @@ const defaults: AppSettings = {
   teamwork_base_url: '',
   cost_group_prefixes: ['KGR'],
   location_prefix: 'O-',
-  files_bucket: 'files'
+  files_bucket: 'files',
+  hide_completed_tasks: false
 }
 const cached = getCached<AppSettings>('app_settings')
 const settings = ref<AppSettings>(cached ? { ...defaults, ...cached } : { ...defaults })
@@ -82,6 +83,7 @@ export function useAppearanceSettings() {
   const updateTeamworkBaseUrl = (url: string) => updateSetting('teamwork_base_url', url)
   const updateCostGroupPrefixes = (prefixes: string[]) => updateSetting('cost_group_prefixes', prefixes)
   const updateLocationPrefix = (prefix: string) => updateSetting('location_prefix', prefix)
+  const updateHideCompletedTasks = (hide: boolean) => updateSetting('hide_completed_tasks', hide)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -93,6 +95,7 @@ export function useAppearanceSettings() {
   const costGroupPrefixes = computed(() => settings.value.cost_group_prefixes || ['KGR'])
   const locationPrefix = computed(() => settings.value.location_prefix || 'O-')
   const filesBucket = computed(() => settings.value.files_bucket || 'files')
+  const hideCompletedTasks = computed(() => settings.value.hide_completed_tasks ?? false)
 
   return {
     settings,
@@ -108,6 +111,7 @@ export function useAppearanceSettings() {
     costGroupPrefixes,
     locationPrefix,
     filesBucket,
+    hideCompletedTasks,
     initialize,
     fetchSettings,
     updateEmailColor,
@@ -118,7 +122,8 @@ export function useAppearanceSettings() {
     updateProjectColor,
     updateTeamworkBaseUrl,
     updateCostGroupPrefixes,
-    updateLocationPrefix
+    updateLocationPrefix,
+    updateHideCompletedTasks
   }
 }
 

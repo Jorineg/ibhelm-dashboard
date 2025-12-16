@@ -172,6 +172,7 @@ export interface AppSettings {
   cost_group_prefixes?: string[]
   location_prefix?: string
   files_bucket?: string
+  hide_completed_tasks?: boolean
 }
 
 export interface DataItem {
@@ -197,6 +198,10 @@ export interface DataItem {
   // File storage
   storage_path?: string
   thumbnail_path?: string
+  // File extension (for files and email attachments)
+  file_extension?: string
+  // Task estimation
+  accumulated_estimated_minutes?: number
   // Any other fields for display
   [key: string]: any
 }
@@ -275,6 +280,7 @@ export interface ColumnFilters {
   tasklist_contains?: string
   creator_contains?: string
   assigned_to_contains?: string
+  file_extension_contains?: string
   
   // Enum filters (in/not in)
   status_in?: string[]
@@ -296,6 +302,8 @@ export interface ColumnFilters {
   progress_max?: number
   attachment_count_min?: number
   attachment_count_max?: number
+  accumulated_estimated_minutes_min?: number
+  accumulated_estimated_minutes_max?: number
 }
 
 // Column type determines which filter controls to show in UI
@@ -322,6 +330,7 @@ export const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { field: 'tasklist', label: 'Tasklist', type: 'text' },
   { field: 'creator', label: 'Creator', type: 'text' },
   { field: 'assigned_to', label: 'Assigned To', type: 'text' },
+  { field: 'file_extension', label: 'File Extension', type: 'text' },
   // Enum filters (in/not_in)
   { field: 'status', label: 'Status', type: 'enum', enumValues: ['new', 'active', 'completed', 'reopened', 'deleted'] },
   { field: 'priority', label: 'Priority', type: 'enum', enumValues: ['none', 'low', 'medium', 'high'] },
@@ -332,6 +341,7 @@ export const FILTERABLE_COLUMNS: FilterableColumn[] = [
   // Number range filters (min/max)
   { field: 'progress', label: 'Progress', type: 'number' },
   { field: 'attachment_count', label: 'Attachments', type: 'number' },
+  { field: 'accumulated_estimated_minutes', label: 'Est. Minutes', type: 'number' },
 ]
 
 export interface FilterConfiguration {

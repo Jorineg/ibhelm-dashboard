@@ -9,7 +9,7 @@
       v-if="markdown"
       ref="iframeRef"
       :srcdoc="renderedHtml"
-      sandbox="allow-same-origin"
+      sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"
       class="craft-iframe"
       :class="{ scrollable: detailMode }"
       @load="onIframeLoad"
@@ -109,6 +109,12 @@ const renderedHtml = computed(() => {
   </style>
 </head>
 <body>${htmlContent}</body>
+<script>
+  document.querySelectorAll('a').forEach(a => {
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+  });
+<\/script>
 </html>`
 })
 
