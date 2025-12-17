@@ -11,6 +11,12 @@
     <!-- Grouped shortcuts -->
     <div v-for="group in shortcutGroups" :key="group.id" class="keybinding-group">
       <h4 class="group-title">{{ group.label }}</h4>
+      
+      <!-- Hint for quick filters -->
+      <InfoBox v-if="group.id === 'filters'" title="Tip" class="group-hint">
+        <strong>Shift</strong> + key clears the filter (instead of focusing it)
+      </InfoBox>
+      
       <div class="keybindings-grid">
         <div 
           v-for="action in group.actions" 
@@ -129,6 +135,10 @@ onUnmounted(() => {
 
 :deep(.info-box strong) {
   font-family: 'JetBrains Mono', monospace;
+}
+
+.group-hint {
+  margin-bottom: 0.75rem;
 }
 
 .keybinding-group {

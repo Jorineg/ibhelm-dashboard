@@ -492,7 +492,11 @@ const focusQuickFilter = (filterName: keyof QuickFilters) => {
   }
 }
 
-defineExpose({ focusQuickFilter })
+const clearQuickFilter = (filterName: keyof QuickFilters) => {
+  updateQuickFilter(filterName, '')
+}
+
+defineExpose({ focusQuickFilter, clearQuickFilter })
 
 // Column filter helpers
 const getBaseField = (filterKey: keyof ColumnFilters): string => {

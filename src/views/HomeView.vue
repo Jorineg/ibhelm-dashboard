@@ -238,8 +238,8 @@ const dataTableRef = ref<{
 // Ref for ConfigurationPanel to trigger rename
 const configPanelRef = ref<{ startRenameActive: () => void } | null>(null)
 
-// Ref for FilterBar to focus quick filters
-const filterBarRef = ref<{ focusQuickFilter: (filter: string) => void } | null>(null)
+// Ref for FilterBar to focus/clear quick filters
+const filterBarRef = ref<{ focusQuickFilter: (filter: string) => void; clearQuickFilter: (filter: string) => void } | null>(null)
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -904,30 +904,53 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
   
   // Quick filter shortcuts (only in items view)
+  // Shift + key clears the filter, key alone focuses the filter
+  // Note: Shift changes event.key to uppercase, so compare case-insensitively
   if (activeView.value === 'items') {
-    if (key === bindings.focusProject.key) {
+    const keyLower = key.toLowerCase()
+    if (keyLower === bindings.focusProject.key) {
       event.preventDefault()
-      filterBarRef.value?.focusQuickFilter('project')
+      if (event.shiftKey) {
+        filterBarRef.value?.clearQuickFilter('project')
+      } else {
+        filterBarRef.value?.focusQuickFilter('project')
+      }
       return
     }
-    if (key === bindings.focusCostGroup.key) {
+    if (keyLower === bindings.focusCostGroup.key) {
       event.preventDefault()
-      filterBarRef.value?.focusQuickFilter('kostengruppe')
+      if (event.shiftKey) {
+        filterBarRef.value?.clearQuickFilter('kostengruppe')
+      } else {
+        filterBarRef.value?.focusQuickFilter('kostengruppe')
+      }
       return
     }
-    if (key === bindings.focusLocation.key) {
+    if (keyLower === bindings.focusLocation.key) {
       event.preventDefault()
-      filterBarRef.value?.focusQuickFilter('location')
+      if (event.shiftKey) {
+        filterBarRef.value?.clearQuickFilter('location')
+      } else {
+        filterBarRef.value?.focusQuickFilter('location')
+      }
       return
     }
-    if (key === bindings.focusTags.key) {
+    if (keyLower === bindings.focusTags.key) {
       event.preventDefault()
-      filterBarRef.value?.focusQuickFilter('tags')
+      if (event.shiftKey) {
+        filterBarRef.value?.clearQuickFilter('tags')
+      } else {
+        filterBarRef.value?.focusQuickFilter('tags')
+      }
       return
     }
-    if (key === bindings.focusInvolvedPerson.key) {
+    if (keyLower === bindings.focusInvolvedPerson.key) {
       event.preventDefault()
-      filterBarRef.value?.focusQuickFilter('involved_person')
+      if (event.shiftKey) {
+        filterBarRef.value?.clearQuickFilter('involved_person')
+      } else {
+        filterBarRef.value?.focusQuickFilter('involved_person')
+      }
       return
     }
     
