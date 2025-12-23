@@ -4,40 +4,33 @@ A sophisticated Vue 3 + Vite frontend for managing tasks, emails, and project da
 
 ## Features
 
-- ✅ **Unified Data View**: Display tasks (from Teamwork) and emails (from Missive) in a single table
+- ✅ **Unified Data View**: Display tasks, emails, information items, and files in a single, high-performance table.
 - ✅ **Advanced Filtering**: 
-  - Always-visible filters (project, customer, building, floor, room, Kostengruppe)
-  - Dynamic filters with multiple operators (eq, neq, contains, before, after, etc.)
-  - Save filter configurations with names
-- ✅ **Smart Search**: Real-time search across all columns
-- ✅ **Column Management**: 
-  - Show/hide columns
-  - Drag to reorder columns
-  - Auto-hide empty columns
-- ✅ **View Modes**: Toggle between list and gallery views
-- ✅ **Filter Configurations**: 
-  - Save multiple filter configurations
-  - Auto-save changes
-  - Duplicate and delete configurations
-- ✅ **Item Details**: Click any row to see full details in a popup
-- ✅ **Infinite Scroll**: Automatically load more data as you scroll
-- ✅ **Google Authentication**: Secure login with Google OAuth
-- ✅ **Type Toggles**: Show/hide tasks and emails independently
+  - Always-visible sidebar filters (Project, Customer, Building, Floor, Room, Kostengruppe).
+  - Dynamic filters with complex operators (eq, neq, contains, date ranges, etc.).
+  - Named filter configurations for quick access.
+- ✅ **Smart Search**: Near-instant global search across all metadata.
+- ✅ **Dynamic UI**: 
+  - Column management (drag-and-drop, visibility toggles).
+  - List and Gallery view modes with PDF/Image previews.
+  - Auto-hide empty columns for cleaner interface.
+- ✅ **Infinite Scrolling**: Smooth data loading without traditional pagination.
+- ✅ **Secure Access**: Supabase Magic Link authentication with role-based access control.
 
 ## Tech Stack
 
-- **Vue 3** with Composition API
-- **Vite** for fast development and building
-- **TypeScript** for type safety
-- **Supabase** for backend (authentication + database)
-- **PrimeVue** for UI components
-- **Browser LocalStorage** for filter configuration persistence
+- **Vue 3** (Composition API + Vite)
+- **Tanstack Table** (High-performance data grid logic)
+- **PrimeVue** (UI Component Library)
+- **Supabase** (Auth & Real-time Database)
+- **TypeScript** (Robust type safety)
+
 
 ## Prerequisites
 
 - Node.js 18+ and npm
 - Supabase instance (self-hosted or cloud)
-- Google OAuth credentials configured in Supabase
+- Email OTP / Magic Link enabled in Supabase
 
 ## Setup Instructions
 
@@ -60,13 +53,14 @@ Replace with your actual Supabase credentials.
 
 ### 3. Configure Supabase
 
-#### Enable Google OAuth
+#### Enable Magic Link (Email OTP)
 
 1. Go to your Supabase dashboard
 2. Navigate to Authentication > Providers
-3. Enable Google OAuth
-4. Add your Google OAuth credentials
-5. Set the redirect URL to: `http://localhost:5173` (for dev) or your production URL
+3. Enable **Email** provider
+4. Ensure **Confirm Email** is enabled (optional but recommended)
+5. Ensure **Secure OTP** or **Magic Link** is enabled
+6. Configure your SMTP settings or use Supabase's default (limited)
 
 #### Database Schema
 
@@ -125,8 +119,10 @@ src/
 ### Login
 
 1. Navigate to the app
-2. Click "Sign in with Google"
-3. Authorize with your Google account
+2. Enter your email address
+3. Click "Send Magic Link"
+4. Check your email for a code or login link
+5. Enter the code in the app or click the link to authenticate
 
 ### Filtering
 
@@ -200,7 +196,11 @@ Use the column selector dropdown to choose which columns to display.
 
 ### Item Types
 
-Toggle tasks and emails on/off using the checkboxes in the toolbar.
+Toggle between the following data types using the checkboxes in the toolbar:
+- **Tasks**: To-Dos and project milestones from Teamwork.
+- **Emails**: Project communications from Missive.
+- **Information Items**: Relevant project notes and documentation.
+- **Files**: Physical documents and attachments stored on the NAS.
 
 ### View Item Details
 
@@ -239,8 +239,8 @@ const availableColumns = computed<Column[]>(() => [
 ### Authentication Not Working
 
 - Verify your Supabase URL and anon key in `.env`
-- Check that Google OAuth is enabled in Supabase dashboard
-- Ensure redirect URLs are correctly configured
+- Check that Email OTP/Magic Link is enabled in Supabase dashboard
+- Ensure your email is not being blocked as spam
 
 ### Data Not Loading
 
