@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
 
 const STORAGE_KEY = 'ibhelm_filter_configurations_v3'
@@ -24,8 +25,17 @@ const DEFAULT_SORT_BY_VIEW: Record<ViewType, SortConfig> = {
   people: { field: 'display_name', order: 'asc' }
 }
 
-const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
+const defaultConfig = (viewType: ViewType = 'items', settings?: any): FilterConfiguration => {
   const columns = DEFAULT_COLUMNS_BY_VIEW[viewType]
+
+  let sortConfig = DEFAULT_SORT_BY_VIEW[viewType]
+  if (viewType === 'items' && settings) {
+    sortConfig = {
+      field: settings.default_sort_field || 'sort_date',
+      order: settings.default_sort_order || 'desc'
+    }
+  }
+
   return {
     id: crypto.randomUUID(),
     name: 'Default Configuration',
@@ -35,7 +45,7 @@ const defaultConfig = (viewType: ViewType = 'items'): FilterConfiguration => {
     showCraft: true,
     showFiles: true,
     viewMode: 'list',
-    sortConfig: DEFAULT_SORT_BY_VIEW[viewType],
+    sortConfig: sortConfig,
     searchQuery: '',
     quickFilters: {},
     columnFilters: {},
@@ -137,7 +147,8 @@ function loadConfigurations() {
     for (const viewType of viewTypes) {
       const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
       if (viewConfigs.length === 0) {
-        const config = defaultConfig(viewType)
+        const { settings: appSettings } = useAppearanceSettings()
+        const config = defaultConfig(viewType, appSettings.value)
         allConfigurations.value.push(config)
         activeConfigIds.value[viewType] = config.id
         configOrder.value[viewType] = [config.id]
@@ -204,7 +215,8 @@ export function useFilterConfigs() {
   const createConfiguration = (name?: string) => {
     const viewType = currentViewType.value
     pushToHistory(viewType)
-    const config = defaultConfig(viewType)
+    const { settings: appSettings } = useAppearanceSettings()
+    const config = defaultConfig(viewType, appSettings.value)
     config.name = name || `Configuration ${configurations.value.length + 1}`
     allConfigurations.value.push(config)
     configOrder.value[viewType].push(config.id)
@@ -245,7 +257,7 @@ export function useFilterConfigs() {
   const deleteConfiguration = (id: string) => {
     const index = allConfigurations.value.findIndex(c => c.id === id)
     if (index === -1) return false
-    
+
     const config = allConfigurations.value[index]
     const viewType = config.viewType
 
@@ -273,7 +285,8 @@ export function useFilterConfigs() {
         // Fallback to first in order if no valid history
         activeConfigIds.value[viewType] = nextId || configOrder.value[viewType][0] || viewConfigs[0].id
       } else {
-        const newConfig = defaultConfig(viewType)
+        const { settings: appSettings } = useAppearanceSettings()
+        const newConfig = defaultConfig(viewType, appSettings.value)
         allConfigurations.value.push(newConfig)
         configOrder.value[viewType] = [newConfig.id]
         activeConfigIds.value[viewType] = newConfig.id
@@ -294,7 +307,7 @@ export function useFilterConfigs() {
       ...updates,
       updatedAt: new Date().toISOString()
     }
-    
+
     allConfigurations.value.splice(index, 1, updatedConfig)
     saveConfigurations()
     return true
@@ -358,10 +371,10 @@ export function useFilterConfigs() {
 
   const clearAllFilters = () => {
     if (activeConfig.value) {
-      updateConfiguration(activeConfig.value.id, { 
+      updateConfiguration(activeConfig.value.id, {
         searchQuery: '',
-        quickFilters: {}, 
-        columnFilters: {} 
+        quickFilters: {},
+        columnFilters: {}
       })
     }
   }

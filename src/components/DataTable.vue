@@ -772,13 +772,17 @@ const handleHeaderClickById = (colId: string) => {
   const currentOrder = props.sortConfig?.order
   
   if (currentField === colId) {
-    if (currentOrder === 'asc') {
-      emit('sort', { field: colId, order: 'desc' })
-    } else {
-      emit('sort', getDefaultSort())
-    }
+    // Toggle between asc and desc
+    emit('sort', { field: colId, order: currentOrder === 'asc' ? 'desc' : 'asc' })
   } else {
-    emit('sort', { field: colId, order: 'asc' })
+    // New column. Choose sensible default.
+    // Dates, times, and numbers typically start with descending (newest/highest first)
+    let order: 'asc' | 'desc' = 'asc'
+    if (colId.includes('date') || colId.includes('at') || 
+        ['progress', 'attachment_count', 'accumulated_estimated_minutes', 'cost_group_code'].includes(colId)) {
+      order = 'desc'
+    }
+    emit('sort', { field: colId, order })
   }
 }
 
@@ -858,10 +862,14 @@ const getSortIcon = (field: string) => {
 }
 
 const getDefaultSort = (): SortConfig => {
-  switch (props.viewType) {
-    case 'projects': return { field: 'name', order: 'asc' }
-    case 'people': return { field: 'display_name', order: 'asc' }
-    default: return { field: 'sort_date', order: 'desc' }
+  if (props.viewType === 'projects') return { field: 'name', order: 'asc' }
+  if (props.viewType === 'people') return { field: 'display_name', order: 'asc' }
+  
+  // For items view, use global settings if available
+  const { defaultSortField, defaultSortOrder } = useAppearanceSettings()
+  return { 
+    field: defaultSortField.value || 'sort_date', 
+    order: (defaultSortOrder.value as 'asc' | 'desc') || 'desc' 
   }
 }
 

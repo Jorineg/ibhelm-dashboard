@@ -14,7 +14,9 @@ const defaults: AppSettings = {
   cost_group_prefixes: ['KGR'],
   location_prefix: 'O-',
   files_bucket: 'files',
-  hide_completed_tasks: false
+  hide_completed_tasks: false,
+  default_sort_field: 'sort_date',
+  default_sort_order: 'desc'
 }
 const cached = getCached<AppSettings>('app_settings')
 const settings = ref<AppSettings>(cached ? { ...defaults, ...cached } : { ...defaults })
@@ -84,6 +86,8 @@ export function useAppearanceSettings() {
   const updateCostGroupPrefixes = (prefixes: string[]) => updateSetting('cost_group_prefixes', prefixes)
   const updateLocationPrefix = (prefix: string) => updateSetting('location_prefix', prefix)
   const updateHideCompletedTasks = (hide: boolean) => updateSetting('hide_completed_tasks', hide)
+  const updateDefaultSortField = (field: string) => updateSetting('default_sort_field', field)
+  const updateDefaultSortOrder = (order: 'asc' | 'desc') => updateSetting('default_sort_order', order)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -96,6 +100,8 @@ export function useAppearanceSettings() {
   const locationPrefix = computed(() => settings.value.location_prefix || 'O-')
   const filesBucket = computed(() => settings.value.files_bucket || 'files')
   const hideCompletedTasks = computed(() => settings.value.hide_completed_tasks ?? false)
+  const defaultSortField = computed(() => settings.value.default_sort_field || 'sort_date')
+  const defaultSortOrder = computed(() => settings.value.default_sort_order || 'desc')
 
   return {
     settings,
@@ -112,6 +118,8 @@ export function useAppearanceSettings() {
     locationPrefix,
     filesBucket,
     hideCompletedTasks,
+    defaultSortField,
+    defaultSortOrder,
     initialize,
     fetchSettings,
     updateEmailColor,
@@ -123,7 +131,9 @@ export function useAppearanceSettings() {
     updateTeamworkBaseUrl,
     updateCostGroupPrefixes,
     updateLocationPrefix,
-    updateHideCompletedTasks
+    updateHideCompletedTasks,
+    updateDefaultSortField,
+    updateDefaultSortOrder
   }
 }
 

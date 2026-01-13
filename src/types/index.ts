@@ -23,7 +23,7 @@ export interface Task {
   raw_data: any
   db_created_at: string | null
   db_updated_at: string | null
-  
+
   // Relations (joined data)
   project?: Project
   tasklist?: Tasklist
@@ -46,7 +46,7 @@ export interface Email {
   raw_data: any
   db_created_at: string | null
   db_updated_at: string | null
-  
+
   // Relations
   conversation?: Conversation
   from_contact?: Contact
@@ -62,7 +62,7 @@ export interface Project {
   status: string | null
   created_at: string | null
   updated_at: string | null
-  
+
   // Relations
   company?: Company
 }
@@ -173,6 +173,8 @@ export interface AppSettings {
   location_prefix?: string
   files_bucket?: string
   hide_completed_tasks?: boolean
+  default_sort_field?: string
+  default_sort_order?: 'asc' | 'desc'
 }
 
 export interface DataItem {
@@ -281,13 +283,13 @@ export interface ColumnFilters {
   creator_contains?: string
   assigned_to_contains?: string
   file_extension_contains?: string
-  
+
   // Enum filters (in/not in)
   status_in?: string[]
   status_not_in?: string[]
   priority_in?: string[]
   priority_not_in?: string[]
-  
+
   // Date range filters
   due_date_min?: string
   due_date_max?: string
@@ -296,7 +298,7 @@ export interface ColumnFilters {
   created_at_max?: string
   updated_at_min?: string
   updated_at_max?: string
-  
+
   // Number range filters
   progress_min?: number
   progress_max?: number

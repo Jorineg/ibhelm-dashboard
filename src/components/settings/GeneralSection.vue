@@ -120,6 +120,35 @@
         </span>
       </div>
     </div>
+
+    <div class="general-section">
+      <h4>Default Items Sorting</h4>
+      <p class="section-hint">
+        Default sorting used for new "Items" view configurations.
+      </p>
+      <div class="input-row">
+        <select
+          v-model="localSortField"
+          class="select-input"
+          @change="handleSaveDefaultSort"
+        >
+          <option v-for="col in sortableColumns" :key="col.field" :value="col.field">
+            {{ col.header }}
+          </option>
+        </select>
+        <select
+          v-model="localSortOrder"
+          class="select-input order-select"
+          @change="handleSaveDefaultSort"
+        >
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
   </SectionCard>
 </template>
 
@@ -134,13 +163,17 @@ const {
   costGroupPrefixes,
   locationPrefix,
   hideCompletedTasks,
+  defaultSortField,
+  defaultSortOrder,
   saving, 
   initialize, 
   updateCraftSpaceId, 
   updateTeamworkBaseUrl,
   updateCostGroupPrefixes,
   updateLocationPrefix,
-  updateHideCompletedTasks
+  updateHideCompletedTasks,
+  updateDefaultSortField,
+  updateDefaultSortOrder
 } = useAppearanceSettings()
 
 const localSpaceId = ref('')
@@ -148,7 +181,25 @@ const localTeamworkUrl = ref('')
 const localPrefixes = ref<string[]>([])
 const localLocationPrefix = ref('')
 const localHideCompletedTasks = ref(false)
+const localSortField = ref('sort_date')
+const localSortOrder = ref<'asc' | 'desc'>('desc')
 const newPrefix = ref('')
+
+const sortableColumns = [
+  { field: 'sort_date', header: 'Sort Date' },
+  { field: 'created_at', header: 'Created' },
+  { field: 'updated_at', header: 'Updated' },
+  { field: 'due_date', header: 'Due Date' },
+  { field: 'name', header: 'Name' },
+  { field: 'status', header: 'Status' },
+  { field: 'priority', header: 'Priority' },
+  { field: 'project', header: 'Project' },
+  { field: 'customer', header: 'Customer' },
+  { field: 'progress', header: 'Progress' },
+  { field: 'attachment_count', header: 'Attachments' },
+  { field: 'accumulated_estimated_minutes', header: 'Est. Minutes' },
+  { field: 'cost_group_code', header: 'Cost Code' }
+]
 
 const handleSaveSpaceId = async () => {
   if (localSpaceId.value !== craftSpaceId.value) {
@@ -171,6 +222,15 @@ const handleSaveLocationPrefix = async () => {
 const handleSaveHideCompletedTasks = async () => {
   if (localHideCompletedTasks.value !== hideCompletedTasks.value) {
     await updateHideCompletedTasks(localHideCompletedTasks.value)
+  }
+}
+
+const handleSaveDefaultSort = async () => {
+  if (localSortField.value !== defaultSortField.value) {
+    await updateDefaultSortField(localSortField.value)
+  }
+  if (localSortOrder.value !== defaultSortOrder.value) {
+    await updateDefaultSortOrder(localSortOrder.value)
   }
 }
 
@@ -208,6 +268,14 @@ watch(hideCompletedTasks, (newValue) => {
   localHideCompletedTasks.value = newValue
 }, { immediate: true })
 
+watch(defaultSortField, (newValue) => {
+  localSortField.value = newValue
+}, { immediate: true })
+
+watch(defaultSortOrder, (newValue) => {
+  localSortOrder.value = newValue
+}, { immediate: true })
+
 onMounted(async () => {
   await initialize()
   localSpaceId.value = craftSpaceId.value
@@ -215,6 +283,8 @@ onMounted(async () => {
   localPrefixes.value = [...costGroupPrefixes.value]
   localLocationPrefix.value = locationPrefix.value
   localHideCompletedTasks.value = hideCompletedTasks.value
+  localSortField.value = defaultSortField.value
+  localSortOrder.value = defaultSortOrder.value
 })
 </script>
 
@@ -259,9 +329,32 @@ onMounted(async () => {
   transition: border-color 0.15s ease;
 }
 
-.text-input:focus {
+.text-input:focus,
+.select-input:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+.select-input {
+  flex: 1;
+  max-width: 250px;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+}
+
+.order-select {
+  max-width: 150px;
 }
 
 .text-input::placeholder {
