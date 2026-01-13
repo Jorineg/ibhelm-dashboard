@@ -206,6 +206,7 @@ export interface DataItem {
   accumulated_estimated_minutes?: number
   // Task logged time (from timelogs)
   logged_minutes?: number
+  billable_minutes?: number
   // Any other fields for display
   [key: string]: any
 }
@@ -310,6 +311,8 @@ export interface ColumnFilters {
   accumulated_estimated_minutes_max?: number
   logged_minutes_min?: number
   logged_minutes_max?: number
+  billable_minutes_min?: number
+  billable_minutes_max?: number
 }
 
 // Column type determines which filter controls to show in UI
@@ -349,6 +352,7 @@ export const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { field: 'attachment_count', label: 'Attachments', type: 'number' },
   { field: 'accumulated_estimated_minutes', label: 'Est. Minutes', type: 'number' },
   { field: 'logged_minutes', label: 'Logged Minutes', type: 'number' },
+  { field: 'billable_minutes', label: 'Billable Minutes', type: 'number' },
 ]
 
 export interface FilterConfiguration {

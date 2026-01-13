@@ -44,7 +44,7 @@ export const COLUMNS_BY_TYPE: Record<string, string[]> = {
     'name', 'description', 'status', 'project', 'customer', 'location', 'location_path',
     'cost_group', 'cost_group_code', 'due_date', 'priority', 'progress', 'tasklist',
     'task_type_name', 'assigned_to', 'tags', 'creator', 'created_at', 'updated_at', 'teamwork_url',
-    'accumulated_estimated_minutes', 'logged_minutes'
+    'accumulated_estimated_minutes', 'logged_minutes', 'billable_minutes'
   ],
   email: [
     'name', 'description', 'preview', 'project', 'location', 'location_path',
@@ -159,6 +159,8 @@ function buildUnifiedItemsParams(
     p_accumulated_estimated_minutes_max: col.accumulated_estimated_minutes_max ?? null,
     p_logged_minutes_min: col.logged_minutes_min ?? null,
     p_logged_minutes_max: col.logged_minutes_max ?? null,
+    p_billable_minutes_min: col.billable_minutes_min ?? null,
+    p_billable_minutes_max: col.billable_minutes_max ?? null,
 
     // Text contains filters (additional)
     p_file_extension_contains: col.file_extension_contains || null,

@@ -169,7 +169,12 @@ const formattedCreatedDate = computed(() => {
 
 const isOverdue = computed(() => {
   if (!props.dueDate || isCompleted.value) return false
-  return new Date(props.dueDate) < new Date()
+  const dueDate = new Date(props.dueDate)
+  const today = new Date()
+  // Compare dates only (ignore time) - set both to midnight
+  dueDate.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+  return dueDate < today
 })
 
 const isDueSoon = computed(() => {
