@@ -1,7 +1,22 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { getCached, setCache, isEqual } from '@/lib/cache'
-import type { AppSettings } from '@/types'
+import type { AppSettings, FileIgnorePattern } from '@/types'
+
+// Built-in file ignore patterns (can be disabled but not deleted)
+export const BUILTIN_FILE_IGNORE_PATTERNS: FileIgnorePattern[] = [
+  { pattern: '%~$%', label: 'Office Lock Files (~$...)', enabled: true, builtin: true },
+  { pattern: '%.nosync', label: 'iCloud Sync Markers (.nosync)', enabled: true, builtin: true },
+  { pattern: '%.mproject/%.sql', label: 'Merlin Project Internals (.mproject/*.sql)', enabled: true, builtin: true },
+  { pattern: '%.dwl', label: 'AutoCAD Lock Files (.dwl)', enabled: true, builtin: true },
+  { pattern: '%.dwl2', label: 'AutoCAD Lock Files (.dwl2)', enabled: true, builtin: true },
+  { pattern: '%.dgraph/%.plist', label: 'DataGraph Internals (.dgraph/*.plist)', enabled: true, builtin: true },
+  { pattern: '%#recycle%', label: 'NAS Recycle Bin (#recycle)', enabled: true, builtin: true },
+  { pattern: '%.sb-%', label: 'macOS Sandbox Temp (.sb-*)', enabled: true, builtin: true },
+  { pattern: '%desktop.ini', label: 'Windows Folder Config (desktop.ini)', enabled: true, builtin: true },
+  { pattern: '%.bak', label: 'AutoCAD Backup Files (.bak)', enabled: true, builtin: true },
+  { pattern: '%.log', label: 'Log Files (.log)', enabled: true, builtin: true },
+]
 
 const defaults: AppSettings = {
   email_color: '#3b82f6',
@@ -16,7 +31,8 @@ const defaults: AppSettings = {
   files_bucket: 'files',
   hide_completed_tasks: false,
   default_sort_field: 'sort_date',
-  default_sort_order: 'desc'
+  default_sort_order: 'desc',
+  file_ignore_patterns: BUILTIN_FILE_IGNORE_PATTERNS
 }
 const cached = getCached<AppSettings>('app_settings')
 const settings = ref<AppSettings>(cached ? { ...defaults, ...cached } : { ...defaults })
@@ -88,6 +104,7 @@ export function useAppearanceSettings() {
   const updateHideCompletedTasks = (hide: boolean) => updateSetting('hide_completed_tasks', hide)
   const updateDefaultSortField = (field: string) => updateSetting('default_sort_field', field)
   const updateDefaultSortOrder = (order: 'asc' | 'desc') => updateSetting('default_sort_order', order)
+  const updateFileIgnorePatterns = (patterns: FileIgnorePattern[]) => updateSetting('file_ignore_patterns', patterns)
 
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -102,6 +119,26 @@ export function useAppearanceSettings() {
   const hideCompletedTasks = computed(() => settings.value.hide_completed_tasks ?? false)
   const defaultSortField = computed(() => settings.value.default_sort_field || 'sort_date')
   const defaultSortOrder = computed(() => settings.value.default_sort_order || 'desc')
+  // Merge builtin patterns with stored patterns, preserving user's enabled state
+  const fileIgnorePatterns = computed(() => {
+    const stored = settings.value.file_ignore_patterns || []
+    const storedMap = new Map(stored.map(p => [p.pattern, p]))
+    
+    // Start with builtins, override enabled from stored
+    const merged: FileIgnorePattern[] = BUILTIN_FILE_IGNORE_PATTERNS.map(builtin => {
+      const storedPattern = storedMap.get(builtin.pattern)
+      return storedPattern ? { ...builtin, enabled: storedPattern.enabled } : { ...builtin }
+    })
+    
+    // Add custom (non-builtin) patterns
+    stored.filter(p => !p.builtin).forEach(p => merged.push(p))
+    
+    return merged
+  })
+  // Get only enabled patterns as array of strings for SQL query
+  const enabledFileIgnorePatterns = computed(() => 
+    fileIgnorePatterns.value.filter(p => p.enabled).map(p => p.pattern)
+  )
 
   return {
     settings,
@@ -133,7 +170,10 @@ export function useAppearanceSettings() {
     updateLocationPrefix,
     updateHideCompletedTasks,
     updateDefaultSortField,
-    updateDefaultSortOrder
+    updateDefaultSortOrder,
+    fileIgnorePatterns,
+    enabledFileIgnorePatterns,
+    updateFileIgnorePatterns
   }
 }
 

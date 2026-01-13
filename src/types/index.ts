@@ -161,6 +161,13 @@ export type { FileLinkingRun } from '@/composables/useFiles'
 export type { CostGroupLinkingRun } from '@/composables/useCostGroups'
 export type { LocationLinkingRun } from '@/composables/useLocations'
 
+export interface FileIgnorePattern {
+  pattern: string      // LIKE pattern (e.g., '%~$%', '%.nosync')
+  label: string        // Human-readable description
+  enabled: boolean     // Whether filter is active
+  builtin: boolean     // Built-in patterns can't be deleted
+}
+
 export interface AppSettings {
   email_color: string
   craft_color: string
@@ -175,6 +182,7 @@ export interface AppSettings {
   hide_completed_tasks?: boolean
   default_sort_field?: string
   default_sort_order?: 'asc' | 'desc'
+  file_ignore_patterns?: FileIgnorePattern[]
 }
 
 export interface DataItem {

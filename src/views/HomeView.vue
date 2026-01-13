@@ -150,7 +150,7 @@ const { activeConfig, configurations, updateConfiguration, setCurrentView, curre
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
-const { craftSpaceId, filesBucket, hideCompletedTasks } = useAppearanceSettings()
+const { craftSpaceId, filesBucket, hideCompletedTasks, enabledFileIgnorePatterns } = useAppearanceSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -349,7 +349,8 @@ const dataFetchConfigKey = computed(() => {
     searchQuery: activeConfig.value.searchQuery,
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters,
-    hideCompletedTasks: hideCompletedTasks.value
+    hideCompletedTasks: hideCompletedTasks.value,
+    fileIgnorePatterns: enabledFileIgnorePatterns.value
   })
 })
 
@@ -380,7 +381,7 @@ watch(dataFetchConfigKey, (newKey) => {
     loadData(
       params.showTasks, params.showEmails, params.showCraft, params.showFiles,
       params.search, params.config, params.sortConfig, params.viewType, params.taskTypes,
-      hideCompletedTasks.value
+      hideCompletedTasks.value, enabledFileIgnorePatterns.value
     )
   }
   
@@ -449,7 +450,8 @@ const handleLoadMore = async () => {
       activeConfig.value,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value
+      hideCompletedTasks.value,
+      enabledFileIgnorePatterns.value
     )
   }
 }
@@ -546,7 +548,8 @@ const handleSort = async (sortConfig: SortConfig) => {
       sortConfig,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value
+      hideCompletedTasks.value,
+      enabledFileIgnorePatterns.value
     )
   }
 }
@@ -563,7 +566,8 @@ const handleRetry = async () => {
       activeConfig.value.sortConfig,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value
+      hideCompletedTasks.value,
+      enabledFileIgnorePatterns.value
     )
   }
 }
@@ -582,7 +586,8 @@ const handleExport = async () => {
       activeConfig.value || null,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value
+      hideCompletedTasks.value,
+      enabledFileIgnorePatterns.value
     )
     
     // Get visible columns only, plus type and link

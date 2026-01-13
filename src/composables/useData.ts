@@ -100,7 +100,8 @@ function buildUnifiedItemsParams(
   selectedTaskTypes: string[] | null,
   sortConfig: SortConfig,
   page: number,
-  hideCompletedTasks: boolean = false
+  hideCompletedTasks: boolean = false,
+  fileIgnorePatterns: string[] | null = null
 ) {
   const quick = filterConfig?.quickFilters || {}
   const col = filterConfig?.columnFilters || {}
@@ -168,6 +169,9 @@ function buildUnifiedItemsParams(
     // Hide completed tasks setting
     p_hide_completed_tasks: hideCompletedTasks || null,
 
+    // File ignore patterns (LIKE patterns for filtering out unwanted files)
+    p_file_ignore_patterns: fileIgnorePatterns && fileIgnorePatterns.length > 0 ? fileIgnorePatterns : null,
+
     // Pagination & sorting
     p_sort_field: sortConfig.field,
     p_sort_order: sortConfig.order,
@@ -210,7 +214,8 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null,
-    hideCompletedTasks = false
+    hideCompletedTasks = false,
+    fileIgnorePatterns: string[] | null = null
   ) => {
     const sort = sortConfig || currentSort.value
 
@@ -223,7 +228,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, sort, page, hideCompletedTasks
+      selectedTaskTypes, sort, page, hideCompletedTasks, fileIgnorePatterns
     )
 
     const t0 = performance.now()
@@ -243,7 +248,8 @@ export function useData() {
     showFiles = true,
     filterConfig: FilterConfiguration | null = null,
     selectedTaskTypes: string[] | null = null,
-    hideCompletedTasks = false
+    hideCompletedTasks = false,
+    fileIgnorePatterns: string[] | null = null
   ): Promise<number> => {
     // Check if any type is selected
     const hasTypes = showTasks || showEmails || showCraft || showFiles ||
@@ -252,7 +258,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, { field: 'sort_date', order: 'desc' }, 0, hideCompletedTasks
+      selectedTaskTypes, { field: 'sort_date', order: 'desc' }, 0, hideCompletedTasks, fileIgnorePatterns
     )
 
     // Remove pagination/sort params - count doesn't need them
@@ -339,7 +345,8 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
-    hideCompletedTasks = false
+    hideCompletedTasks = false,
+    fileIgnorePatterns: string[] | null = null
   ): Promise<void> => {
     const myVersion = ++requestVersion
     const isCurrent = () => myVersion === requestVersion
@@ -387,7 +394,7 @@ export function useData() {
           result = await fetchPeople(0, search, false, filterConfig, sortConfig || currentSort.value)
           break
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, sortConfig || currentSort.value, selectedTaskTypes, hideCompletedTasks)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, sortConfig || currentSort.value, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
       }
 
       if (!isCurrent()) return // Superseded - discard results
@@ -404,7 +411,7 @@ export function useData() {
         switch (viewType) {
           case 'projects': count = await fetchProjectsCount(search, filterConfig); break
           case 'people': count = await fetchPeopleCount(search, filterConfig); break
-          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks)
+          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
         }
         if (isCurrent()) {
           totalCount.value = count
@@ -472,7 +479,8 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
-    hideCompletedTasks = false
+    hideCompletedTasks = false,
+    fileIgnorePatterns: string[] | null = null
   ) => {
     if (loading.value || !hasMore.value) return
 
@@ -494,7 +502,7 @@ export function useData() {
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes, hideCompletedTasks)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
           break
       }
 
@@ -526,7 +534,8 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
-    hideCompletedTasks = false
+    hideCompletedTasks = false,
+    fileIgnorePatterns: string[] | null = null
   ): Promise<ViewDataItem[]> => {
     const sort = currentSort.value
 
@@ -573,7 +582,7 @@ export function useData() {
         while (true) {
           const params = buildUnifiedItemsParams(
             filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-            selectedTaskTypes, sort, page, hideCompletedTasks
+            selectedTaskTypes, sort, page, hideCompletedTasks, fileIgnorePatterns
           )
           // Use larger batch for export
           params.p_limit = 1000
