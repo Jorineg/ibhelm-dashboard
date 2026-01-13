@@ -262,6 +262,7 @@ const itemColumns: Column[] = [
   { field: 'priority', header: 'Priority', sortable: true, width: '120px' },
   { field: 'progress', header: 'Progress', sortable: true, width: '100px' },
   { field: 'accumulated_estimated_minutes', header: 'Est. Minutes', sortable: true, width: '120px' },
+  { field: 'logged_minutes', header: 'Logged Min.', sortable: true, width: '120px' },
   { field: 'tasklist', header: 'Tasklist', sortable: true, width: '150px' },
   { field: 'creator', header: 'Creator', sortable: true, width: '200px' },
   { field: 'assigned_to', header: 'Assigned To', sortable: false, width: '200px' },
