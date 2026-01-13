@@ -83,6 +83,15 @@ export function useAuth() {
       user.value = session?.user ?? null
       loading.value = false
       
+      // Handle session loss (logout, token refresh failure, session expired)
+      if (event === 'SIGNED_OUT') {
+        console.log('[useAuth] SIGNED_OUT event - redirecting to login')
+        if (window.location.pathname !== '/login') {
+          window.location.href = `${window.location.origin}/login`
+        }
+        return
+      }
+      
       // After login, handle cross-tab auth sync
       if (event === 'SIGNED_IN' && session) {
         console.log('[useAuth] SIGNED_IN event detected')
