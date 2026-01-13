@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <!-- Files sync status -->
+      <!-- Files status (S3 Queue) -->
       <div class="sync-source-item">
         <div class="source-header">
           <span class="source-icon">📁</span>
@@ -63,15 +63,25 @@
               class="detail-value time" 
               :class="{ warning: isFilesOutdated }"
             >
-              {{ formatRelativeTime(syncStatus.files.lastUpdated) }}
+              {{ formatRelativeTime(syncStatus.files.lastProcessed) }}
               <i v-if="isFilesOutdated" class="pi pi-exclamation-triangle warning-icon"></i>
             </span>
           </div>
           
           <div class="detail-row">
-            <span class="detail-label">Last change:</span>
-            <span class="detail-value time">
-              {{ formatRelativeTime(syncStatus.files.lastEventTime) }}
+            <span class="detail-label">Queue:</span>
+            <span v-if="syncStatus.files.pendingCount > 0 || syncStatus.files.processingCount > 0" class="detail-value queue pending">
+              {{ syncStatus.files.pendingCount }} pending<span v-if="syncStatus.files.processingCount > 0">, {{ syncStatus.files.processingCount }} uploading</span>
+            </span>
+            <span v-else class="detail-value queue ok">
+              ✓ uploaded
+            </span>
+          </div>
+          
+          <div v-if="syncStatus.files.failedCount > 0" class="detail-row">
+            <span class="detail-label">Failed:</span>
+            <span class="detail-value queue failed">
+              {{ syncStatus.files.failedCount }} errors
             </span>
           </div>
         </div>
@@ -189,11 +199,15 @@ const getSourceStatusIcon = (source: SyncSourceStatus): string => {
 }
 
 const filesStatusClass = computed((): string => {
+  if (props.syncStatus.files.failedCount > 0) return 'error'
+  if (props.syncStatus.files.pendingCount > 0 || props.syncStatus.files.processingCount > 0) return 'importing'
   if (props.isFilesOutdated) return 'outdated'
   return 'ok'
 })
 
 const filesStatusIcon = computed((): string => {
+  if (props.syncStatus.files.failedCount > 0) return 'pi pi-times'
+  if (props.syncStatus.files.pendingCount > 0 || props.syncStatus.files.processingCount > 0) return 'pi pi-download'
   if (props.isFilesOutdated) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
 })

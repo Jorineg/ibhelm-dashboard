@@ -19,14 +19,18 @@ export interface SyncSourceStatus {
 }
 
 export interface FilesStatus {
-  lastEventTime: Date | null
-  lastUpdated: Date | null
+  lastProcessed: Date | null
+  pendingCount: number
+  processingCount: number
+  failedCount: number
 }
 
 export interface ThumbnailsStatus {
   lastProcessed: Date | null
   pendingCount: number
 }
+
+
 
 export interface AttachmentsStatus {
   lastProcessed: Date | null
@@ -47,7 +51,7 @@ export interface SyncStatus {
 export type OverallStatus = 'synced' | 'importing' | 'outdated'
 
 const OUTDATED_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
-const FILES_OUTDATED_THRESHOLD_MS = 30 * 60 * 1000 // 30 minutes
+const FILES_OUTDATED_THRESHOLD_MS = 60 * 1000 // 1 minute
 const THUMBNAILS_OUTDATED_THRESHOLD_MS = 60 * 1000 // 1 minute
 const ATTACHMENTS_OUTDATED_THRESHOLD_MS = 60 * 1000 // 1 minute
 
@@ -56,27 +60,34 @@ export function useSyncStatus() {
     teamwork: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
     missive: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
     craft: { lastScanned: null, lastChange: null, pendingCount: 0, processingCount: 0 },
-    files: { lastEventTime: null, lastUpdated: null },
+    files: { lastProcessed: null, pendingCount: 0, processingCount: 0, failedCount: 0 },
     thumbnails: { lastProcessed: null, pendingCount: 0 },
     attachments: { lastProcessed: null, pendingCount: 0, processingCount: 0, failedCount: 0 }
   })
   const loading = ref(false)
   const error = ref<string | null>(null)
-  
+
   let pollInterval: number | null = null
 
-  // Computed: check if any connector source has pending items
-  const hasAnyPending = computed(() => 
+  // Computed: check if any source has pending items
+  const hasAnyPending = computed(() =>
     syncStatus.value.teamwork.pendingCount > 0 ||
     syncStatus.value.missive.pendingCount > 0 ||
-    syncStatus.value.craft.pendingCount > 0
+    syncStatus.value.craft.pendingCount > 0 ||
+    syncStatus.value.files.pendingCount > 0 ||
+    syncStatus.value.files.processingCount > 0 ||
+    syncStatus.value.thumbnails.pendingCount > 0 ||
+    syncStatus.value.attachments.pendingCount > 0 ||
+    syncStatus.value.attachments.processingCount > 0
   )
 
-  // Computed: check if any connector last sync is outdated (>5 min)
+  // Computed: check if any sync is outdated
   const isAnyOutdated = computed(() => {
     const now = Date.now()
     const sources = [syncStatus.value.teamwork, syncStatus.value.missive, syncStatus.value.craft]
-    return sources.some(s => s.lastScanned && (now - s.lastScanned.getTime()) > OUTDATED_THRESHOLD_MS)
+    const connectorsOutdated = sources.some(s => s.lastScanned && (now - s.lastScanned.getTime()) > OUTDATED_THRESHOLD_MS)
+
+    return connectorsOutdated || isFilesOutdated.value || isThumbnailsOutdated.value || isAttachmentsOutdated.value
   })
 
   // Computed: check if a specific connector source is outdated
@@ -85,10 +96,12 @@ export function useSyncStatus() {
     return (Date.now() - source.lastScanned.getTime()) > OUTDATED_THRESHOLD_MS
   }
 
-  // Check if files lastUpdated is outdated (>30 min)
+  // Check if files (S3 upload) is outdated
   const isFilesOutdated = computed((): boolean => {
-    if (!syncStatus.value.files.lastUpdated) return false
-    return (Date.now() - syncStatus.value.files.lastUpdated.getTime()) > FILES_OUTDATED_THRESHOLD_MS
+    const f = syncStatus.value.files
+    if (f.pendingCount === 0 && f.processingCount === 0) return false
+    if (!f.lastProcessed) return true
+    return (Date.now() - f.lastProcessed.getTime()) > FILES_OUTDATED_THRESHOLD_MS
   })
 
   // Check if thumbnails is outdated (queue not empty AND last processed >1 min ago)
@@ -152,8 +165,10 @@ export function useSyncStatus() {
     rows.forEach(row => {
       if (row.source === 'files') {
         syncStatus.value.files = {
-          lastEventTime: parseUtcTimestamp(row.last_event_time),
-          lastUpdated: parseUtcTimestamp(row.checkpoint_updated_at)
+          lastProcessed: parseUtcTimestamp(row.last_processed_at),
+          pendingCount: row.pending_count || 0,
+          processingCount: row.processing_count || 0,
+          failedCount: row.failed_count || 0
         }
       } else if (row.source === 'thumbnails') {
         syncStatus.value.thumbnails = {
@@ -174,7 +189,7 @@ export function useSyncStatus() {
           pendingCount: row.pending_count || 0,
           processingCount: row.processing_count || 0
         }
-        
+
         if (row.source === 'teamwork') syncStatus.value.teamwork = status
         else if (row.source === 'missive') syncStatus.value.missive = status
         else if (row.source === 'craft') syncStatus.value.craft = status
