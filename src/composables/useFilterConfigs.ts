@@ -1,8 +1,6 @@
-import { ref, computed } from 'vue'
-import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { ref, computed, watch } from 'vue'
+import { useUserSettings, type FilterConfigurationsData } from '@/composables/useUserSettings'
 import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
-
-const STORAGE_KEY = 'ibhelm_filter_configurations_v3'
 
 // Default quick filter fields per view type
 const DEFAULT_QUICK_FILTERS_BY_VIEW: Record<ViewType, (keyof QuickFilters)[]> = {
@@ -25,14 +23,14 @@ const DEFAULT_SORT_BY_VIEW: Record<ViewType, SortConfig> = {
   people: { field: 'display_name', order: 'asc' }
 }
 
-const defaultConfig = (viewType: ViewType = 'items', settings?: any): FilterConfiguration => {
+const createDefaultConfig = (viewType: ViewType, userSettings?: { default_sort_field: string, default_sort_order: 'asc' | 'desc' }): FilterConfiguration => {
   const columns = DEFAULT_COLUMNS_BY_VIEW[viewType]
 
   let sortConfig = DEFAULT_SORT_BY_VIEW[viewType]
-  if (viewType === 'items' && settings) {
+  if (viewType === 'items' && userSettings) {
     sortConfig = {
-      field: settings.default_sort_field || 'sort_date',
-      order: settings.default_sort_order || 'desc'
+      field: userSettings.default_sort_field || 'sort_date',
+      order: userSettings.default_sort_order || 'desc'
     }
   }
 
@@ -57,171 +55,208 @@ const defaultConfig = (viewType: ViewType = 'items', settings?: any): FilterConf
   }
 }
 
-// All configurations (across all views)
-const allConfigurations = ref<FilterConfiguration[]>([])
-
-// Active config ID per view type
-const activeConfigIds = ref<Record<ViewType, string>>({
-  items: '',
-  projects: '',
-  people: ''
-})
-
-// Config order per view type (array of config IDs)
-const configOrder = ref<Record<ViewType, string[]>>({
-  items: [],
-  projects: [],
-  people: []
-})
-
-// Config selection history stack per view type (most recent at end)
-const configHistoryStack = ref<Record<ViewType, string[]>>({
-  items: [],
-  projects: [],
-  people: []
-})
-
-// Quick filter order per view type (global, not per config)
-const quickFilterOrder = ref<Record<ViewType, (keyof QuickFilters)[]>>({
-  items: [],
-  projects: [],
-  people: []
-})
-
-// Current view type
+// Current view type (module-level)
 const currentViewType = ref<ViewType>('items')
 
 // Timing: when was config switch initiated (for perf logging)
 let configSwitchTimestamp: number | null = null
 export function getConfigSwitchTimestamp(): number | null {
   const ts = configSwitchTimestamp
-  configSwitchTimestamp = null // Clear after reading
+  configSwitchTimestamp = null
   return ts
 }
 export function hasRecentConfigSwitch(): boolean {
   return configSwitchTimestamp !== null
 }
 
-// Filtered configurations for current view only (sorted by custom order)
-const configurations = computed(() => {
-  const viewConfigs = allConfigurations.value.filter(c => c.viewType === currentViewType.value)
-  const order = configOrder.value[currentViewType.value]
-  if (!order || order.length === 0) return viewConfigs
-  // Sort by order, configs not in order go to end
-  return viewConfigs.sort((a, b) => {
-    const aIdx = order.indexOf(a.id)
-    const bIdx = order.indexOf(b.id)
-    if (aIdx === -1 && bIdx === -1) return 0
-    if (aIdx === -1) return 1
-    if (bIdx === -1) return -1
-    return aIdx - bIdx
-  })
-})
+export function useFilterConfigs() {
+  const { 
+    filterConfigurations, 
+    updateFilterConfigurations,
+    defaultSortField,
+    defaultSortOrder,
+    initialized: userSettingsInitialized
+  } = useUserSettings()
 
-// Current active config ID for the current view
-const activeConfigId = computed(() => {
-  return activeConfigIds.value[currentViewType.value]
-})
+  // Helper to update config data
+  const updateData = (updates: Partial<FilterConfigurationsData>) => {
+    updateFilterConfigurations({
+      ...filterConfigurations.value,
+      ...updates
+    })
+  }
 
-// Module-level activeConfig computed - always derives from allConfigurations
-const activeConfig = computed<FilterConfiguration | null>(() => {
-  const currentId = activeConfigIds.value[currentViewType.value]
-  return allConfigurations.value.find(c => c.id === currentId) || null
-})
-
-// Load from browser storage
-function loadConfigurations() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      allConfigurations.value = parsed.configs || []
-      activeConfigIds.value = parsed.activeConfigIds || { items: '', projects: '', people: '' }
-      configOrder.value = parsed.configOrder || { items: [], projects: [], people: [] }
-      configHistoryStack.value = parsed.configHistoryStack || { items: [], projects: [], people: [] }
-      quickFilterOrder.value = parsed.quickFilterOrder || { items: [], projects: [], people: [] }
-    }
-
-    // Ensure each view type has at least one configuration
+  // Ensure each view has at least one config - returns true if changes were made
+  const ensureDefaultConfigs = (): boolean => {
     const viewTypes: ViewType[] = ['items', 'projects', 'people']
+    let needsUpdate = false
+    const currentData = filterConfigurations.value
+    const newConfigs = [...currentData.configs]
+    const newActiveIds = { ...currentData.activeConfigIds }
+    const newOrder = { ...currentData.configOrder }
+
     for (const viewType of viewTypes) {
-      const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
+      const viewConfigs = newConfigs.filter(c => c.viewType === viewType)
       if (viewConfigs.length === 0) {
-        const { settings: appSettings } = useAppearanceSettings()
-        const config = defaultConfig(viewType, appSettings.value)
-        allConfigurations.value.push(config)
-        activeConfigIds.value[viewType] = config.id
-        configOrder.value[viewType] = [config.id]
-      } else if (!activeConfigIds.value[viewType] || !viewConfigs.find(c => c.id === activeConfigIds.value[viewType])) {
-        activeConfigIds.value[viewType] = viewConfigs[0].id
+        // No configs for this view - create default
+        const config = createDefaultConfig(viewType, {
+          default_sort_field: defaultSortField.value,
+          default_sort_order: defaultSortOrder.value
+        })
+        newConfigs.push(config)
+        newActiveIds[viewType] = config.id
+        newOrder[viewType] = [config.id]
+        needsUpdate = true
+      } else if (!newActiveIds[viewType] || !viewConfigs.find(c => c.id === newActiveIds[viewType])) {
+        // Has configs but no valid active - set first as active
+        newActiveIds[viewType] = viewConfigs[0].id
+        needsUpdate = true
       }
     }
 
-    saveConfigurations()
-  } catch (error) {
-    console.error('Error loading configurations:', error)
-    const viewTypes: ViewType[] = ['items', 'projects', 'people']
-    allConfigurations.value = []
-    for (const viewType of viewTypes) {
-      const config = defaultConfig(viewType)
-      allConfigurations.value.push(config)
-      activeConfigIds.value[viewType] = config.id
-      configOrder.value[viewType] = [config.id]
+    if (needsUpdate) {
+      updateFilterConfigurations({
+        configs: newConfigs,
+        activeConfigIds: newActiveIds,
+        configOrder: newOrder,
+        configHistoryStack: currentData.configHistoryStack,
+        quickFilterOrder: currentData.quickFilterOrder
+      })
     }
+    
+    return needsUpdate
   }
-}
 
-// Save to browser storage
-function saveConfigurations() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      configs: allConfigurations.value,
-      activeConfigIds: activeConfigIds.value,
-      configOrder: configOrder.value,
-      configHistoryStack: configHistoryStack.value,
-      quickFilterOrder: quickFilterOrder.value
-    }))
-  } catch (error) {
-    console.error('Error saving configurations:', error)
+  // Ensure defaults exist - this must run:
+  // 1. Immediately when composable is created (for initial render)
+  // 2. When user settings finish loading (to persist defaults)
+  // 3. When configs become empty (e.g., after DB load)
+  ensureDefaultConfigs()
+  
+  // Watch for initialization state changes
+  watch(userSettingsInitialized, (newVal, oldVal) => {
+    if (newVal && !oldVal) {
+      // Just finished initializing - ensure defaults exist and persist
+      ensureDefaultConfigs()
+    }
+  })
+  
+  // Watch for configs becoming empty (e.g., after DB overwrites local state)
+  watch(() => filterConfigurations.value.configs, (newConfigs) => {
+    if (newConfigs.length === 0) {
+      ensureDefaultConfigs()
+    }
+  }, { deep: true })
+
+  // Local refs that sync with user settings
+  const allConfigurations = computed({
+    get: () => filterConfigurations.value.configs,
+    set: (val) => {
+      updateFilterConfigurations({
+        ...filterConfigurations.value,
+        configs: val
+      })
+    }
+  })
+
+  const activeConfigIds = computed({
+    get: () => filterConfigurations.value.activeConfigIds,
+    set: (val) => {
+      updateFilterConfigurations({
+        ...filterConfigurations.value,
+        activeConfigIds: val
+      })
+    }
+  })
+
+  const configOrder = computed({
+    get: () => filterConfigurations.value.configOrder,
+    set: (val) => {
+      updateFilterConfigurations({
+        ...filterConfigurations.value,
+        configOrder: val
+      })
+    }
+  })
+
+  const configHistoryStack = computed({
+    get: () => filterConfigurations.value.configHistoryStack,
+    set: (val) => {
+      updateFilterConfigurations({
+        ...filterConfigurations.value,
+        configHistoryStack: val
+      })
+    }
+  })
+
+  const quickFilterOrder = computed({
+    get: () => filterConfigurations.value.quickFilterOrder,
+    set: (val) => {
+      updateFilterConfigurations({
+        ...filterConfigurations.value,
+        quickFilterOrder: val
+      })
+    }
+  })
+
+  // Filtered configurations for current view only (sorted by custom order)
+  const configurations = computed(() => {
+    const viewConfigs = allConfigurations.value.filter(c => c.viewType === currentViewType.value)
+    const order = configOrder.value[currentViewType.value] || []
+    if (order.length === 0) return viewConfigs
+    return viewConfigs.sort((a, b) => {
+      const aIdx = order.indexOf(a.id)
+      const bIdx = order.indexOf(b.id)
+      if (aIdx === -1 && bIdx === -1) return 0
+      if (aIdx === -1) return 1
+      if (bIdx === -1) return -1
+      return aIdx - bIdx
+    })
+  })
+
+  const activeConfigId = computed(() => activeConfigIds.value[currentViewType.value] || '')
+
+  const activeConfig = computed<FilterConfiguration | null>(() => {
+    const currentId = activeConfigIds.value[currentViewType.value]
+    if (!currentId) return null
+    return allConfigurations.value.find(c => c.id === currentId) || null
+  })
+
+  // Push current config to history stack
+  const pushToHistory = (viewType: ViewType) => {
+    const currentId = activeConfigIds.value[viewType]
+    if (!currentId) return
+    const stack = [...(configHistoryStack.value[viewType] || [])]
+    const existingIdx = stack.indexOf(currentId)
+    if (existingIdx !== -1) stack.splice(existingIdx, 1)
+    stack.push(currentId)
+    if (stack.length > 20) stack.shift()
+    updateData({
+      configHistoryStack: { ...configHistoryStack.value, [viewType]: stack }
+    })
   }
-}
-
-// Push current config to history stack (helper to avoid duplication)
-function pushToHistory(viewType: ViewType) {
-  const currentId = activeConfigIds.value[viewType]
-  if (!currentId) return
-  const stack = configHistoryStack.value[viewType]
-  const existingIdx = stack.indexOf(currentId)
-  if (existingIdx !== -1) stack.splice(existingIdx, 1)
-  stack.push(currentId)
-  if (stack.length > 20) stack.shift()
-}
-
-// Initialize module (runs once)
-let moduleInitialized = false
-function initializeModule() {
-  if (moduleInitialized) return
-  moduleInitialized = true
-  loadConfigurations()
-}
-
-export function useFilterConfigs() {
-  initializeModule()
 
   const setCurrentView = (viewType: ViewType) => {
     currentViewType.value = viewType
+    // Ensure this view has configs
+    ensureDefaultConfigs()
   }
 
   const createConfiguration = (name?: string) => {
     const viewType = currentViewType.value
     pushToHistory(viewType)
-    const { settings: appSettings } = useAppearanceSettings()
-    const config = defaultConfig(viewType, appSettings.value)
+    const config = createDefaultConfig(viewType, {
+      default_sort_field: defaultSortField.value,
+      default_sort_order: defaultSortOrder.value
+    })
     config.name = name || `Configuration ${configurations.value.length + 1}`
-    allConfigurations.value.push(config)
-    configOrder.value[viewType].push(config.id)
-    activeConfigIds.value[viewType] = config.id
-    saveConfigurations()
+    
+    const currentOrder = configOrder.value[viewType] || []
+    updateData({
+      configs: [...allConfigurations.value, config],
+      configOrder: { ...configOrder.value, [viewType]: [...currentOrder, config.id] },
+      activeConfigIds: { ...activeConfigIds.value, [viewType]: config.id }
+    })
     return config
   }
 
@@ -240,41 +275,40 @@ export function useFilterConfigs() {
       updatedAt: new Date().toISOString()
     }
 
-    allConfigurations.value.push(duplicate)
-    // Insert after original in order
-    const order = configOrder.value[viewType]
+    const order = [...(configOrder.value[viewType] || [])]
     const originalIdx = order.indexOf(id)
     if (originalIdx !== -1) {
       order.splice(originalIdx + 1, 0, duplicate.id)
     } else {
       order.push(duplicate.id)
     }
-    activeConfigIds.value[viewType] = duplicate.id
-    saveConfigurations()
+
+    updateData({
+      configs: [...allConfigurations.value, duplicate],
+      configOrder: { ...configOrder.value, [viewType]: order },
+      activeConfigIds: { ...activeConfigIds.value, [viewType]: duplicate.id }
+    })
     return duplicate
   }
 
   const deleteConfiguration = (id: string) => {
-    const index = allConfigurations.value.findIndex(c => c.id === id)
-    if (index === -1) return false
+    const config = allConfigurations.value.find(c => c.id === id)
+    if (!config) return false
 
-    const config = allConfigurations.value[index]
     const viewType = config.viewType
+    const newConfigs = allConfigurations.value.filter(c => c.id !== id)
+    const newOrder = { ...configOrder.value }
+    newOrder[viewType] = (newOrder[viewType] || []).filter(cid => cid !== id)
+    const newHistory = { ...configHistoryStack.value }
+    newHistory[viewType] = (newHistory[viewType] || []).filter(cid => cid !== id)
+    const newActiveIds = { ...activeConfigIds.value }
 
-    allConfigurations.value.splice(index, 1)
-    // Remove from order
-    const orderIdx = configOrder.value[viewType].indexOf(id)
-    if (orderIdx !== -1) configOrder.value[viewType].splice(orderIdx, 1)
-    // Remove from history stack
-    const stack = configHistoryStack.value[viewType]
-    const historyIdx = stack.indexOf(id)
-    if (historyIdx !== -1) stack.splice(historyIdx, 1)
-
-    if (activeConfigIds.value[viewType] === id) {
-      const viewConfigs = allConfigurations.value.filter(c => c.viewType === viewType)
+    if (newActiveIds[viewType] === id) {
+      const viewConfigs = newConfigs.filter(c => c.viewType === viewType)
       if (viewConfigs.length > 0) {
-        // Pop from history stack until we find a valid config
+        // Pop from history stack until valid
         let nextId: string | undefined
+        const stack = [...newHistory[viewType]]
         while (stack.length > 0) {
           const candidate = stack.pop()!
           if (viewConfigs.some(c => c.id === candidate)) {
@@ -282,18 +316,26 @@ export function useFilterConfigs() {
             break
           }
         }
-        // Fallback to first in order if no valid history
-        activeConfigIds.value[viewType] = nextId || configOrder.value[viewType][0] || viewConfigs[0].id
+        newHistory[viewType] = stack
+        newActiveIds[viewType] = nextId || newOrder[viewType][0] || viewConfigs[0].id
       } else {
-        const { settings: appSettings } = useAppearanceSettings()
-        const newConfig = defaultConfig(viewType, appSettings.value)
-        allConfigurations.value.push(newConfig)
-        configOrder.value[viewType] = [newConfig.id]
-        activeConfigIds.value[viewType] = newConfig.id
+        // Create new default
+        const newConfig = createDefaultConfig(viewType, {
+          default_sort_field: defaultSortField.value,
+          default_sort_order: defaultSortOrder.value
+        })
+        newConfigs.push(newConfig)
+        newOrder[viewType] = [newConfig.id]
+        newActiveIds[viewType] = newConfig.id
       }
     }
 
-    saveConfigurations()
+    updateData({
+      configs: newConfigs,
+      configOrder: newOrder,
+      configHistoryStack: newHistory,
+      activeConfigIds: newActiveIds
+    })
     return true
   }
 
@@ -308,8 +350,9 @@ export function useFilterConfigs() {
       updatedAt: new Date().toISOString()
     }
 
-    allConfigurations.value.splice(index, 1, updatedConfig)
-    saveConfigurations()
+    const newConfigs = [...allConfigurations.value]
+    newConfigs.splice(index, 1, updatedConfig)
+    updateData({ configs: newConfigs })
     return true
   }
 
@@ -318,11 +361,12 @@ export function useFilterConfigs() {
     if (config) {
       const viewType = config.viewType
       if (activeConfigIds.value[viewType] !== id) {
-        configSwitchTimestamp = performance.now() // Record click time
+        configSwitchTimestamp = performance.now()
         pushToHistory(viewType)
       }
-      activeConfigIds.value[viewType] = id
-      saveConfigurations()
+      updateData({
+        activeConfigIds: { ...activeConfigIds.value, [viewType]: id }
+      })
       return true
     }
     return false
@@ -341,8 +385,6 @@ export function useFilterConfigs() {
     }
   }
 
-  // Column filter helpers
-  // Note: empty strings and empty arrays are kept (to show filter UI), only undefined/null deletes
   const updateColumnFilter = <K extends keyof ColumnFilters>(filterName: K, value: ColumnFilters[K]) => {
     if (activeConfig.value) {
       const newFilters = { ...activeConfig.value.columnFilters }
@@ -379,7 +421,6 @@ export function useFilterConfigs() {
     }
   }
 
-  // Check if any filters are active
   const hasActiveFilters = computed(() => {
     if (!activeConfig.value) return false
     const search = activeConfig.value.searchQuery
@@ -388,18 +429,15 @@ export function useFilterConfigs() {
     return !!search || Object.keys(quick).length > 0 || Object.keys(col).length > 0
   })
 
-  // Get active column filter keys (for UI display)
   const activeColumnFilterKeys = computed(() => {
     if (!activeConfig.value) return []
     return Object.keys(activeConfig.value.columnFilters) as (keyof ColumnFilters)[]
   })
 
-  // Computed quick filter fields based on current view (with global custom order if set)
   const quickFilterFields = computed(() => {
     const defaults = DEFAULT_QUICK_FILTERS_BY_VIEW[currentViewType.value]
-    const customOrder = quickFilterOrder.value[currentViewType.value]
-    if (!customOrder || customOrder.length === 0) return defaults
-    // Merge custom order with defaults (custom first, then any missing defaults)
+    const customOrder = quickFilterOrder.value[currentViewType.value] || []
+    if (customOrder.length === 0) return defaults
     const result: (keyof QuickFilters)[] = []
     for (const field of customOrder) {
       if (defaults.includes(field)) result.push(field)
@@ -411,13 +449,15 @@ export function useFilterConfigs() {
   })
 
   const updateQuickFilterOrder = (order: (keyof QuickFilters)[]) => {
-    quickFilterOrder.value[currentViewType.value] = order
-    saveConfigurations()
+    updateData({
+      quickFilterOrder: { ...quickFilterOrder.value, [currentViewType.value]: order }
+    })
   }
 
   const updateConfigOrder = (order: string[]) => {
-    configOrder.value[currentViewType.value] = order
-    saveConfigurations()
+    updateData({
+      configOrder: { ...configOrder.value, [currentViewType.value]: order }
+    })
   }
 
   return {

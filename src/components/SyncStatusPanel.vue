@@ -36,10 +36,18 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span v-if="source.data.pendingCount > 0" class="detail-value queue pending">
-              {{ source.data.pendingCount }} pending
+            <span 
+              v-if="source.data.pendingCount > 0 || source.data.processingCount > 0" 
+              class="detail-value queue pending"
+              :title="getQueuePendingTooltip(source.data.pendingCount, source.data.processingCount, source.data.oldestProcessingStarted)"
+            >
+              {{ source.data.pendingCount }} pending<span v-if="source.data.processingCount > 0">, {{ source.data.processingCount }} processing</span>
             </span>
-            <span v-else class="detail-value queue ok">
+            <span 
+              v-else 
+              class="detail-value queue ok"
+              :title="getQueueOkTooltip(source.data.lastChange, 'synced')"
+            >
               ✓ synced
             </span>
           </div>
@@ -58,7 +66,7 @@
         
         <div class="source-details">
           <div class="detail-row">
-            <span class="detail-label">Last sync:</span>
+            <span class="detail-label">Last change:</span>
             <span 
               class="detail-value time" 
               :class="{ warning: isFilesOutdated }"
@@ -70,17 +78,28 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span v-if="syncStatus.files.pendingCount > 0 || syncStatus.files.processingCount > 0" class="detail-value queue pending">
+            <span 
+              v-if="syncStatus.files.pendingCount > 0 || syncStatus.files.processingCount > 0" 
+              class="detail-value queue pending"
+              :title="getQueuePendingTooltip(syncStatus.files.pendingCount, syncStatus.files.processingCount, syncStatus.files.oldestProcessingStarted)"
+            >
               {{ syncStatus.files.pendingCount }} pending<span v-if="syncStatus.files.processingCount > 0">, {{ syncStatus.files.processingCount }} uploading</span>
             </span>
-            <span v-else class="detail-value queue ok">
+            <span 
+              v-else 
+              class="detail-value queue ok"
+              :title="getQueueOkTooltip(syncStatus.files.lastProcessed, 'uploaded')"
+            >
               ✓ uploaded
             </span>
           </div>
           
           <div v-if="syncStatus.files.failedCount > 0" class="detail-row">
             <span class="detail-label">Failed:</span>
-            <span class="detail-value queue failed">
+            <span 
+              class="detail-value queue failed"
+              :title="getFailedTooltip(syncStatus.files.failedCount, syncStatus.files.lastFailed)"
+            >
               {{ syncStatus.files.failedCount }} errors
             </span>
           </div>
@@ -111,11 +130,29 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span v-if="syncStatus.thumbnails.pendingCount > 0" class="detail-value queue pending">
-              {{ syncStatus.thumbnails.pendingCount }} pending
+            <span 
+              v-if="syncStatus.thumbnails.pendingCount > 0 || syncStatus.thumbnails.processingCount > 0" 
+              class="detail-value queue pending"
+              :title="getQueuePendingTooltip(syncStatus.thumbnails.pendingCount, syncStatus.thumbnails.processingCount, syncStatus.thumbnails.oldestProcessingStarted)"
+            >
+              {{ syncStatus.thumbnails.pendingCount }} pending<span v-if="syncStatus.thumbnails.processingCount > 0">, {{ syncStatus.thumbnails.processingCount }} processing</span>
             </span>
-            <span v-else class="detail-value queue ok">
+            <span 
+              v-else 
+              class="detail-value queue ok"
+              :title="getQueueOkTooltip(syncStatus.thumbnails.lastProcessed, 'processed')"
+            >
               ✓ processed
+            </span>
+          </div>
+          
+          <div v-if="syncStatus.thumbnails.failedCount > 0" class="detail-row">
+            <span class="detail-label">Failed:</span>
+            <span 
+              class="detail-value queue failed"
+              :title="getFailedTooltip(syncStatus.thumbnails.failedCount, syncStatus.thumbnails.lastFailed)"
+            >
+              {{ syncStatus.thumbnails.failedCount }} errors
             </span>
           </div>
         </div>
@@ -145,17 +182,28 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span v-if="syncStatus.attachments.pendingCount > 0 || syncStatus.attachments.processingCount > 0" class="detail-value queue pending">
+            <span 
+              v-if="syncStatus.attachments.pendingCount > 0 || syncStatus.attachments.processingCount > 0" 
+              class="detail-value queue pending"
+              :title="getQueuePendingTooltip(syncStatus.attachments.pendingCount, syncStatus.attachments.processingCount, syncStatus.attachments.oldestProcessingStarted)"
+            >
               {{ syncStatus.attachments.pendingCount }} pending<span v-if="syncStatus.attachments.processingCount > 0">, {{ syncStatus.attachments.processingCount }} downloading</span>
             </span>
-            <span v-else class="detail-value queue ok">
+            <span 
+              v-else 
+              class="detail-value queue ok"
+              :title="getQueueOkTooltip(syncStatus.attachments.lastProcessed, 'downloaded')"
+            >
               ✓ downloaded
             </span>
           </div>
           
           <div v-if="syncStatus.attachments.failedCount > 0" class="detail-row">
             <span class="detail-label">Failed:</span>
-            <span class="detail-value queue failed">
+            <span 
+              class="detail-value queue failed"
+              :title="getFailedTooltip(syncStatus.attachments.failedCount, syncStatus.attachments.lastFailed)"
+            >
               {{ syncStatus.attachments.failedCount }} failed
             </span>
           </div>
@@ -176,6 +224,9 @@ interface Props {
   isFilesOutdated: boolean
   isThumbnailsOutdated: boolean
   isAttachmentsOutdated: boolean
+  getQueueOkTooltip: (lastProcessed: Date | null, action: string) => string
+  getQueuePendingTooltip: (pendingCount: number, processingCount: number, oldestProcessingStarted: Date | null) => string
+  getFailedTooltip: (failedCount: number, lastFailed: Date | null) => string
 }
 
 const props = defineProps<Props>()
@@ -187,13 +238,13 @@ const connectorSources = computed(() => [
 ])
 
 const getSourceStatusClass = (source: SyncSourceStatus): string => {
-  if (source.pendingCount > 0) return 'importing'
+  if (source.pendingCount > 0 || source.processingCount > 0) return 'importing'
   if (props.isSourceOutdated(source)) return 'outdated'
   return 'ok'
 }
 
 const getSourceStatusIcon = (source: SyncSourceStatus): string => {
-  if (source.pendingCount > 0) return 'pi pi-download'
+  if (source.pendingCount > 0 || source.processingCount > 0) return 'pi pi-download'
   if (props.isSourceOutdated(source)) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
 }
@@ -213,13 +264,15 @@ const filesStatusIcon = computed((): string => {
 })
 
 const thumbnailsStatusClass = computed((): string => {
-  if (props.syncStatus.thumbnails.pendingCount > 0) return 'importing'
+  if (props.syncStatus.thumbnails.failedCount > 0) return 'error'
+  if (props.syncStatus.thumbnails.pendingCount > 0 || props.syncStatus.thumbnails.processingCount > 0) return 'importing'
   if (props.isThumbnailsOutdated) return 'outdated'
   return 'ok'
 })
 
 const thumbnailsStatusIcon = computed((): string => {
-  if (props.syncStatus.thumbnails.pendingCount > 0) return 'pi pi-download'
+  if (props.syncStatus.thumbnails.failedCount > 0) return 'pi pi-times'
+  if (props.syncStatus.thumbnails.pendingCount > 0 || props.syncStatus.thumbnails.processingCount > 0) return 'pi pi-download'
   if (props.isThumbnailsOutdated) return 'pi pi-exclamation-triangle'
   return 'pi pi-check'
 })
@@ -343,7 +396,7 @@ const attachmentsStatusIcon = computed((): string => {
 
 .detail-label {
   color: var(--text-tertiary);
-  min-width: 70px;
+  min-width: 80px;
 }
 
 .detail-value {
@@ -371,11 +424,13 @@ const attachmentsStatusIcon = computed((): string => {
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
   font-weight: 500;
+  cursor: help;
 }
 
 .detail-value.queue.ok {
   color: #4ade80;
   font-weight: 500;
+  cursor: help;
 }
 
 .detail-value.queue.failed {
@@ -384,6 +439,7 @@ const attachmentsStatusIcon = computed((): string => {
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
   font-weight: 500;
+  cursor: help;
 }
 
 @keyframes pulse {

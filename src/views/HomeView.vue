@@ -26,7 +26,8 @@
         <!-- Sync Status Indicator (minimal) -->
         <div class="sync-status-wrapper" @click.stop>
           <SyncStatusIndicator 
-            :overall-status="overallStatus" 
+            :overall-status="overallStatus"
+            :tooltip="headerTooltip"
             @click="toggleSyncPopup" 
           />
           <!-- Popup -->
@@ -37,6 +38,9 @@
               :is-files-outdated="isFilesOutdated"
               :is-thumbnails-outdated="isThumbnailsOutdated"
               :is-attachments-outdated="isAttachmentsOutdated"
+              :get-queue-ok-tooltip="getQueueOkTooltip"
+              :get-queue-pending-tooltip="getQueuePendingTooltip"
+              :get-failed-tooltip="getFailedTooltip"
             />
           </div>
         </div>
@@ -141,16 +145,18 @@ import { useSyncStatus } from '@/composables/useSyncStatus'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useUserSettings } from '@/composables/useUserSettings'
 import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
 const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery } = useFilterConfigs()
-const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
-const { craftSpaceId, filesBucket, hideCompletedTasks, enabledFileIgnorePatterns } = useAppearanceSettings()
+const { craftSpaceId, filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
+const { hideCompletedTasks, initialize: initUserSettings } = useUserSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -1014,6 +1020,13 @@ watch(() => filteredAndSearchedItems.value.length, () => {
     selectedRow.value = Math.max(0, filteredAndSearchedItems.value.length - 1)
   }
 })
+
+// Initialize user settings when user becomes available
+watch(() => user.value?.id, async (newUserId) => {
+  if (newUserId) {
+    await initUserSettings(newUserId)
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   await initTaskTypes()

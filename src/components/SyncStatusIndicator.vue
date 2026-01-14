@@ -1,5 +1,5 @@
 <template>
-  <div class="sync-indicator" @click="$emit('click')" :title="statusTitle">
+  <div class="sync-indicator" @click="$emit('click')" :title="tooltip">
     <span class="indicator-label">data status:</span>
     <span class="indicator-status" :class="overallStatus">
       <i :class="statusIcon"></i>
@@ -14,6 +14,7 @@ import type { OverallStatus } from '@/composables/useSyncStatus'
 
 interface Props {
   overallStatus: OverallStatus
+  tooltip: string
 }
 
 const props = defineProps<Props>()
@@ -24,6 +25,7 @@ defineEmits<{
 
 const statusText = computed(() => {
   switch (props.overallStatus) {
+    case 'error': return 'errors'
     case 'importing': return 'importing'
     case 'outdated': return 'outdated'
     default: return 'synced'
@@ -32,17 +34,10 @@ const statusText = computed(() => {
 
 const statusIcon = computed(() => {
   switch (props.overallStatus) {
+    case 'error': return 'pi pi-times'
     case 'importing': return 'pi pi-download'
     case 'outdated': return 'pi pi-exclamation-triangle'
     default: return 'pi pi-check'
-  }
-})
-
-const statusTitle = computed(() => {
-  switch (props.overallStatus) {
-    case 'importing': return 'Importing data from external sources'
-    case 'outdated': return 'Last sync was more than 5 minutes ago'
-    default: return 'All data is synced'
   }
 })
 </script>
@@ -96,9 +91,12 @@ const statusTitle = computed(() => {
   color: #f5a623;
 }
 
+.indicator-status.error {
+  color: #ef4444;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
 </style>
-

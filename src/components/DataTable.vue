@@ -861,18 +861,6 @@ const getSortIcon = (field: string) => {
   return props.sortConfig.order === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'
 }
 
-const getDefaultSort = (): SortConfig => {
-  if (props.viewType === 'projects') return { field: 'name', order: 'asc' }
-  if (props.viewType === 'people') return { field: 'display_name', order: 'asc' }
-  
-  // For items view, use global settings if available
-  const { defaultSortField, defaultSortOrder } = useAppearanceSettings()
-  return { 
-    field: defaultSortField.value || 'sort_date', 
-    order: (defaultSortOrder.value as 'asc' | 'desc') || 'desc' 
-  }
-}
-
 const onResize = (event: MouseEvent | TouchEvent) => {
   if (!resizingColumn.value) return
   

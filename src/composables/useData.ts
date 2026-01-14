@@ -1,6 +1,6 @@
 import { ref, shallowRef, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useUserSettings } from '@/composables/useUserSettings'
 import { generateQueryKey, getCachedQuery, setCachedQuery, formatCacheAge } from '@/lib/queryCache'
 import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
 
@@ -192,10 +192,10 @@ export function useData() {
   const currentPage = ref(0)
   const searchQuery = ref('')
   const totalCount = ref<number | null>(null)
-  const { defaultSortField, defaultSortOrder } = useAppearanceSettings()
+  const { defaultSortField, defaultSortOrder } = useUserSettings()
   const currentSort = ref<SortConfig>({
     field: defaultSortField.value || 'sort_date',
-    order: (defaultSortOrder.value as 'asc' | 'desc') || 'desc'
+    order: defaultSortOrder.value || 'desc'
   })
   const currentViewType = ref<ViewType>('items')
   const error = ref<string | null>(null)

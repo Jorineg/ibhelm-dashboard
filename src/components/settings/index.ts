@@ -8,6 +8,7 @@ export { default as CostGroupsSection } from './CostGroupsSection.vue'
 export { default as LocationsSection } from './LocationsSection.vue'
 export { default as AppearanceSection } from './AppearanceSection.vue'
 export { default as GeneralSection } from './GeneralSection.vue'
+export { default as DisplaySection } from './DisplaySection.vue'
 export { default as KeyBindingsSection } from './KeyBindingsSection.vue'
 export { default as PlaceholderSection } from './PlaceholderSection.vue'
 

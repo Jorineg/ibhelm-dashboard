@@ -1,4 +1,5 @@
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
+import { useUserSettings } from '@/composables/useUserSettings'
 
 export interface KeyBinding {
   key: string
@@ -52,8 +53,6 @@ export interface KeyBindings {
   toggleTaskType3: KeyBinding
 }
 
-const STORAGE_KEY = 'ibhelm_key_bindings'
-
 const defaultBindings: KeyBindings = {
   // Filter configs (fixed, not customizable via UI)
   filterConfig1: { key: '1', description: 'Switch to filter config 1', group: 'configs' },
@@ -100,49 +99,32 @@ const defaultBindings: KeyBindings = {
   toggleTaskType3: { key: 'c', description: 'Toggle task type 3', group: 'toggles' }
 }
 
-const bindings = ref<KeyBindings>({ ...defaultBindings })
-let initialized = false
-
-function loadBindings() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      // Merge with defaults to ensure new bindings are included
-      bindings.value = { ...defaultBindings, ...parsed }
-    }
-  } catch (e) {
-    console.error('Error loading key bindings:', e)
-  }
-}
-
-function saveBindings() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(bindings.value))
-  } catch (e) {
-    console.error('Error saving key bindings:', e)
-  }
-}
-
 export function useKeyBindings() {
-  if (!initialized) {
-    initialized = true
-    loadBindings()
-  }
+  const { keyBindings: storedBindings, updateKeyBindings } = useUserSettings()
+
+  // Merge stored key overrides with default bindings
+  const keyBindings = computed<KeyBindings>(() => {
+    const result = { ...defaultBindings }
+    for (const [action, key] of Object.entries(storedBindings.value)) {
+      if (key && action in result) {
+        result[action as keyof KeyBindings] = {
+          ...result[action as keyof KeyBindings],
+          key
+        }
+      }
+    }
+    return result
+  })
 
   const updateBinding = (action: keyof KeyBindings, key: string) => {
-    bindings.value[action] = { ...bindings.value[action], key }
-    saveBindings()
+    const newBindings = { ...storedBindings.value, [action]: key }
+    updateKeyBindings(newBindings)
   }
 
   const resetToDefaults = () => {
-    bindings.value = { ...defaultBindings }
-    saveBindings()
+    updateKeyBindings({})
   }
 
-  const keyBindings = computed(() => bindings.value)
-
-  // Helper to format key for display
   const formatKeyForDisplay = (key: string): string => {
     const keyMap: Record<string, string> = {
       'ArrowUp': '↑',
@@ -195,4 +177,3 @@ export function useKeyboardShortcuts(handlers: Partial<Record<keyof KeyBindings,
     document.removeEventListener('keydown', handleKeyDown)
   })
 }
-

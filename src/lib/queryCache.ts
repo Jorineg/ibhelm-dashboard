@@ -1,7 +1,9 @@
 // LRU Query Cache with in-memory storage and lazy localStorage persistence
-// Reads are instant (Map lookup), writes persist asynchronously
+// Reads are instant (Map lookup), writes persist asynchronously with LZ compression
 
-const CACHE_KEY = 'ibhelm_query_cache_v1'
+import { compressToUTF16, decompressFromUTF16 } from 'lz-string'
+
+const CACHE_KEY = 'ibhelm_query_cache_v2' // v2: compressed
 const MAX_ENTRIES = 100
 const PERSIST_DEBOUNCE_MS = 1000
 
@@ -22,30 +24,37 @@ function ensureInitialized(): void {
   if (initialized) return
   initialized = true
   
+  // Clean up old uncompressed cache
+  localStorage.removeItem('ibhelm_query_cache_v1')
+  
   try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      const entries: CachedQuery[] = parsed.entries || []
-      // Populate Map (maintains insertion order)
-      for (const entry of entries) {
-        cache.set(entry.key, entry)
+    const compressed = localStorage.getItem(CACHE_KEY)
+    if (compressed) {
+      const raw = decompressFromUTF16(compressed)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const entries: CachedQuery[] = parsed.entries || []
+        for (const entry of entries) {
+          cache.set(entry.key, entry)
+        }
+        console.log(`[CACHE] Loaded ${cache.size} cached queries from storage (compressed)`)
       }
-      console.log(`[CACHE] Loaded ${cache.size} cached queries from storage`)
     }
   } catch (e) {
     console.warn('[CACHE] Failed to load from storage:', e)
   }
 }
 
-// Debounced persistence to localStorage
+// Debounced persistence to localStorage with compression
 function schedulePersist(): void {
   if (persistTimeout) clearTimeout(persistTimeout)
   persistTimeout = setTimeout(() => {
     persistTimeout = null
     try {
       const entries = Array.from(cache.values())
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ entries }))
+      const json = JSON.stringify({ entries })
+      const compressed = compressToUTF16(json)
+      localStorage.setItem(CACHE_KEY, compressed)
     } catch (e) {
       console.warn('[CACHE] Persist failed:', e)
     }

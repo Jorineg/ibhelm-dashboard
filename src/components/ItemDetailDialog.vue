@@ -60,6 +60,7 @@
               v-if="isDisplayableFile"
               :storage-path="(item as DataItem).storage_path || ''"
               :filename="(item as DataItem).name || 'file'"
+              :thumbnail-path="(item as DataItem).thumbnail_path"
               ref="filePreviewRef"
               class="detail-file-preview"
             />
@@ -317,7 +318,7 @@ const fileExtension = computed(() => {
 })
 
 const isDisplayableFile = computed(() => 
-  ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'].includes(fileExtension.value)
+  ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'heic', 'heif'].includes(fileExtension.value)
 )
 
 // Preview layout for email, craft, and files
@@ -646,14 +647,15 @@ watch(isVisible, async (visible) => {
   gap: 2rem;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .large-thumbnail {
-  max-width: 80%;
-  max-height: 60%;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   object-fit: contain;
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .large-placeholder {

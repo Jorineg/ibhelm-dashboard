@@ -168,21 +168,36 @@ export interface FileIgnorePattern {
   builtin: boolean     // Built-in patterns can't be deleted
 }
 
+// Admin settings (app_settings table) - shared across all users
 export interface AppSettings {
   email_color: string
   craft_color: string
   file_color: string
-  craft_space_id?: string
   person_color: string
   project_color: string
+  craft_space_id?: string
   teamwork_base_url?: string
   cost_group_prefixes?: string[]
   location_prefix?: string
   files_bucket?: string
-  hide_completed_tasks?: boolean
-  default_sort_field?: string
-  default_sort_order?: 'asc' | 'desc'
   file_ignore_patterns?: FileIgnorePattern[]
+}
+
+// User settings (user_settings table) - per-user preferences
+export interface UserSettings {
+  hide_completed_tasks: boolean
+  default_sort_field: string
+  default_sort_order: 'asc' | 'desc'
+  filter_configurations: FilterConfigurationsData
+  key_bindings: Record<string, string>
+}
+
+export interface FilterConfigurationsData {
+  configs: FilterConfiguration[]
+  activeConfigIds: Record<ViewType, string>
+  configOrder: Record<ViewType, string[]>
+  configHistoryStack: Record<ViewType, string[]>
+  quickFilterOrder: Record<ViewType, (keyof QuickFilters)[]>
 }
 
 export interface DataItem {

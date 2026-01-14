@@ -12,7 +12,8 @@
       <template #center>
         <div class="sync-status-wrapper" @click.stop>
           <SyncStatusIndicator 
-            :overall-status="overallStatus" 
+            :overall-status="overallStatus"
+            :tooltip="headerTooltip"
             @click="toggleSyncPopup" 
           />
           <div v-if="syncPopupVisible" class="sync-popup-container">
@@ -22,6 +23,9 @@
               :is-files-outdated="isFilesOutdated"
               :is-thumbnails-outdated="isThumbnailsOutdated"
               :is-attachments-outdated="isAttachmentsOutdated"
+              :get-queue-ok-tooltip="getQueueOkTooltip"
+              :get-queue-pending-tooltip="getQueuePendingTooltip"
+              :get-failed-tooltip="getFailedTooltip"
             />
           </div>
         </div>
@@ -36,13 +40,14 @@
 
     <!-- Scrollable Content -->
     <div class="settings-inner">
-      <!-- Main Content with Sidebar -->
       <div class="settings-layout">
       <!-- Sidebar Navigation -->
       <nav class="settings-sidebar">
         <ul class="sidebar-menu">
+          <!-- User sections (visible to all) -->
+          <li class="section-header">Personal</li>
           <li 
-            v-for="section in settingsSections" 
+            v-for="section in userSections" 
             :key="section.id"
             :class="{ active: activeSection === section.id }"
             @click="activeSection = section.id"
@@ -50,73 +55,70 @@
             <i :class="section.icon"></i>
             <span>{{ section.label }}</span>
           </li>
+          
+          <!-- Admin sections (visible to admins only) -->
+          <template v-if="isAdmin">
+            <li class="section-header">Admin</li>
+            <li 
+              v-for="section in adminSections" 
+              :key="section.id"
+              :class="{ active: activeSection === section.id }"
+              @click="activeSection = section.id"
+            >
+              <i :class="section.icon"></i>
+              <span>{{ section.label }}</span>
+            </li>
+          </template>
         </ul>
       </nav>
 
       <!-- Settings Content -->
       <div class="settings-content">
-        <!-- Task Types Section -->
-        <TaskTypesSection
-          v-if="activeSection === 'task-types'"
-          :extraction-run="extractionRun"
-          :is-extracting="isExtracting"
-          @rerun-extraction="handleRerunExtraction"
-        />
+        <!-- User Sections -->
+        <DisplaySection v-if="activeSection === 'display'" />
+        <KeyBindingsSection v-else-if="activeSection === 'keybindings'" />
 
-        <!-- People Section -->
-        <PeopleSection
-          v-else-if="activeSection === 'people'"
-          :person-linking-run="personLinkingRun"
-          :is-linking="isLinking"
-          @rerun-linking="handleRerunPersonLinking"
-        />
-
-        <!-- Emails Section -->
-        <EmailsSection
-          v-else-if="activeSection === 'emails'"
-          :project-linking-run="projectLinkingRun"
-          :is-linking="isProjectLinking"
-          @rerun-linking="handleRerunProjectLinking"
-        />
-
-        <!-- Files Section -->
-        <FilesSection
-          v-else-if="activeSection === 'files'"
-          :file-linking-run="fileLinkingRun"
-          :is-linking="isFileLinking"
-          @rerun-linking="handleRerunFileLinking"
-        />
-
-        <!-- Cost Groups Section -->
-        <CostGroupsSection
-          v-else-if="activeSection === 'cost-groups'"
-          :cost-group-linking-run="costGroupLinkingRun"
-          :is-linking="isCostGroupLinking"
-          @rerun-linking="handleRerunCostGroupLinking"
-        />
-
-        <!-- Locations Section -->
-        <LocationsSection
-          v-else-if="activeSection === 'locations'"
-          :location-linking-run="locationLinkingRun"
-          :is-linking="isLocationLinking"
-          @rerun-linking="handleRerunLocationLinking"
-        />
-
-        <!-- General Section -->
-        <GeneralSection
-          v-else-if="activeSection === 'general'"
-        />
-
-        <!-- Appearance Section -->
-        <AppearanceSection
-          v-else-if="activeSection === 'appearance'"
-        />
-
-        <!-- Key Bindings Section -->
-        <KeyBindingsSection
-          v-else-if="activeSection === 'keybindings'"
-        />
+        <!-- Admin Sections -->
+        <template v-if="isAdmin">
+          <AppearanceSection v-if="activeSection === 'appearance'" />
+          <GeneralSection v-else-if="activeSection === 'integration'" />
+          <TaskTypesSection
+            v-else-if="activeSection === 'task-types'"
+            :extraction-run="extractionRun"
+            :is-extracting="isExtracting"
+            @rerun-extraction="handleRerunExtraction"
+          />
+          <PeopleSection
+            v-else-if="activeSection === 'people'"
+            :person-linking-run="personLinkingRun"
+            :is-linking="isLinking"
+            @rerun-linking="handleRerunPersonLinking"
+          />
+          <EmailsSection
+            v-else-if="activeSection === 'emails'"
+            :project-linking-run="projectLinkingRun"
+            :is-linking="isProjectLinking"
+            @rerun-linking="handleRerunProjectLinking"
+          />
+          <FilesSection
+            v-else-if="activeSection === 'files'"
+            :file-linking-run="fileLinkingRun"
+            :is-linking="isFileLinking"
+            @rerun-linking="handleRerunFileLinking"
+          />
+          <CostGroupsSection
+            v-else-if="activeSection === 'cost-groups'"
+            :cost-group-linking-run="costGroupLinkingRun"
+            :is-linking="isCostGroupLinking"
+            @rerun-linking="handleRerunCostGroupLinking"
+          />
+          <LocationsSection
+            v-else-if="activeSection === 'locations'"
+            :location-linking-run="locationLinkingRun"
+            :is-linking="isLocationLinking"
+            @rerun-linking="handleRerunLocationLinking"
+          />
+        </template>
       </div>
     </div>
   </div>
@@ -124,13 +126,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader } from '@/components/common'
-import { TaskTypesSection, PeopleSection, EmailsSection, FilesSection, CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, KeyBindingsSection } from '@/components/settings'
+import { 
+  TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
+  CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 
+  DisplaySection, KeyBindingsSection 
+} from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
 import { useAuth } from '@/composables/useAuth'
+import { useUserSettings } from '@/composables/useUserSettings'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { usePeople } from '@/composables/usePeople'
 import { useEmails } from '@/composables/useEmails'
@@ -140,8 +147,9 @@ import { useLocations } from '@/composables/useLocations'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 
 const router = useRouter()
-const { user, signOut } = useAuth()
-const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated } = useSyncStatus()
+const { user, isAdmin, signOut } = useAuth()
+const { initialize: initUserSettings } = useUserSettings()
+const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 
 const syncPopupVisible = ref(false)
 const toggleSyncPopup = () => { syncPopupVisible.value = !syncPopupVisible.value }
@@ -188,19 +196,25 @@ const {
   fetchLatestLocationLinkingRun
 } = useLocations()
 
-// Settings navigation
-const settingsSections = [
+// User settings sections (visible to all)
+const userSections = [
+  { id: 'display', label: 'Display', icon: 'pi pi-sliders-h' },
+  { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' }
+]
+
+// Admin settings sections (visible to admins only)
+const adminSections = [
+  { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
+  { id: 'integration', label: 'Integration', icon: 'pi pi-cog' },
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
   { id: 'files', label: 'Files', icon: 'pi pi-file' },
   { id: 'cost-groups', label: 'Cost Groups', icon: 'pi pi-dollar' },
-  { id: 'locations', label: 'Locations', icon: 'pi pi-map-marker' },
-  { id: 'general', label: 'General', icon: 'pi pi-cog' },
-  { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
-  { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' }
+  { id: 'locations', label: 'Locations', icon: 'pi pi-map-marker' }
 ]
-const activeSection = ref('task-types')
+
+const activeSection = ref('display')
 const isExtracting = ref(false)
 
 // Navigation
@@ -276,17 +290,26 @@ const handleRerunLocationLinking = async () => {
   }
 }
 
+// Initialize user settings when user becomes available
+watch(() => user.value?.id, async (newUserId) => {
+  if (newUserId) {
+    await initUserSettings(newUserId)
+  }
+}, { immediate: true })
+
 // Initialize
 onMounted(async () => {
   await initialize()
-  await Promise.all([
-    fetchLatestExtractionRun(),
-    fetchLatestPersonLinkingRun(),
-    fetchLatestProjectLinkingRun(),
-    fetchLatestFileLinkingRun(),
-    fetchLatestCostGroupLinkingRun(),
-    fetchLatestLocationLinkingRun()
-  ])
+  if (isAdmin.value) {
+    await Promise.all([
+      fetchLatestExtractionRun(),
+      fetchLatestPersonLinkingRun(),
+      fetchLatestProjectLinkingRun(),
+      fetchLatestFileLinkingRun(),
+      fetchLatestCostGroupLinkingRun(),
+      fetchLatestLocationLinkingRun()
+    ])
+  }
 })
 </script>
 
@@ -306,7 +329,6 @@ onMounted(async () => {
   scrollbar-gutter: stable;
 }
 
-/* Settings Layout */
 .settings-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -315,7 +337,6 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-/* Sidebar */
 .settings-sidebar {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
@@ -344,7 +365,7 @@ onMounted(async () => {
   border-left: 3px solid transparent;
 }
 
-.sidebar-menu li:hover {
+.sidebar-menu li:hover:not(.section-header) {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
@@ -356,17 +377,30 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+.sidebar-menu li.section-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 1rem 1.5rem 0.5rem;
+  cursor: default;
+  border-left: none;
+}
+
+.sidebar-menu li.section-header:first-child {
+  padding-top: 0.5rem;
+}
+
 .sidebar-menu li i {
   font-size: 1.1rem;
   width: 20px;
 }
 
-/* Settings Content */
 .settings-content {
   min-width: 0;
 }
 
-/* Sync Status */
 .sync-status-wrapper {
   position: absolute;
   left: 50%;
@@ -383,7 +417,6 @@ onMounted(async () => {
   z-index: 9999;
 }
 
-/* Home button */
 .home-btn {
   display: flex;
   align-items: center;
@@ -404,7 +437,6 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
-/* Responsive */
 @media (max-width: 900px) {
   .settings-layout {
     grid-template-columns: 1fr;
@@ -417,6 +449,7 @@ onMounted(async () => {
   
   .sidebar-menu {
     display: flex;
+    flex-wrap: wrap;
     overflow-x: auto;
     padding: 0 1rem;
   }
@@ -431,6 +464,11 @@ onMounted(async () => {
   .sidebar-menu li.active {
     border-left-color: transparent;
     border-bottom-color: var(--accent-primary);
+  }
+  
+  .sidebar-menu li.section-header {
+    width: 100%;
+    padding: 0.75rem 1rem 0.25rem;
   }
 }
 </style>

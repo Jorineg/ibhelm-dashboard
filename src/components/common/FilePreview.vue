@@ -1,24 +1,49 @@
 <template>
   <div 
     class="file-preview" 
-    :class="{ loading }"
+    :class="{ loading: loading && !thumbnailUrl }"
     tabindex="0"
     @keydown="handleKeydown"
     ref="containerRef"
   >
-    <!-- Image preview -->
-    <div v-if="isImage && signedUrl" class="image-container">
+    <!-- Image preview with thumbnail loading state -->
+    <div v-if="(isImage || isHeic) && (signedUrl || thumbnailUrl)" class="image-container">
+      <!-- Thumbnail shown while full image loads -->
       <img 
-        :src="signedUrl" 
+        v-if="thumbnailUrl && !fullImageLoaded"
+        :src="thumbnailUrl"
+        :alt="filename"
+        class="preview-image thumbnail-preview"
+      />
+      <!-- Spinner overlay while loading -->
+      <div v-if="thumbnailUrl && !fullImageLoaded && loading" class="loading-overlay">
+        <i class="pi pi-spin pi-spinner" />
+      </div>
+      <!-- Full image (hidden until loaded, or shown directly if no thumbnail) -->
+      <img 
+        v-show="fullImageLoaded || !thumbnailUrl"
+        :src="displayUrl"
         :alt="filename"
         class="preview-image"
+        @load="onFullImageLoad"
         @error="handleImageError"
       />
     </div>
     
     <!-- PDF preview with page navigation -->
     <div v-else-if="isPdf && signedUrl && !pdfError" class="pdf-container">
-      <canvas ref="canvasRef" class="pdf-canvas" />
+      <!-- Thumbnail shown while PDF loads -->
+      <img 
+        v-if="thumbnailUrl && !pdfLoaded"
+        :src="thumbnailUrl"
+        :alt="filename"
+        class="pdf-thumbnail"
+      />
+      <!-- Spinner overlay while loading -->
+      <div v-if="thumbnailUrl && !pdfLoaded && loading" class="loading-overlay">
+        <i class="pi pi-spin pi-spinner" />
+      </div>
+      <canvas v-show="pdfLoaded || !thumbnailUrl" ref="canvasRef" class="pdf-canvas" />
       
       <!-- Page indicator (only if multi-page) -->
       <div v-if="totalPages > 1" class="page-indicator">
@@ -39,7 +64,7 @@
       <span>Could not load PDF preview</span>
     </div>
     
-    <!-- Loading state -->
+    <!-- Loading state (only when no thumbnail available) -->
     <div v-else-if="loading" class="loading-state">
       <i class="pi pi-spin pi-spinner" />
       <span>Loading preview...</span>
@@ -55,6 +80,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
+import { heicTo } from 'heic-to'
 import FilePlaceholder from './FilePlaceholder.vue'
 import { supabase } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
@@ -62,9 +88,12 @@ import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 // Set PDF.js worker using jsdelivr CDN (most reliable, uses npm registry)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+
 interface Props {
   storagePath: string
   filename: string
+  thumbnailPath?: string | null
   mimeType?: string
 }
 
@@ -77,6 +106,11 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const signedUrl = ref<string | null>(null)
 const loading = ref(true)
 const imageError = ref(false)
+const fullImageLoaded = ref(false)
+const pdfLoaded = ref(false)
+
+// HEIC conversion state
+const heicConvertedUrl = ref<string | null>(null)
 
 // PDF state - store document outside Vue reactivity to avoid Proxy issues with private fields
 let pdfDocInstance: pdfjsLib.PDFDocumentProxy | null = null
@@ -84,6 +118,12 @@ const currentPage = ref(1)
 const totalPages = ref(0)
 const showNavHint = ref(true)
 const pdfError = ref(false)
+
+// Thumbnail URL
+const thumbnailUrl = computed(() => {
+  if (!props.thumbnailPath) return null
+  return `${supabaseUrl}/storage/v1/object/public/thumbnails/${props.thumbnailPath}`
+})
 
 // File type detection
 const extension = computed(() => {
@@ -95,15 +135,42 @@ const isImage = computed(() =>
   ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension.value)
 )
 
+const isHeic = computed(() => ['heic', 'heif'].includes(extension.value))
+
 const isPdf = computed(() => extension.value === 'pdf')
 
-const isDisplayable = computed(() => isImage.value || isPdf.value)
+const isDisplayable = computed(() => isImage.value || isPdf.value || isHeic.value)
+
+// URL to display for images (either signed URL or converted HEIC)
+const displayUrl = computed(() => heicConvertedUrl.value || signedUrl.value)
+
+// Handle full image loaded
+const onFullImageLoad = () => {
+  fullImageLoaded.value = true
+  loading.value = false
+}
+
+// Convert HEIC on main thread (heic-to uses Canvas which requires DOM)
+const convertHeic = async (url: string) => {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    const result = await heicTo({ blob, type: 'image/jpeg', quality: 0.9 })
+    heicConvertedUrl.value = URL.createObjectURL(result as Blob)
+  } catch (e) {
+    console.error('HEIC conversion failed:', e)
+  }
+  loading.value = false
+}
 
 // Get signed URL
 const fetchSignedUrl = async () => {
   if (!props.storagePath) return
   
   loading.value = true
+  fullImageLoaded.value = false
+  pdfLoaded.value = false
+  
   const { data, error } = await supabase.storage
     .from(filesBucket.value)
     .createSignedUrl(props.storagePath, 3600) // 1 hour
@@ -113,10 +180,16 @@ const fetchSignedUrl = async () => {
     
     if (isPdf.value) {
       await loadPdf(data.signedUrl)
+    } else if (isHeic.value) {
+      await convertHeic(data.signedUrl)
+    } else if (!isImage.value) {
+      // For non-image, non-pdf files, stop loading
+      loading.value = false
     }
+    // For regular images, loading will be set to false via onFullImageLoad
+  } else {
+    loading.value = false
   }
-  
-  loading.value = false
 }
 
 // PDF loading
@@ -129,10 +202,13 @@ const loadPdf = async (url: string) => {
     totalPages.value = pdfDocInstance.numPages
     currentPage.value = 1
     await renderPage(1)
+    pdfLoaded.value = true
+    loading.value = false
   } catch (e) {
     console.error('Error loading PDF:', e)
     pdfError.value = true
     pdfDocInstance = null
+    loading.value = false
   }
 }
 
@@ -216,6 +292,13 @@ watch(() => props.storagePath, () => {
   totalPages.value = 0
   imageError.value = false
   pdfError.value = false
+  fullImageLoaded.value = false
+  pdfLoaded.value = false
+  // Clean up previous HEIC conversion
+  if (heicConvertedUrl.value) {
+    URL.revokeObjectURL(heicConvertedUrl.value)
+    heicConvertedUrl.value = null
+  }
   fetchSignedUrl()
 })
 
@@ -241,6 +324,10 @@ onUnmounted(() => {
   if (pdfDocInstance) {
     pdfDocInstance.destroy()
     pdfDocInstance = null
+  }
+  // Clean up HEIC conversion
+  if (heicConvertedUrl.value) {
+    URL.revokeObjectURL(heicConvertedUrl.value)
   }
 })
 
@@ -271,12 +358,35 @@ defineExpose({ isDisplayable })
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .preview-image {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.thumbnail-preview {
+  /* Scale up thumbnail to fill container like the full image would */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+}
+
+.loading-overlay .pi {
+  font-size: 3rem;
+  color: var(--accent-primary);
 }
 
 .pdf-container {
@@ -287,6 +397,13 @@ defineExpose({ isDisplayable })
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+.pdf-thumbnail {
+  /* Enlarged to fill container like the full PDF would */
+  width: 100%;
+  height: calc(100% - 2.5rem);
+  object-fit: contain;
 }
 
 .pdf-canvas {
