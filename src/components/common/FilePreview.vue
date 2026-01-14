@@ -64,6 +64,37 @@
       <span>Could not load PDF preview</span>
     </div>
     
+    <!-- SVG preview -->
+    <div v-else-if="isSvg && signedUrl" class="image-container svg-container">
+      <!-- Thumbnail shown while SVG loads -->
+      <img 
+        v-if="thumbnailUrl && !fullImageLoaded"
+        :src="thumbnailUrl"
+        :alt="filename"
+        class="preview-image thumbnail-preview"
+      />
+      <div v-if="thumbnailUrl && !fullImageLoaded && loading" class="loading-overlay">
+        <i class="pi pi-spin pi-spinner" />
+      </div>
+      <img 
+        v-show="fullImageLoaded || !thumbnailUrl"
+        :src="signedUrl"
+        :alt="filename"
+        class="preview-image"
+        @load="onFullImageLoad"
+        @error="handleImageError"
+      />
+    </div>
+    
+    <!-- HTML preview in sandboxed iframe -->
+    <div v-else-if="isHtml && htmlContent" class="html-container">
+      <iframe
+        :srcdoc="htmlContent"
+        sandbox="allow-same-origin"
+        class="html-iframe"
+      />
+    </div>
+    
     <!-- Loading state (only when no thumbnail available) -->
     <div v-else-if="loading" class="loading-state">
       <i class="pi pi-spin pi-spinner" />
@@ -112,6 +143,9 @@ const pdfLoaded = ref(false)
 // HEIC conversion state
 const heicConvertedUrl = ref<string | null>(null)
 
+// HTML content state
+const htmlContent = ref<string | null>(null)
+
 // PDF state - store document outside Vue reactivity to avoid Proxy issues with private fields
 let pdfDocInstance: pdfjsLib.PDFDocumentProxy | null = null
 const currentPage = ref(1)
@@ -139,7 +173,13 @@ const isHeic = computed(() => ['heic', 'heif'].includes(extension.value))
 
 const isPdf = computed(() => extension.value === 'pdf')
 
-const isDisplayable = computed(() => isImage.value || isPdf.value || isHeic.value)
+const isSvg = computed(() => extension.value === 'svg')
+
+const isHtml = computed(() => ['html', 'htm'].includes(extension.value))
+
+const isDisplayable = computed(() => 
+  isImage.value || isPdf.value || isHeic.value || isSvg.value || isHtml.value
+)
 
 // URL to display for images (either signed URL or converted HEIC)
 const displayUrl = computed(() => heicConvertedUrl.value || signedUrl.value)
@@ -163,6 +203,17 @@ const convertHeic = async (url: string) => {
   loading.value = false
 }
 
+// Load HTML content for iframe rendering
+const loadHtmlContent = async (url: string) => {
+  try {
+    const response = await fetch(url)
+    htmlContent.value = await response.text()
+  } catch (e) {
+    console.error('Failed to load HTML:', e)
+  }
+  loading.value = false
+}
+
 // Get signed URL
 const fetchSignedUrl = async () => {
   if (!props.storagePath) return
@@ -182,11 +233,13 @@ const fetchSignedUrl = async () => {
       await loadPdf(data.signedUrl)
     } else if (isHeic.value) {
       await convertHeic(data.signedUrl)
-    } else if (!isImage.value) {
-      // For non-image, non-pdf files, stop loading
+    } else if (isHtml.value) {
+      await loadHtmlContent(data.signedUrl)
+    } else if (!isImage.value && !isSvg.value) {
+      // For non-displayable files, stop loading
       loading.value = false
     }
-    // For regular images, loading will be set to false via onFullImageLoad
+    // For images and SVGs, loading will be set to false via onFullImageLoad
   } else {
     loading.value = false
   }
@@ -294,6 +347,7 @@ watch(() => props.storagePath, () => {
   pdfError.value = false
   fullImageLoaded.value = false
   pdfLoaded.value = false
+  htmlContent.value = null
   // Clean up previous HEIC conversion
   if (heicConvertedUrl.value) {
     URL.revokeObjectURL(heicConvertedUrl.value)
@@ -359,6 +413,11 @@ defineExpose({ isDisplayable })
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+.image-container.svg-container {
+  background: #fff;
+  border-radius: var(--radius-sm);
 }
 
 .preview-image {
@@ -491,6 +550,24 @@ defineExpose({ isDisplayable })
 .error-state .pi {
   font-size: 2rem;
   color: #ef4444;
+}
+
+.html-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.html-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
 }
 </style>
 

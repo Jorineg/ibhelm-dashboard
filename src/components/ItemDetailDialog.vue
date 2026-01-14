@@ -318,7 +318,7 @@ const fileExtension = computed(() => {
 })
 
 const isDisplayableFile = computed(() => 
-  ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'heic', 'heif'].includes(fileExtension.value)
+  ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'heic', 'heif', 'svg', 'html', 'htm'].includes(fileExtension.value)
 )
 
 // Preview layout for email, craft, and files
