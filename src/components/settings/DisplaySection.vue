@@ -70,13 +70,12 @@ const {
 } = useUserSettings()
 
 const localHideCompletedTasks = ref(false)
-const localSortField = ref('sort_date')
+const localSortField = ref('updated_at')
 const localSortOrder = ref<'asc' | 'desc'>('desc')
 
 const sortableColumns = [
-  { field: 'sort_date', header: 'Sort Date' },
-  { field: 'created_at', header: 'Created' },
   { field: 'updated_at', header: 'Updated' },
+  { field: 'created_at', header: 'Created' },
   { field: 'due_date', header: 'Due Date' },
   { field: 'name', header: 'Name' },
   { field: 'status', header: 'Status' },

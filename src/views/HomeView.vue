@@ -85,7 +85,7 @@
           :show-craft="activeConfig?.showCraft ?? true"
           :show-files="activeConfig?.showFiles ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
-          :sort-config="activeConfig?.sortConfig || { field: 'sort_date', order: 'desc' }"
+          :sort-config="activeConfig?.sortConfig || { field: 'updated_at', order: 'desc' }"
           :view-type="activeView"
           :selected-task-types="selectedTaskTypes"
           :selected-row="selectedRow"

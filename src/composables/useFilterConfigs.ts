@@ -18,7 +18,7 @@ const DEFAULT_COLUMNS_BY_VIEW: Record<ViewType, string[]> = {
 
 // Default sort config per view type
 const DEFAULT_SORT_BY_VIEW: Record<ViewType, SortConfig> = {
-  items: { field: 'sort_date', order: 'desc' },
+  items: { field: 'updated_at', order: 'desc' },
   projects: { field: 'name', order: 'asc' },
   people: { field: 'display_name', order: 'asc' }
 }
@@ -29,7 +29,7 @@ const createDefaultConfig = (viewType: ViewType, userSettings?: { default_sort_f
   let sortConfig = DEFAULT_SORT_BY_VIEW[viewType]
   if (viewType === 'items' && userSettings) {
     sortConfig = {
-      field: userSettings.default_sort_field || 'sort_date',
+      field: userSettings.default_sort_field || 'updated_at',
       order: userSettings.default_sort_order || 'desc'
     }
   }

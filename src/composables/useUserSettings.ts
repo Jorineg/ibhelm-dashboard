@@ -34,7 +34,7 @@ const DEFAULT_FILTER_CONFIGURATIONS: FilterConfigurationsData = {
 
 const DEFAULT_USER_SETTINGS: UserSettings = {
   hide_completed_tasks: false,
-  default_sort_field: 'sort_date',
+  default_sort_field: 'updated_at',
   default_sort_order: 'desc',
   filter_configurations: { ...DEFAULT_FILTER_CONFIGURATIONS },
   key_bindings: {}

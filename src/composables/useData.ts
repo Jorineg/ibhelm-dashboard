@@ -194,7 +194,7 @@ export function useData() {
   const totalCount = ref<number | null>(null)
   const { defaultSortField, defaultSortOrder } = useUserSettings()
   const currentSort = ref<SortConfig>({
-    field: defaultSortField.value || 'sort_date',
+    field: defaultSortField.value || 'updated_at',
     order: defaultSortOrder.value || 'desc'
   })
   const currentViewType = ref<ViewType>('items')
@@ -258,7 +258,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, { field: 'sort_date', order: 'desc' }, 0, hideCompletedTasks, fileIgnorePatterns
+      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, 0, hideCompletedTasks, fileIgnorePatterns
     )
 
     // Remove pagination/sort params - count doesn't need them
