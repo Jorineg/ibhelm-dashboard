@@ -24,15 +24,15 @@
       </div>
       
       <div class="add-row">
-        <AutoComplete
+        <AutocompleteInput
           v-model="companySearch"
           :suggestions="companySuggestions"
-          @complete="searchCompanies"
-          @item-select="addCompany"
-          optionLabel="name"
+          :loading="companyLoading"
           placeholder="Search companies to exclude..."
-          :minLength="1"
-          class="autocomplete-input"
+          primary-field="name"
+          :min-chars="1"
+          @search="searchCompanies"
+          @select="addCompany"
         />
       </div>
     </div>
@@ -58,15 +58,15 @@
       </div>
       
       <div class="add-row">
-        <AutoComplete
+        <AutocompleteInput
           v-model="projectSearch"
           :suggestions="projectSuggestions"
-          @complete="searchProjects"
-          @item-select="addProject"
-          optionLabel="name"
+          :loading="projectLoading"
           placeholder="Search projects to exclude..."
-          :minLength="1"
-          class="autocomplete-input"
+          primary-field="name"
+          :min-chars="1"
+          @search="searchProjects"
+          @select="addProject"
         />
       </div>
     </div>
@@ -115,9 +115,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import AutoComplete from 'primevue/autocomplete'
-import { SectionCard } from '@/components/common'
+import { ref, onMounted, watch } from 'vue'
+import { SectionCard, AutocompleteInput, type AutocompleteSuggestion } from '@/components/common'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { supabase } from '@/lib/supabase'
 
@@ -151,10 +150,12 @@ const {
 } = useAppearanceSettings()
 
 // Local state
-const companySearch = ref<Company | string>('')
-const projectSearch = ref<Project | string>('')
+const companySearch = ref('')
+const projectSearch = ref('')
 const companySuggestions = ref<Company[]>([])
 const projectSuggestions = ref<Project[]>([])
+const companyLoading = ref(false)
+const projectLoading = ref(false)
 const excludedCompanies = ref<Company[]>([])
 const excludedProjects = ref<Project[]>([])
 const isPurging = ref(false)
@@ -185,32 +186,40 @@ const loadExcludedDetails = async () => {
 }
 
 // Search companies
-const searchCompanies = async (event: { query: string }) => {
-  const { data } = await supabase.rpc('search_companies_autocomplete', {
-    p_search_text: event.query,
-    p_limit: 20
-  })
-  // Filter out already excluded companies
-  companySuggestions.value = (data || []).filter(
-    (c: Company) => !excludedCompanyIds.value.includes(c.id)
-  )
+const searchCompanies = async (query: string) => {
+  companyLoading.value = true
+  try {
+    const { data } = await supabase.rpc('search_companies_autocomplete', {
+      p_search_text: query,
+      p_limit: 20
+    })
+    companySuggestions.value = (data || []).filter(
+      (c: Company) => !excludedCompanyIds.value.includes(c.id)
+    )
+  } finally {
+    companyLoading.value = false
+  }
 }
 
 // Search projects
-const searchProjects = async (event: { query: string }) => {
-  const { data } = await supabase.rpc('search_projects_autocomplete', {
-    p_search_text: event.query,
-    p_limit: 20
-  })
-  // Filter out already excluded projects
-  projectSuggestions.value = (data || []).filter(
-    (p: Project) => !excludedProjectIds.value.includes(p.id)
-  )
+const searchProjects = async (query: string) => {
+  projectLoading.value = true
+  try {
+    const { data } = await supabase.rpc('search_projects_autocomplete', {
+      p_search_text: query,
+      p_limit: 20
+    })
+    projectSuggestions.value = (data || []).filter(
+      (p: Project) => !excludedProjectIds.value.includes(p.id)
+    )
+  } finally {
+    projectLoading.value = false
+  }
 }
 
 // Add company to exclusion list
-const addCompany = async (event: { value: Company }) => {
-  const company = event.value
+const addCompany = async (suggestion: AutocompleteSuggestion) => {
+  const company = suggestion as unknown as Company
   if (!excludedCompanyIds.value.includes(company.id)) {
     await updateExcludedCompanyIds([...excludedCompanyIds.value, company.id])
     excludedCompanies.value.push(company)
@@ -225,8 +234,8 @@ const removeCompany = async (id: number) => {
 }
 
 // Add project to exclusion list
-const addProject = async (event: { value: Project }) => {
-  const project = event.value
+const addProject = async (suggestion: AutocompleteSuggestion) => {
+  const project = suggestion as unknown as Project
   if (!excludedProjectIds.value.includes(project.id)) {
     await updateExcludedProjectIds([...excludedProjectIds.value, project.id])
     excludedProjects.value.push(project)
@@ -351,49 +360,7 @@ onMounted(async () => {
 }
 
 .add-row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.autocomplete-input {
-  flex: 1;
   max-width: 400px;
-}
-
-:deep(.autocomplete-input .p-autocomplete-input) {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-}
-
-:deep(.autocomplete-input .p-autocomplete-input:focus) {
-  outline: none;
-  border-color: var(--accent-primary);
-}
-
-:deep(.autocomplete-input .p-autocomplete-panel) {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-}
-
-:deep(.autocomplete-input .p-autocomplete-item) {
-  padding: 0.75rem 1rem;
-  color: var(--text-primary);
-}
-
-:deep(.autocomplete-input .p-autocomplete-item:hover) {
-  background: var(--bg-hover);
-}
-
-:deep(.autocomplete-input .p-autocomplete-item.p-highlight) {
-  background: var(--accent-primary-dark);
-  color: var(--accent-primary);
 }
 
 .purge-section {

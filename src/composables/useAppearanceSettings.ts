@@ -25,6 +25,8 @@ export interface AdminSettings {
   // Sync filters (exclude from Teamwork import)
   excluded_tw_company_ids: number[]
   excluded_tw_project_ids: number[]
+  // Email visibility (RLS)
+  public_email_addresses: string[]
 }
 
 // Built-in file ignore patterns (can be disabled but not deleted)
@@ -55,7 +57,8 @@ const defaults: AdminSettings = {
   files_bucket: 'files',
   file_ignore_patterns: BUILTIN_FILE_IGNORE_PATTERNS,
   excluded_tw_company_ids: [],
-  excluded_tw_project_ids: []
+  excluded_tw_project_ids: [],
+  public_email_addresses: []
 }
 
 const cached = getCached<AdminSettings>('app_settings')
@@ -137,6 +140,9 @@ export function useAppearanceSettings() {
   const updateExcludedCompanyIds = (ids: number[]) => updateSetting('excluded_tw_company_ids', ids)
   const updateExcludedProjectIds = (ids: number[]) => updateSetting('excluded_tw_project_ids', ids)
 
+  // Public email addresses updater
+  const updatePublicEmailAddresses = (emails: string[]) => updateSetting('public_email_addresses', emails)
+
   // Computed accessors
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -170,6 +176,9 @@ export function useAppearanceSettings() {
   // Sync filter accessors
   const excludedCompanyIds = computed(() => settings.value.excluded_tw_company_ids || [])
   const excludedProjectIds = computed(() => settings.value.excluded_tw_project_ids || [])
+
+  // Public email addresses accessor
+  const publicEmailAddresses = computed(() => settings.value.public_email_addresses || [])
 
   return {
     settings,
@@ -206,6 +215,9 @@ export function useAppearanceSettings() {
     excludedProjectIds,
     updateExcludedCompanyIds,
     updateExcludedProjectIds,
+    // Email visibility
+    publicEmailAddresses,
+    updatePublicEmailAddresses,
     // Init
     initialize,
     fetchSettings
