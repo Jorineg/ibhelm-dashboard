@@ -118,6 +118,7 @@
             :is-linking="isLocationLinking"
             @rerun-linking="handleRerunLocationLinking"
           />
+          <SyncFiltersSection v-else-if="activeSection === 'sync-filters'" />
         </template>
       </div>
     </div>
@@ -132,7 +133,7 @@ import { PageHeader } from '@/components/common'
 import { 
   TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
   CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 
-  DisplaySection, KeyBindingsSection 
+  DisplaySection, KeyBindingsSection, SyncFiltersSection 
 } from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
@@ -206,6 +207,7 @@ const userSections = [
 const adminSections = [
   { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
   { id: 'integration', label: 'Integration', icon: 'pi pi-cog' },
+  { id: 'sync-filters', label: 'Sync Filters', icon: 'pi pi-filter-slash' },
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },

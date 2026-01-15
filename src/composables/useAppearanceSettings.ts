@@ -22,6 +22,9 @@ export interface AdminSettings {
   // File handling
   files_bucket: string
   file_ignore_patterns: FileIgnorePattern[]
+  // Sync filters (exclude from Teamwork import)
+  excluded_tw_company_ids: number[]
+  excluded_tw_project_ids: number[]
 }
 
 // Built-in file ignore patterns (can be disabled but not deleted)
@@ -50,7 +53,9 @@ const defaults: AdminSettings = {
   cost_group_prefixes: ['KGR'],
   location_prefix: 'O-',
   files_bucket: 'files',
-  file_ignore_patterns: BUILTIN_FILE_IGNORE_PATTERNS
+  file_ignore_patterns: BUILTIN_FILE_IGNORE_PATTERNS,
+  excluded_tw_company_ids: [],
+  excluded_tw_project_ids: []
 }
 
 const cached = getCached<AdminSettings>('app_settings')
@@ -128,6 +133,10 @@ export function useAppearanceSettings() {
   // File pattern updaters
   const updateFileIgnorePatterns = (patterns: FileIgnorePattern[]) => updateSetting('file_ignore_patterns', patterns)
 
+  // Sync filter updaters
+  const updateExcludedCompanyIds = (ids: number[]) => updateSetting('excluded_tw_company_ids', ids)
+  const updateExcludedProjectIds = (ids: number[]) => updateSetting('excluded_tw_project_ids', ids)
+
   // Computed accessors
   const emailColor = computed(() => settings.value.email_color)
   const craftColor = computed(() => settings.value.craft_color)
@@ -157,6 +166,10 @@ export function useAppearanceSettings() {
   const enabledFileIgnorePatterns = computed(() => 
     fileIgnorePatterns.value.filter(p => p.enabled).map(p => p.pattern)
   )
+
+  // Sync filter accessors
+  const excludedCompanyIds = computed(() => settings.value.excluded_tw_company_ids || [])
+  const excludedProjectIds = computed(() => settings.value.excluded_tw_project_ids || [])
 
   return {
     settings,
@@ -188,6 +201,11 @@ export function useAppearanceSettings() {
     fileIgnorePatterns,
     enabledFileIgnorePatterns,
     updateFileIgnorePatterns,
+    // Sync filters
+    excludedCompanyIds,
+    excludedProjectIds,
+    updateExcludedCompanyIds,
+    updateExcludedProjectIds,
     // Init
     initialize,
     fetchSettings
