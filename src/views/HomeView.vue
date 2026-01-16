@@ -76,6 +76,7 @@
           :count-loading="countLoading"
           :revalidating="revalidating"
           :error="error"
+          :has-more="hasMore"
           :total-count="totalCount"
           :visible-columns="activeConfig?.visibleColumns || []"
           :column-order="activeConfig?.columnOrder || []"

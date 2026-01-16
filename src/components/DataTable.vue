@@ -426,6 +426,7 @@ interface Props {
   countLoading?: boolean
   revalidating?: boolean
   error?: string | null
+  hasMore?: boolean
   visibleColumns: string[]
   columnOrder: string[]
   columnWidths: Record<string, string>
@@ -1231,6 +1232,25 @@ const setupIntersectionObserver = () => {
   if (scrollTrigger.value) observer.observe(scrollTrigger.value)
   if (galleryScrollTrigger.value) observer.observe(galleryScrollTrigger.value)
 }
+
+// Check if scroll trigger is visible and load more if needed
+// This handles the case where on initial load, the viewport can fit more than PAGE_SIZE items
+const checkScrollTriggerVisibility = () => {
+  const trigger = localViewMode.value === 'gallery' ? galleryScrollTrigger.value : scrollTrigger.value
+  if (!trigger || !props.hasMore) return
+  
+  const rect = trigger.getBoundingClientRect()
+  const isVisible = rect.top < window.innerHeight && rect.bottom > 0
+  if (isVisible) emit('loadMore')
+}
+
+// When loading finishes, check if we need to load more (trigger still visible)
+watch(() => props.loading, (loading, wasLoading) => {
+  if (wasLoading && !loading && props.hasMore) {
+    // Use nextTick + small delay to ensure DOM has updated after items render
+    setTimeout(checkScrollTriggerVisibility, 50)
+  }
+})
 
 // // Handle horizontal scroll to keep toolbar pinned
 // const handleParentScroll = () => {
