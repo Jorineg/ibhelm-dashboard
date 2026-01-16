@@ -468,6 +468,24 @@ const onEmailWheel = (e: WheelEvent) => {
   }
 }
 
+// Keyboard scroll methods for external control
+const scrollByAmount = (amount: number) => {
+  if (!iframeRef.value) return
+  try {
+    iframeRef.value.contentWindow?.scrollBy({ top: amount, behavior: 'smooth' })
+  } catch {
+    // Cross-origin errors silently ignored
+  }
+}
+
+const scrollByPage = (pages: number) => {
+  if (!iframeRef.value) return
+  const pageHeight = containerHeight.value || iframeRef.value.clientHeight || 400
+  scrollByAmount(pages * pageHeight * 0.8)
+}
+
+defineExpose({ scrollByAmount, scrollByPage })
+
 // Prefetch on mount and when attachments change
 onMounted(() => {
   prefetchAttachments()

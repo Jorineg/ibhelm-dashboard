@@ -306,24 +306,45 @@ const renderPage = async (pageNum: number) => {
   }
 }
 
+// Navigate PDF pages
+const goToNextPage = () => {
+  if (!isPdf.value || totalPages.value <= 1) return false
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    renderPage(currentPage.value)
+    showNavHint.value = false
+    return true
+  }
+  return false
+}
+
+const goToPrevPage = () => {
+  if (!isPdf.value || totalPages.value <= 1) return false
+  if (currentPage.value > 1) {
+    currentPage.value--
+    renderPage(currentPage.value)
+    showNavHint.value = false
+    return true
+  }
+  return false
+}
+
 // Keyboard navigation
 const handleKeydown = (e: KeyboardEvent) => {
   if (!isPdf.value || totalPages.value <= 1) return
   
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
     e.preventDefault()
-    if (currentPage.value < totalPages.value) {
-      currentPage.value++
-      renderPage(currentPage.value)
-      showNavHint.value = false
-    }
+    goToNextPage()
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
     e.preventDefault()
-    if (currentPage.value > 1) {
-      currentPage.value--
-      renderPage(currentPage.value)
-      showNavHint.value = false
-    }
+    goToPrevPage()
+  } else if (e.key === 'PageDown') {
+    e.preventDefault()
+    goToNextPage()
+  } else if (e.key === 'PageUp') {
+    e.preventDefault()
+    goToPrevPage()
   }
 }
 
@@ -385,7 +406,7 @@ onUnmounted(() => {
   }
 })
 
-defineExpose({ isDisplayable })
+defineExpose({ isDisplayable, goToNextPage, goToPrevPage })
 </script>
 
 <style scoped>

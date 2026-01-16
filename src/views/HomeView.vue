@@ -694,6 +694,31 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
+  // Arrow up/down navigation when dialog is open: show prev/next item
+  if (detailDialogVisible.value && !isPeeking.value) {
+    const maxIndex = filteredAndSearchedItems.value.length - 1
+    
+    if (key === bindings.navigateUp.key) {
+      event.preventDefault()
+      if (selectedRow.value > 0) {
+        selectedRow.value--
+        selectedItem.value = filteredAndSearchedItems.value[selectedRow.value]
+      }
+      return
+    }
+    
+    if (key === bindings.navigateDown.key) {
+      event.preventDefault()
+      if (selectedRow.value < maxIndex) {
+        selectedRow.value++
+        selectedItem.value = filteredAndSearchedItems.value[selectedRow.value]
+      } else if (selectedRow.value === maxIndex && hasMore.value && !loading.value) {
+        handleLoadMore()
+      }
+      return
+    }
+  }
+  
   // Peek detail (hold key to show, release to hide)
   if (key === bindings.peek.key && !isTyping && !detailDialogVisible.value) {
     event.preventDefault()

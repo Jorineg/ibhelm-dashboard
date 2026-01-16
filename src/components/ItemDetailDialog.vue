@@ -27,6 +27,7 @@
           <template v-if="isEmail">
             <EmailPreview
               v-if="emailHtmlBody || loadingEmailBody"
+              ref="emailPreviewRef"
               :html-body="emailHtmlBody"
               :loading="loadingEmailBody"
               :attachments="emailAttachmentFiles"
@@ -43,6 +44,7 @@
           <template v-else-if="isCraft">
             <CraftPreview
               v-if="craftMarkdown || loadingCraftBody"
+              ref="craftPreviewRef"
               :markdown="craftMarkdown"
               :loading="loadingCraftBody"
               :detail-mode="true"
@@ -295,6 +297,8 @@ const loadingCraftBody = ref(false)
 
 const previewMainRef = ref<HTMLElement | null>(null)
 const filePreviewRef = ref<InstanceType<typeof FilePreview> | null>(null)
+const emailPreviewRef = ref<InstanceType<typeof EmailPreview> | null>(null)
+const craftPreviewRef = ref<InstanceType<typeof CraftPreview> | null>(null)
 
 const { filesBucket } = useAppearanceSettings()
 
@@ -427,14 +431,61 @@ const downloadCurrentFile = async () => {
   }
 }
 
-// Handle keyboard events for PDF navigation
+// Handle keyboard events for preview navigation/scrolling
 const handleDialogKeydown = (e: KeyboardEvent) => {
-  // Let FilePreview handle arrow keys for PDF
-  if (isFile.value && isDisplayableFile.value && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-    const previewEl = previewMainRef.value?.querySelector('.detail-file-preview') as HTMLElement
-    if (previewEl && document.activeElement !== previewEl) {
-      previewEl.focus()
+  const key = e.key
+  const scrollAmount = 100 // pixels for arrow key scrolling
+  
+  // PDF file: delegate to FilePreview for page navigation
+  if (isFile.value && isDisplayableFile.value) {
+    if (['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(key)) {
+      e.preventDefault()
+      if (key === 'ArrowLeft' || key === 'PageUp') {
+        filePreviewRef.value?.goToPrevPage()
+      } else if (key === 'ArrowRight' || key === 'PageDown') {
+        filePreviewRef.value?.goToNextPage()
+      }
+      // Also ensure preview is focused for internal handling
+      const previewEl = previewMainRef.value?.querySelector('.detail-file-preview') as HTMLElement
+      if (previewEl && document.activeElement !== previewEl) {
+        previewEl.focus()
+      }
     }
+    return
+  }
+  
+  // Email: scroll content
+  if (isEmail.value && emailPreviewRef.value) {
+    if (['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(key)) {
+      e.preventDefault()
+      if (key === 'ArrowLeft') {
+        emailPreviewRef.value.scrollByAmount(-scrollAmount)
+      } else if (key === 'ArrowRight') {
+        emailPreviewRef.value.scrollByAmount(scrollAmount)
+      } else if (key === 'PageUp') {
+        emailPreviewRef.value.scrollByPage(-1)
+      } else if (key === 'PageDown') {
+        emailPreviewRef.value.scrollByPage(1)
+      }
+    }
+    return
+  }
+  
+  // Craft: scroll content
+  if (isCraft.value && craftPreviewRef.value) {
+    if (['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(key)) {
+      e.preventDefault()
+      if (key === 'ArrowLeft') {
+        craftPreviewRef.value.scrollByAmount(-scrollAmount)
+      } else if (key === 'ArrowRight') {
+        craftPreviewRef.value.scrollByAmount(scrollAmount)
+      } else if (key === 'PageUp') {
+        craftPreviewRef.value.scrollByPage(-1)
+      } else if (key === 'PageDown') {
+        craftPreviewRef.value.scrollByPage(1)
+      }
+    }
+    return
   }
 }
 
@@ -544,43 +595,56 @@ const formatValue = (value: any): string => {
   return String(value)
 }
 
+// Fetch content data for the current item
+const fetchItemContent = async () => {
+  if (!props.item) return
+  
+  const item = props.item as DataItem
+  
+  // Reset content state
+  sourceEmail.value = null
+  emailAttachmentFiles.value = []
+  emailHtmlBody.value = null
+  craftMarkdown.value = null
+  thumbnailFailed.value = false
+  failedFileThumbnails.clear()
+  
+  // Fetch data based on item type
+  if (isFile.value && item.id) {
+    fetchSourceEmail(item.id)
+  }
+  
+  if (isEmail.value && item.id) {
+    await Promise.all([
+      fetchEmailFiles(item.id),
+      fetchEmailBody(item.id)
+    ])
+  }
+  
+  if (isCraft.value && item.id) {
+    fetchCraftBody(item.id)
+  }
+  
+  // Focus preview after content loads
+  await nextTick()
+  if (isFile.value && isDisplayableFile.value) {
+    const previewEl = previewMainRef.value?.querySelector('.detail-file-preview') as HTMLElement
+    previewEl?.focus()
+  }
+}
+
 // Reset state and fetch related data when dialog opens
 watch(isVisible, async (visible) => {
   if (visible) {
     showEmptyFields.value = false
-    thumbnailFailed.value = false
-    sourceEmail.value = null
-    emailAttachmentFiles.value = []
-    emailHtmlBody.value = null
-    craftMarkdown.value = null
-    failedFileThumbnails.clear()
-    
-    if (props.item) {
-      const item = props.item as DataItem
-      
-      // Fetch data based on item type
-      if (isFile.value && item.id) {
-        fetchSourceEmail(item.id)
-      }
-      
-      if (isEmail.value && item.id) {
-        await Promise.all([
-          fetchEmailFiles(item.id),
-          fetchEmailBody(item.id)
-        ])
-      }
-      
-      if (isCraft.value && item.id) {
-        fetchCraftBody(item.id)
-      }
-      
-      // Focus preview after mount
-      await nextTick()
-      if (isFile.value && isDisplayableFile.value) {
-        const previewEl = previewMainRef.value?.querySelector('.detail-file-preview') as HTMLElement
-        previewEl?.focus()
-      }
-    }
+    await fetchItemContent()
+  }
+})
+
+// Fetch new content when item changes while dialog is open
+watch(() => props.item?.id, async (newId, oldId) => {
+  if (isVisible.value && newId && newId !== oldId) {
+    await fetchItemContent()
   }
 })
 </script>
