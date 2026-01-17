@@ -33,5 +33,13 @@ export const formatDateTimeUS = (date: Date | string | null): string => {
   return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${pad(d.getFullYear() % 100)}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
+// Short date: dd.mm.yy (no time)
+export const formatDateShort = (date: Date | string | null): string => {
+  if (!date) return ''
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return ''
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${pad(d.getFullYear() % 100)}`
+}
+
 // Backwards compatibility
 export const formatDate = (dateStr: string) => formatDateTime(dateStr)

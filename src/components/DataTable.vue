@@ -344,6 +344,7 @@
             <div class="gallery-item-header">
               <div class="gallery-header-left">
                 <a
+                  v-if="!(isCompactGrid && item.type?.toLowerCase() === 'file')"
                   :href="getRowPrimaryUrl(item)"
                   :target="getRowLinkTarget(item)"
                   rel="noopener noreferrer"
@@ -356,6 +357,7 @@
                 </a>
                 <ExtensionBadge v-if="item.type?.toLowerCase() === 'file'" :extension="item.file_extension" :storage-path="item.storage_path" />
               </div>
+              <span class="gallery-header-date">{{ formatDateShort(item.updated_at) }}</span>
             </div>
             <div 
               class="gallery-item-thumbnail"
@@ -487,6 +489,7 @@ import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
+import { formatDateShort } from '@/lib/formatDate'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, GroupConfig, ViewType } from '@/types'
 import { GROUPABLE_COLUMNS } from '@/types'
 
@@ -2365,6 +2368,17 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   gap: 0.4rem;
 }
 
+.gallery-header-date {
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  margin-right: 0.5rem;
+}
+
+.gallery-item.compact .gallery-header-date {
+  margin-right: 0.3rem;
+}
+
 .gallery-type-badge-link {
   display: inline-block;
   padding: 0.25rem 0.6rem;
@@ -2376,6 +2390,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.15s ease, filter 0.15s ease;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .gallery-type-badge-link:hover {
