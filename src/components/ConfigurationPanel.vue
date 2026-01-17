@@ -96,7 +96,7 @@ const {
   createConfiguration,
   duplicateConfiguration,
   deleteConfiguration,
-  updateConfiguration,
+  renameConfiguration,
   setActiveConfiguration,
   updateConfigOrder
 } = useFilterConfigs()
@@ -233,7 +233,7 @@ const startRename = (configId: string, currentName: string) => {
 
 const finishRename = () => {
   if (renamingId.value && renameValue.value.trim()) {
-    updateConfiguration(renamingId.value, { name: renameValue.value.trim() })
+    renameConfiguration(renamingId.value, renameValue.value.trim())
   }
   renamingId.value = null
   renameValue.value = ''

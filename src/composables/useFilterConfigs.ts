@@ -409,6 +409,28 @@ export function useFilterConfigs() {
     return false
   }
 
+  // Rename a configuration immediately (persists without needing Save)
+  const renameConfiguration = (id: string, name: string) => {
+    const index = allConfigurations.value.findIndex(c => c.id === id)
+    if (index === -1) return false
+    
+    const updatedAt = new Date().toISOString()
+    const updatedConfig = {
+      ...allConfigurations.value[index],
+      name,
+      updatedAt
+    }
+    const newConfigs = [...allConfigurations.value]
+    newConfigs.splice(index, 1, updatedConfig)
+    updateData({ configs: newConfigs })
+    
+    // Also update working copy if it's the same config (keep them in sync)
+    if (workingConfig.value && workingConfig.value.id === id) {
+      workingConfig.value = { ...workingConfig.value, name, updatedAt }
+    }
+    return true
+  }
+
   const setActiveConfiguration = (id: string) => {
     const config = allConfigurations.value.find(c => c.id === id)
     if (config) {
@@ -527,6 +549,7 @@ export function useFilterConfigs() {
     duplicateConfiguration,
     deleteConfiguration,
     updateConfiguration,
+    renameConfiguration,
     setActiveConfiguration,
     saveActiveConfiguration,
     discardChanges,
