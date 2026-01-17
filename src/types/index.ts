@@ -231,6 +231,8 @@ export interface DataItem {
   // Task logged time (from timelogs)
   logged_minutes?: number
   billable_minutes?: number
+  // Grouping - returned when p_group_by is set
+  group_value?: string | null
   // Any other fields for display
   [key: string]: any
 }
@@ -316,6 +318,8 @@ export interface ColumnFilters {
   status_not_in?: string[]
   priority_in?: string[]
   priority_not_in?: string[]
+  project_status_in?: string[]
+  project_status_not_in?: string[]
 
   // Date range filters
   due_date_min?: string
@@ -365,8 +369,9 @@ export const FILTERABLE_COLUMNS: FilterableColumn[] = [
   { field: 'assigned_to', label: 'Assigned To', type: 'text' },
   { field: 'file_extension', label: 'File Extension', type: 'text' },
   // Enum filters (in/not_in)
-  { field: 'status', label: 'Status', type: 'enum', enumValues: ['new', 'active', 'completed', 'reopened', 'deleted'] },
+  { field: 'status', label: 'Task Status', type: 'enum', enumValues: ['new', 'active', 'completed', 'reopened', 'deleted'] },
   { field: 'priority', label: 'Priority', type: 'enum', enumValues: ['none', 'low', 'medium', 'high'] },
+  { field: 'project_status', label: 'Project Status', type: 'enum', enumValues: ['active', 'inactive'] },
   // Date range filters (min/max/is_null)
   { field: 'due_date', label: 'Due Date', type: 'date' },
   { field: 'created_at', label: 'Created', type: 'date' },
@@ -390,6 +395,7 @@ export interface FilterConfiguration {
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
   viewMode: 'list' | 'gallery'
   sortConfig?: SortConfig
+  groupConfig?: GroupConfig | null  // Group by column (null = no grouping)
   // Global text search
   searchQuery?: string
   // Quick filters (always visible text inputs)
@@ -416,4 +422,23 @@ export interface SortConfig {
   field: string
   order: 'asc' | 'desc'
 }
+
+export interface GroupConfig {
+  field: string
+  order: 'asc' | 'desc'
+}
+
+// Columns that can be used for grouping in items view
+export const GROUPABLE_COLUMNS = [
+  { field: 'project', label: 'Project' },
+  { field: 'status', label: 'Status' },
+  { field: 'type', label: 'Type' },
+  { field: 'priority', label: 'Priority' },
+  { field: 'location', label: 'Location' },
+  { field: 'cost_group', label: 'Cost Group' },
+  { field: 'task_type_name', label: 'Task Type' },
+  { field: 'customer', label: 'Customer' },
+  { field: 'creator', label: 'Creator' },
+  { field: 'tasklist', label: 'Tasklist' },
+] as const
 

@@ -92,6 +92,7 @@
           :show-files="activeConfig?.showFiles ?? true"
           :view-mode="activeConfig?.viewMode || 'list'"
           :sort-config="activeConfig?.sortConfig || { field: 'updated_at', order: 'desc' }"
+          :group-config="activeConfig?.groupConfig || null"
           :view-type="activeView"
           :selected-task-types="selectedTaskTypes"
           :selected-row="selectedRow"
@@ -114,6 +115,7 @@
           @update:selected-col="selectedCol = $event"
           @update:hovered-row="hoveredRow = $event"
           @update:project-filter="handleUpdateProjectFilter"
+          @update:group-config="handleUpdateGroupConfig"
           @row-click="handleRowClick"
           @load-more="handleLoadMore"
           @sort="handleSort"
@@ -153,11 +155,11 @@ import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useUserSettings } from '@/composables/useUserSettings'
 import { supabase } from '@/lib/supabase'
-import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
+import type { ViewDataItem, Column, SortConfig, GroupConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
-const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
+const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, updateGroupConfig, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
@@ -370,6 +372,7 @@ const dataFetchConfigKey = computed(() => {
     searchQuery: activeConfig.value.searchQuery,
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters,
+    groupConfig: activeConfig.value.groupConfig,
     hideCompletedTasks: hideCompletedTasks.value,
     hideInactiveProjects: hideInactiveProjects.value,
     fileIgnorePatterns: enabledFileIgnorePatterns.value
@@ -563,6 +566,10 @@ const handleUpdateProjectFilter = (value: string) => {
     }
     updateConfiguration(activeConfig.value.id, { quickFilters: newFilters })
   }
+}
+
+const handleUpdateGroupConfig = (config: GroupConfig | null) => {
+  updateGroupConfig(config)
 }
 
 const handleSort = async (sortConfig: SortConfig) => {

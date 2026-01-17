@@ -1,6 +1,6 @@
 import { ref, computed, watch, shallowRef } from 'vue'
 import { useUserSettings, type FilterConfigurationsData } from '@/composables/useUserSettings'
-import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
+import type { FilterConfiguration, ViewType, SortConfig, GroupConfig, QuickFilters, ColumnFilters } from '@/types'
 
 // Working copy of the active config (not persisted until saved)
 const workingConfig = shallowRef<FilterConfiguration | null>(null)
@@ -486,6 +486,12 @@ export function useFilterConfigs() {
     }
   }
 
+  const updateGroupConfig = (config: GroupConfig | null) => {
+    if (activeConfig.value) {
+      updateConfiguration(activeConfig.value.id, { groupConfig: config })
+    }
+  }
+
   const clearAllFilters = () => {
     if (activeConfig.value) {
       updateConfiguration(activeConfig.value.id, {
@@ -554,6 +560,7 @@ export function useFilterConfigs() {
     saveActiveConfiguration,
     discardChanges,
     updateSearchQuery,
+    updateGroupConfig,
     updateQuickFilter,
     updateQuickFilterOrder,
     updateConfigOrder,

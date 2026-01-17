@@ -138,6 +138,30 @@
           </template>
         </MultiSelect>
 
+        <!-- Group By Dropdown (items view only) -->
+        <div v-if="props.viewType === 'items' || !props.viewType" class="group-by-wrapper">
+          <Dropdown
+            :model-value="props.groupConfig?.field || null"
+            :options="groupByOptions"
+            option-label="label"
+            option-value="field"
+            placeholder="Group by..."
+            :show-clear="!!props.groupConfig"
+            class="group-by-dropdown"
+            @update:model-value="handleGroupByChange"
+          />
+          <Button
+            v-if="props.groupConfig"
+            :icon="props.groupConfig.order === 'asc' ? 'pi pi-sort-alpha-down' : 'pi pi-sort-alpha-up-alt'"
+            text
+            rounded
+            size="small"
+            class="group-order-btn"
+            @click="toggleGroupOrder"
+            :title="props.groupConfig.order === 'asc' ? 'Ascending (A→Z)' : 'Descending (Z→A)'"
+          />
+        </div>
+
         <span class="results-count" :class="{ 'no-border': props.viewType && props.viewType !== 'items' }">
           <span class="results-line">displaying {{ itemCountData.loaded.toLocaleString() }}</span>
           <span class="results-line">of <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span><span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span> {{ itemCountData.viewLabel }}</span>
@@ -234,45 +258,61 @@
             </div>
           </TransitionGroup>
         </div>
-        <!-- Body Rows -->
+        <!-- Body Rows with Group Headers -->
         <div class="table-body">
-          <div
-            v-for="(row, rowIndex) in table.getRowModel().rows"
-            :key="row.id"
-            class="table-row"
-            :class="{ 
-              'keyboard-selected': rowIndex === props.selectedRow,
-              'row-odd': rowIndex % 2 === 0
-            }"
-            @click="handleRowClick(row.original)"
-            @mouseenter="emit('update:hoveredRow', rowIndex)"
-            @mouseleave="emit('update:hoveredRow', -1)"
-          >
-            <!-- Frozen Type Column Cell -->
-            <div class="table-cell type-column-cell frozen-col">
-              <a
-                :href="getRowPrimaryUrl(row.original)"
-                :target="getRowLinkTarget(row.original)"
-              rel="noopener noreferrer"
-              class="type-cell-link"
-                :title="getTypeBadgeTooltip(row.original)"
-                @click="handleTypeBadgeClick($event, row.original)"
-            >
-                <span class="type-badge" :style="getTypeBadgeStyle(row.original)">
-                  {{ getTypeBadgeText(row.original) }}
-              </span>
-            </a>
-            </div>
-            <!-- Data Cells - follow same order as headers -->
+          <template v-for="(tableRow, idx) in tableRowsWithGroups" :key="tableRow.isGroupHeader ? `group-${tableRow.groupValue}-${idx}` : `row-${tableRow.item.id}`">
+            <!-- Group Header Row -->
             <div
-              v-for="colId in sortedColumnIds"
-              :key="colId"
-              class="table-cell"
-              :style="getCellStyleById(colId)"
+              v-if="tableRow.isGroupHeader"
+              class="table-row group-header-row"
             >
-              <component :is="renderCellById(row.original, colId)" />
+              <div class="table-cell group-header-cell frozen-col">
+                <i class="pi pi-folder-open group-icon"></i>
+              </div>
+              <div class="table-cell group-header-content" :style="{ width: 'auto', minWidth: 'auto', maxWidth: 'none', flex: 1 }">
+                <span class="group-label">{{ getGroupLabel() }}</span>
+                <span class="group-value">{{ tableRow.groupValue }}</span>
+                <span class="group-count">({{ tableRow.itemCount }} {{ tableRow.itemCount === 1 ? 'item' : 'items' }})</span>
+              </div>
             </div>
-          </div>
+            <!-- Data Row -->
+            <div
+              v-else
+              class="table-row"
+              :class="{ 
+                'keyboard-selected': tableRow.itemIndex === props.selectedRow,
+                'row-odd': tableRow.itemIndex % 2 === 0
+              }"
+              @click="handleRowClick(tableRow.item)"
+              @mouseenter="emit('update:hoveredRow', tableRow.itemIndex)"
+              @mouseleave="emit('update:hoveredRow', -1)"
+            >
+              <!-- Frozen Type Column Cell -->
+              <div class="table-cell type-column-cell frozen-col">
+                <a
+                  :href="getRowPrimaryUrl(tableRow.item)"
+                  :target="getRowLinkTarget(tableRow.item)"
+                  rel="noopener noreferrer"
+                  class="type-cell-link"
+                  :title="getTypeBadgeTooltip(tableRow.item)"
+                  @click="handleTypeBadgeClick($event, tableRow.item)"
+                >
+                  <span class="type-badge" :style="getTypeBadgeStyle(tableRow.item)">
+                    {{ getTypeBadgeText(tableRow.item) }}
+                  </span>
+                </a>
+              </div>
+              <!-- Data Cells - follow same order as headers -->
+              <div
+                v-for="colId in sortedColumnIds"
+                :key="colId"
+                class="table-cell"
+                :style="getCellStyleById(colId)"
+              >
+                <component :is="renderCellById(tableRow.item, colId)" />
+              </div>
+            </div>
+          </template>
         </div>
       </div>
       <!-- Infinite scroll trigger -->
@@ -281,129 +321,140 @@
 
     <!-- Gallery View -->
     <div v-show="localViewMode === 'gallery'" class="gallery-view">
-      <div class="gallery-grid" ref="galleryGridRef" :style="galleryGridStyle">
-        <div
-          v-for="(item, index) in displayedItems"
-          :key="item.id"
-          class="gallery-item"
-          :class="{ 'keyboard-selected': index === props.selectedRow, 'compact': isCompactGrid }"
-          @click="handleRowClick(item)"
-          @mouseenter="emit('update:hoveredRow', index)"
-          @mouseleave="emit('update:hoveredRow', -1)"
-        >
-          <div class="gallery-item-header">
-            <div class="gallery-header-left">
-              <a
-                :href="getRowPrimaryUrl(item)"
-                :target="getRowLinkTarget(item)"
-                rel="noopener noreferrer"
-                class="gallery-type-badge-link"
-                :style="getTypeBadgeStyle(item)"
-                :title="getTypeBadgeTooltip(item)"
-                @click="handleTypeBadgeClick($event, item)"
-              >
-                {{ getTypeBadgeText(item) }}
-              </a>
-              <ExtensionBadge v-if="item.type?.toLowerCase() === 'file'" :extension="item.file_extension" :storage-path="item.storage_path" />
-            </div>
-          </div>
-          <div 
-            class="gallery-item-thumbnail"
-            :ref="(el) => isEmail(item) ? setEmailItemRef(el as HTMLElement, String(item.id)) : null"
-            :data-item-id="item.id"
+      <template v-for="(group, groupIdx) in galleryGroupedItems" :key="`group-${groupIdx}`">
+        <!-- Group Header (only show if grouping is enabled) -->
+        <div v-if="props.groupConfig && group.groupValue" class="gallery-group-header">
+          <i class="pi pi-folder-open group-icon"></i>
+          <span class="group-label">{{ getGroupLabel() }}</span>
+          <span class="group-value">{{ group.groupValue }}</span>
+          <span class="group-count">({{ group.items.length }} {{ group.items.length === 1 ? 'item' : 'items' }})</span>
+        </div>
+        
+        <!-- Gallery Grid for this group -->
+        <div class="gallery-grid" :ref="groupIdx === 0 ? (el) => galleryGridRef = el as HTMLElement : undefined" :style="galleryGridStyle">
+          <div
+            v-for="{ item, itemIndex } in group.items"
+            :key="item.id"
+            class="gallery-item"
+            :class="{ 'keyboard-selected': itemIndex === props.selectedRow, 'compact': isCompactGrid }"
+            @click="handleRowClick(item)"
+            @mouseenter="emit('update:hoveredRow', itemIndex)"
+            @mouseleave="emit('update:hoveredRow', -1)"
           >
-            <!-- Email iframe preview -->
-            <EmailPreview
-              v-if="isEmail(item)"
-              :html-body="getEmailBody(String(item.id))"
-              :loading="isEmailBodyLoading(String(item.id))"
-              :attachments="getEmailAttachments(String(item.id))"
-            />
-            <!-- Craft markdown preview -->
+            <div class="gallery-item-header">
+              <div class="gallery-header-left">
+                <a
+                  :href="getRowPrimaryUrl(item)"
+                  :target="getRowLinkTarget(item)"
+                  rel="noopener noreferrer"
+                  class="gallery-type-badge-link"
+                  :style="getTypeBadgeStyle(item)"
+                  :title="getTypeBadgeTooltip(item)"
+                  @click="handleTypeBadgeClick($event, item)"
+                >
+                  {{ getTypeBadgeText(item) }}
+                </a>
+                <ExtensionBadge v-if="item.type?.toLowerCase() === 'file'" :extension="item.file_extension" :storage-path="item.storage_path" />
+              </div>
+            </div>
             <div 
-              v-else-if="isCraft(item)"
-              class="craft-preview-wrapper"
-              :ref="(el) => setCraftItemRef(el as HTMLElement, String(item.id))"
+              class="gallery-item-thumbnail"
+              :ref="(el) => isEmail(item) ? setEmailItemRef(el as HTMLElement, String(item.id)) : null"
               :data-item-id="item.id"
             >
-              <CraftPreview
-                :markdown="getCraftBody(String(item.id))"
-                :loading="isCraftBodyLoading(String(item.id))"
+              <!-- Email iframe preview -->
+              <EmailPreview
+                v-if="isEmail(item)"
+                :html-body="getEmailBody(String(item.id))"
+                :loading="isEmailBodyLoading(String(item.id))"
+                :attachments="getEmailAttachments(String(item.id))"
               />
+              <!-- Craft markdown preview -->
+              <div 
+                v-else-if="isCraft(item)"
+                class="craft-preview-wrapper"
+                :ref="(el) => setCraftItemRef(el as HTMLElement, String(item.id))"
+                :data-item-id="item.id"
+              >
+                <CraftPreview
+                  :markdown="getCraftBody(String(item.id))"
+                  :loading="isCraftBodyLoading(String(item.id))"
+                />
+              </div>
+              <!-- Task preview (includes name, description, tags, assignee, progress) -->
+              <TaskPreview
+                v-else-if="isTask(item)"
+                :name="item.name || ''"
+                :description="item.description"
+                :task-type-slug="item.task_type_slug"
+                :task-type-color="item.task_type_color"
+                :status="item.status"
+                :priority="item.priority"
+                :progress="item.progress"
+                :due-date="item.due_date"
+                :created-at="item.created_at"
+                :tags="item.tags"
+                :assigned-to="item.assigned_to"
+              />
+              <!-- File thumbnail -->
+              <img
+                v-else-if="shouldShowThumbnail(item)"
+                :src="getThumbnailUrl(item.thumbnail_path!)"
+                :alt="item.name"
+                loading="lazy"
+                class="gallery-thumbnail-img"
+                @error="() => handleThumbnailError(item.thumbnail_path!)"
+              />
+              <!-- File placeholder (no thumbnail) -->
+              <FilePlaceholder
+                v-else-if="item.type?.toLowerCase() === 'file'"
+                :filename="item.name || 'Unknown'"
+              />
+              <!-- Fallback icon for other types -->
+              <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
             </div>
-            <!-- Task preview (includes name, description, tags, assignee, progress) -->
-            <TaskPreview
-              v-else-if="isTask(item)"
-              :name="item.name || ''"
-              :description="item.description"
-              :task-type-slug="item.task_type_slug"
-              :task-type-color="item.task_type_color"
-              :status="item.status"
-              :priority="item.priority"
-              :progress="item.progress"
-              :due-date="item.due_date"
-              :created-at="item.created_at"
-              :tags="item.tags"
-              :assigned-to="item.assigned_to"
-            />
-            <!-- File thumbnail -->
-            <img
-              v-else-if="shouldShowThumbnail(item)"
-              :src="getThumbnailUrl(item.thumbnail_path!)"
-              :alt="item.name"
-              loading="lazy"
-              class="gallery-thumbnail-img"
-              @error="() => handleThumbnailError(item.thumbnail_path!)"
-            />
-            <!-- File placeholder (no thumbnail) -->
-            <FilePlaceholder
-              v-else-if="item.type?.toLowerCase() === 'file'"
-              :filename="item.name || 'Unknown'"
-            />
-            <!-- Fallback icon for other types -->
-            <i v-else :class="getGalleryIcon(item)" class="gallery-icon"></i>
-          </div>
-          <!-- Content below thumbnail (hidden for tasks since TaskPreview includes name) -->
-          <div v-if="!isTask(item)" class="gallery-item-content">
-            <h4>{{ getGalleryTitle(item) }}</h4>
-            <p v-if="getGalleryDescription(item)" class="gallery-description">
-              {{ truncateText(getGalleryDescription(item), 100) }}
-            </p>
-            <div class="gallery-meta">
-              <template v-if="props.viewType === 'items' || !props.viewType">
-                <span v-if="item.project" class="meta-item">
-                  <i class="pi pi-folder"></i> {{ item.project }}
-                </span>
-                <span v-if="item.status" class="meta-item">
-                  <i class="pi pi-tag"></i> {{ item.status }}
-                </span>
-              </template>
-              <template v-else-if="props.viewType === 'projects'">
-                <span v-if="item.company_name" class="meta-item">
-                  <i class="pi pi-building"></i> {{ item.company_name }}
-                </span>
-                <span v-if="item.task_count" class="meta-item">
-                  <i class="pi pi-list"></i> {{ item.task_count }} tasks
-                </span>
-              </template>
-              <template v-else-if="props.viewType === 'people'">
-                <span v-if="item.primary_email" class="meta-item">
-                  <i class="pi pi-envelope"></i> {{ item.primary_email }}
-                </span>
-                <span v-if="item.is_internal" class="meta-item internal">
-                  <i class="pi pi-home"></i> Internal
-                </span>
-              </template>
+            <!-- Content below thumbnail (hidden for tasks since TaskPreview includes name) -->
+            <div v-if="!isTask(item)" class="gallery-item-content">
+              <h4>{{ getGalleryTitle(item) }}</h4>
+              <p v-if="getGalleryDescription(item)" class="gallery-description">
+                {{ truncateText(getGalleryDescription(item), 100) }}
+              </p>
+              <div class="gallery-meta">
+                <template v-if="props.viewType === 'items' || !props.viewType">
+                  <span v-if="item.project" class="meta-item">
+                    <i class="pi pi-folder"></i> {{ item.project }}
+                  </span>
+                  <span v-if="item.status" class="meta-item">
+                    <i class="pi pi-tag"></i> {{ item.status }}
+                  </span>
+                </template>
+                <template v-else-if="props.viewType === 'projects'">
+                  <span v-if="item.company_name" class="meta-item">
+                    <i class="pi pi-building"></i> {{ item.company_name }}
+                  </span>
+                  <span v-if="item.task_count" class="meta-item">
+                    <i class="pi pi-list"></i> {{ item.task_count }} tasks
+                  </span>
+                </template>
+                <template v-else-if="props.viewType === 'people'">
+                  <span v-if="item.primary_email" class="meta-item">
+                    <i class="pi pi-envelope"></i> {{ item.primary_email }}
+                  </span>
+                  <span v-if="item.is_internal" class="meta-item internal">
+                    <i class="pi pi-home"></i> Internal
+                  </span>
+                </template>
+              </div>
             </div>
-          </div>
-          <!-- Task items: minimal footer with project only -->
-          <div v-else class="gallery-item-footer">
-            <span v-if="item.project" class="footer-project" :title="item.project">
-              <i class="pi pi-folder"></i> {{ truncateText(item.project, 25) }}
-            </span>
+            <!-- Task items: minimal footer with project only -->
+            <div v-else class="gallery-item-footer">
+              <span v-if="item.project" class="footer-project" :title="item.project">
+                <i class="pi pi-folder"></i> {{ truncateText(item.project, 25) }}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
 
       <div v-if="displayedItems.length === 0" class="empty-state">
         <i class="pi pi-inbox empty-icon"></i>
@@ -428,6 +479,7 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
+import Dropdown from 'primevue/dropdown'
 import { InfoTooltip, Tooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, ExtensionBadge, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
@@ -435,7 +487,8 @@ import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
-import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, ViewType } from '@/types'
+import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, GroupConfig, ViewType } from '@/types'
+import { GROUPABLE_COLUMNS } from '@/types'
 
 interface Props {
   items: ViewDataItem[]
@@ -456,6 +509,7 @@ interface Props {
   searchQuery: string
   totalCount?: number | null
   sortConfig?: SortConfig
+  groupConfig?: GroupConfig | null
   viewType?: ViewType
   selectedTaskTypes?: string[]
   selectedRow?: number
@@ -483,6 +537,7 @@ interface Emits {
   (e: 'update:selectedCol', value: number): void
   (e: 'update:hoveredRow', value: number): void
   (e: 'update:projectFilter', value: string): void
+  (e: 'update:groupConfig', value: GroupConfig | null): void
   (e: 'clearSearch'): void
   (e: 'rowClick', item: DataItem): void
   (e: 'loadMore'): void
@@ -693,6 +748,40 @@ const handleSelectAllChange = (event: { checked: boolean }) => {
 
 const allColumns = computed(() => props.columns)
 
+// Group by options with "None" option
+const groupByOptions = computed(() => {
+  return [
+    { field: null, label: 'None' },
+    ...GROUPABLE_COLUMNS
+  ]
+})
+
+// Handle group by selection change
+const handleGroupByChange = (field: string | null) => {
+  if (field === null) {
+    emit('update:groupConfig', null)
+  } else {
+    emit('update:groupConfig', { field, order: props.groupConfig?.order || 'asc' })
+  }
+}
+
+// Toggle group order between asc and desc
+const toggleGroupOrder = () => {
+  if (props.groupConfig) {
+    emit('update:groupConfig', {
+      field: props.groupConfig.field,
+      order: props.groupConfig.order === 'asc' ? 'desc' : 'asc'
+    })
+  }
+}
+
+// Get label for the current group field
+const getGroupLabel = (): string => {
+  if (!props.groupConfig) return ''
+  const col = GROUPABLE_COLUMNS.find(c => c.field === props.groupConfig!.field)
+  return col?.label || props.groupConfig.field
+}
+
 // Should show column based on item types
 const shouldShowColumn = (field: string): boolean => {
   if (staticVisibleColumns.value !== null) return staticVisibleColumns.value.includes(field)
@@ -728,6 +817,99 @@ watch(() => props.filterConfigId, (newId, oldId) => {
 })
 
 const displayedItems = computed(() => props.items)
+
+// Compute items with group information - returns array with group headers inserted where needed
+// Each entry has: { isGroupHeader: boolean, groupValue: string, item?: ViewDataItem, itemIndex?: number }
+type TableRow = 
+  | { isGroupHeader: true, groupValue: string, itemCount: number }
+  | { isGroupHeader: false, item: ViewDataItem, itemIndex: number, groupValue: string | null }
+
+const tableRowsWithGroups = computed<TableRow[]>(() => {
+  if (!props.groupConfig) {
+    // No grouping - return items with their indices
+    return props.items.map((item, index) => ({
+      isGroupHeader: false as const,
+      item,
+      itemIndex: index,
+      groupValue: null
+    }))
+  }
+
+  const result: TableRow[] = []
+  let currentGroupValue: string | null = null
+  let currentGroupItemCount = 0
+  let groupHeaderIndex = -1
+
+  props.items.forEach((item, index) => {
+    const itemGroupValue = item.group_value ?? null
+    
+    // Check if we're starting a new group
+    if (itemGroupValue !== currentGroupValue) {
+      // Update the count of the previous group header
+      if (groupHeaderIndex >= 0 && result[groupHeaderIndex].isGroupHeader) {
+        (result[groupHeaderIndex] as { isGroupHeader: true, groupValue: string, itemCount: number }).itemCount = currentGroupItemCount
+      }
+      
+      // Add group header
+      currentGroupValue = itemGroupValue
+      currentGroupItemCount = 0
+      groupHeaderIndex = result.length
+      result.push({
+        isGroupHeader: true,
+        groupValue: itemGroupValue || '(No value)',
+        itemCount: 0 // Will be updated
+      })
+    }
+    
+    // Add the item
+    result.push({
+      isGroupHeader: false,
+      item,
+      itemIndex: index,
+      groupValue: itemGroupValue
+    })
+    currentGroupItemCount++
+  })
+
+  // Update the count of the last group header
+  if (groupHeaderIndex >= 0 && result[groupHeaderIndex].isGroupHeader) {
+    (result[groupHeaderIndex] as { isGroupHeader: true, groupValue: string, itemCount: number }).itemCount = currentGroupItemCount
+  }
+
+  return result
+})
+
+// Compute gallery items grouped - returns array of groups, each with header info and items
+interface GalleryGroup {
+  groupValue: string
+  items: { item: ViewDataItem, itemIndex: number }[]
+}
+
+const galleryGroupedItems = computed<GalleryGroup[]>(() => {
+  if (!props.groupConfig) {
+    // No grouping - return single group with all items
+    return [{
+      groupValue: '',
+      items: props.items.map((item, index) => ({ item, itemIndex: index }))
+    }]
+  }
+
+  const groups: GalleryGroup[] = []
+  let currentGroup: GalleryGroup | null = null
+
+  props.items.forEach((item, index) => {
+    const itemGroupValue = item.group_value ?? '(No value)'
+    
+    if (!currentGroup || currentGroup.groupValue !== itemGroupValue) {
+      currentGroup = { groupValue: itemGroupValue, items: [] }
+      groups.push(currentGroup)
+    }
+    
+    currentGroup.items.push({ item, itemIndex: index })
+  })
+
+  return groups
+})
 
 // Item count display
 const itemCountData = computed(() => ({
@@ -1461,6 +1643,25 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   cursor: not-allowed;
 }
 
+/* Group by dropdown */
+.group-by-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.group-by-dropdown {
+  min-width: 140px;
+}
+
+.group-order-btn {
+  color: var(--text-secondary) !important;
+}
+
+.group-order-btn:hover {
+  color: var(--accent-primary) !important;
+}
+
 .item-type-toggles {
   display: flex;
   align-items: center;
@@ -1758,6 +1959,57 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   max-height: 48px;
 }
 
+/* Group header row */
+.group-header-row {
+  background: var(--bg-tertiary) !important;
+  border-top: 2px solid var(--accent-primary);
+  cursor: default;
+  position: sticky;
+  top: calc(var(--filter-bar-height, 0px) + var(--toolbar-height, 0px) + 49px);
+  z-index: 50;
+}
+
+.group-header-row:first-child {
+  border-top: none;
+}
+
+.group-header-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.group-icon {
+  color: var(--accent-primary);
+  font-size: 1.1rem;
+}
+
+.group-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.group-label {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.group-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.group-count {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
+
 .table-row.row-odd {
   background: var(--bg-tertiary);
 }
@@ -2026,6 +2278,47 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 .gallery-view {
   padding-top: 2rem;
   padding-right: 1.5rem;
+}
+
+.gallery-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  background: var(--bg-tertiary);
+  border-top: 2px solid var(--accent-primary);
+  border-radius: 6px;
+  position: sticky;
+  top: calc(var(--filter-bar-height, 0px) + var(--toolbar-height, 0px));
+  z-index: 50;
+
+  .group-icon {
+    color: var(--accent-primary);
+    font-size: 1.1rem;
+  }
+
+  .group-label {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .group-value {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .group-count {
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+  }
+}
+
+.gallery-view .gallery-group-header:first-child {
+  margin-top: 0;
 }
 
 .gallery-grid {

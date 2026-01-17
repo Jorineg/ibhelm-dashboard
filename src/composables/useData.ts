@@ -2,7 +2,7 @@ import { ref, shallowRef, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useUserSettings } from '@/composables/useUserSettings'
 import { generateQueryKey, getCachedQuery, setCachedQuery, formatCacheAge } from '@/lib/queryCache'
-import type { ViewDataItem, FilterConfiguration, SortConfig, ViewType } from '@/types'
+import type { ViewDataItem, FilterConfiguration, SortConfig, GroupConfig, ViewType } from '@/types'
 
 const PAGE_SIZE = 50
 
@@ -20,6 +20,7 @@ function buildCacheKey(
   search: string,
   filterConfig: FilterConfiguration | null,
   sortConfig: SortConfig,
+  groupConfig: GroupConfig | null,
   selectedTaskTypes: string[] | null
 ): string {
   return generateQueryKey({
@@ -33,6 +34,8 @@ function buildCacheKey(
     columnFilters: filterConfig?.columnFilters,
     sortField: sortConfig.field,
     sortOrder: sortConfig.order,
+    groupField: groupConfig?.field,
+    groupOrder: groupConfig?.order,
     selectedTaskTypes
   })
 }
@@ -99,6 +102,7 @@ function buildUnifiedItemsParams(
   showFiles: boolean,
   selectedTaskTypes: string[] | null,
   sortConfig: SortConfig,
+  groupConfig: GroupConfig | null,
   page: number,
   hideCompletedTasks: boolean = false,
   hideInactiveProjects: boolean = false,
@@ -142,6 +146,8 @@ function buildUnifiedItemsParams(
     p_status_not_in: col.status_not_in && col.status_not_in.length > 0 ? col.status_not_in : null,
     p_priority_in: col.priority_in && col.priority_in.length > 0 ? col.priority_in : null,
     p_priority_not_in: col.priority_not_in && col.priority_not_in.length > 0 ? col.priority_not_in : null,
+    p_project_status_in: col.project_status_in && col.project_status_in.length > 0 ? col.project_status_in : null,
+    p_project_status_not_in: col.project_status_not_in && col.project_status_not_in.length > 0 ? col.project_status_not_in : null,
 
     // Date range filters
     p_due_date_min: col.due_date_min || null,
@@ -179,6 +185,11 @@ function buildUnifiedItemsParams(
     // Pagination & sorting
     p_sort_field: sortConfig.field,
     p_sort_order: sortConfig.order,
+    
+    // Grouping
+    p_group_by: groupConfig?.field || null,
+    p_group_order: groupConfig?.order || null,
+    
     p_limit: PAGE_SIZE,
     p_offset: page * PAGE_SIZE,
   }
@@ -223,6 +234,7 @@ export function useData() {
     fileIgnorePatterns: string[] | null = null
   ) => {
     const sort = sortConfig || currentSort.value
+    const group = filterConfig?.groupConfig || null
 
     // Check if any type is selected
     const hasTypes = showTasks || showEmails || showCraft || showFiles ||
@@ -233,7 +245,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, sort, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
+      selectedTaskTypes, sort, group, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
     )
 
     const t0 = performance.now()
@@ -264,11 +276,11 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, 0, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
+      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, null, 0, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
     )
 
-    // Remove pagination/sort params - count doesn't need them
-    const { p_sort_field, p_sort_order, p_limit, p_offset, ...countParams } = params
+    // Remove pagination/sort/group params - count doesn't need them
+    const { p_sort_field, p_sort_order, p_group_by, p_group_order, p_limit, p_offset, ...countParams } = params
 
     const t0 = performance.now()
     const { data, error: queryError } = await supabase.rpc('count_unified_items', countParams)
@@ -366,7 +378,7 @@ export function useData() {
 
     const cacheKey = buildCacheKey(
       viewType, showTasks, showEmails, showCraft, showFiles,
-      search, filterConfig, sortConfig || currentSort.value, selectedTaskTypes
+      search, filterConfig, sortConfig || currentSort.value, filterConfig?.groupConfig || null, selectedTaskTypes
     )
 
     // Show cache or loading state (check version before updating)
@@ -596,12 +608,13 @@ export function useData() {
       default: {
         // Items view - fetch all in batches using RPC
         const allData: ViewDataItem[] = []
+        const group = filterConfig?.groupConfig || null
         let page = 0
 
         while (true) {
           const params = buildUnifiedItemsParams(
             filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-            selectedTaskTypes, sort, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
+            selectedTaskTypes, sort, group, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
           )
           // Use larger batch for export
           params.p_limit = 1000
