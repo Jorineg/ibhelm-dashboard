@@ -1,6 +1,16 @@
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 
+// Context filters for autocomplete - matches DB function parameters
+export interface AutocompleteContext {
+  types?: string[]        // p_ctx_types: item types to filter by
+  project?: string        // p_ctx_project: project name filter
+  person?: string         // p_ctx_person: involved person filter  
+  location?: string       // p_ctx_location: location filter
+  costGroup?: string      // p_ctx_cost_group: cost group code filter
+  tags?: string           // p_ctx_tags: tag filter
+}
+
 export interface CompanySuggestion {
   id: number
   name: string
@@ -60,7 +70,6 @@ export function useCompanyAutocomplete() {
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching companies:', err)
@@ -76,13 +85,7 @@ export function useCompanyAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
 
 export function useProjectAutocomplete() {
@@ -90,18 +93,22 @@ export function useProjectAutocomplete() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const search = async (searchText: string, limit = 10) => {
+  const search = async (searchText: string, limit = 10, context?: AutocompleteContext) => {
     loading.value = true
     error.value = null
     
     try {
       const { data, error: rpcError } = await supabase.rpc('search_projects_autocomplete', {
         p_search_text: searchText || '',
-        p_limit: limit
+        p_limit: limit,
+        p_ctx_types: context?.types ?? null,
+        p_ctx_person: context?.person ?? null,
+        p_ctx_location: context?.location ?? null,
+        p_ctx_cost_group: context?.costGroup ?? null,
+        p_ctx_tags: context?.tags ?? null
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching projects:', err)
@@ -117,13 +124,7 @@ export function useProjectAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
 
 export function usePersonAutocomplete() {
@@ -131,18 +132,22 @@ export function usePersonAutocomplete() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const search = async (searchText: string, limit = 10) => {
+  const search = async (searchText: string, limit = 10, context?: AutocompleteContext) => {
     loading.value = true
     error.value = null
     
     try {
       const { data, error: rpcError } = await supabase.rpc('search_persons_autocomplete', {
         p_search_text: searchText || '',
-        p_limit: limit
+        p_limit: limit,
+        p_ctx_types: context?.types ?? null,
+        p_ctx_project: context?.project ?? null,
+        p_ctx_location: context?.location ?? null,
+        p_ctx_cost_group: context?.costGroup ?? null,
+        p_ctx_tags: context?.tags ?? null
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching persons:', err)
@@ -158,13 +163,7 @@ export function usePersonAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
 
 export function useCostGroupAutocomplete() {
@@ -172,18 +171,22 @@ export function useCostGroupAutocomplete() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const search = async (searchText: string, limit = 10) => {
+  const search = async (searchText: string, limit = 10, context?: AutocompleteContext) => {
     loading.value = true
     error.value = null
     
     try {
       const { data, error: rpcError } = await supabase.rpc('search_cost_groups_autocomplete', {
         p_search_text: searchText || '',
-        p_limit: limit
+        p_limit: limit,
+        p_ctx_types: context?.types ?? null,
+        p_ctx_project: context?.project ?? null,
+        p_ctx_person: context?.person ?? null,
+        p_ctx_location: context?.location ?? null,
+        p_ctx_tags: context?.tags ?? null
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching cost groups:', err)
@@ -199,13 +202,7 @@ export function useCostGroupAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
 
 export function useLocationAutocomplete() {
@@ -213,18 +210,22 @@ export function useLocationAutocomplete() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const search = async (searchText: string, limit = 10) => {
+  const search = async (searchText: string, limit = 10, context?: AutocompleteContext) => {
     loading.value = true
     error.value = null
     
     try {
       const { data, error: rpcError } = await supabase.rpc('search_locations_autocomplete', {
         p_search_text: searchText || '',
-        p_limit: limit
+        p_limit: limit,
+        p_ctx_types: context?.types ?? null,
+        p_ctx_project: context?.project ?? null,
+        p_ctx_person: context?.person ?? null,
+        p_ctx_cost_group: context?.costGroup ?? null,
+        p_ctx_tags: context?.tags ?? null
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching locations:', err)
@@ -240,13 +241,7 @@ export function useLocationAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
 
 export function useTagAutocomplete() {
@@ -254,18 +249,22 @@ export function useTagAutocomplete() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const search = async (searchText: string, limit = 10) => {
+  const search = async (searchText: string, limit = 10, context?: AutocompleteContext) => {
     loading.value = true
     error.value = null
     
     try {
       const { data, error: rpcError } = await supabase.rpc('search_tags_autocomplete', {
         p_search_text: searchText || '',
-        p_limit: limit
+        p_limit: limit,
+        p_ctx_types: context?.types ?? null,
+        p_ctx_project: context?.project ?? null,
+        p_ctx_person: context?.person ?? null,
+        p_ctx_location: context?.location ?? null,
+        p_ctx_cost_group: context?.costGroup ?? null
       })
       
       if (rpcError) throw rpcError
-      
       suggestions.value = data || []
     } catch (err) {
       console.error('Error searching tags:', err)
@@ -281,12 +280,5 @@ export function useTagAutocomplete() {
     error.value = null
   }
 
-  return {
-    suggestions,
-    loading,
-    error,
-    search,
-    clear
-  }
+  return { suggestions, loading, error, search, clear }
 }
-

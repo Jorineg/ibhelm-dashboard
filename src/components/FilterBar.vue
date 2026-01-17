@@ -390,7 +390,7 @@ import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
 import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useKeyBindings } from '@/composables/useKeyBindings'
-import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
+import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete, type AutocompleteContext } from '@/composables/useAutocomplete'
 
 const props = defineProps<{
   sticky?: boolean
@@ -485,6 +485,26 @@ const { suggestions: personSuggestions, loading: personLoading, search: searchPe
 const { suggestions: costGroupSuggestions, loading: costGroupLoading, search: searchCostGroups, clear: clearCostGroupSuggestions } = useCostGroupAutocomplete()
 const { suggestions: locationSuggestions, loading: locationLoading, search: searchLocations, clear: clearLocationSuggestions } = useLocationAutocomplete()
 const { suggestions: tagSuggestions, loading: tagLoading, search: searchTags, clear: clearTagSuggestions } = useTagAutocomplete()
+
+// Build context for autocomplete (other active filters, excluding the one being searched)
+const getAutocompleteContext = (exclude: keyof QuickFilters): AutocompleteContext | undefined => {
+  const qf = activeConfig.value?.quickFilters
+  if (!qf) return undefined
+  const ctx: AutocompleteContext = {}
+  if (exclude !== 'project' && qf.project) ctx.project = qf.project
+  if (exclude !== 'involved_person' && qf.involved_person) ctx.person = qf.involved_person
+  if (exclude !== 'location' && qf.location) ctx.location = qf.location
+  if (exclude !== 'kostengruppe' && qf.kostengruppe) ctx.costGroup = qf.kostengruppe
+  if (exclude !== 'tags' && qf.tags) ctx.tags = qf.tags
+  // Include type filters from view config
+  const types: string[] = []
+  if (activeConfig.value?.showTasks) types.push('task')
+  if (activeConfig.value?.showEmails) types.push('email')
+  if (activeConfig.value?.showCraft) types.push('craft')
+  if (activeConfig.value?.showFiles) types.push('file')
+  if (types.length > 0 && types.length < 4) ctx.types = types
+  return Object.keys(ctx).length > 0 ? ctx : undefined
+}
 
 // Add filter dropdown state
 const addFilterRef = ref<HTMLElement | null>(null)
@@ -722,24 +742,24 @@ const selectFilter = (col: FilterableColumn) => {
   }
 }
 
-// Autocomplete handlers
-const handleProjectSearch = (searchText: string) => searchProjects(searchText)
+// Autocomplete handlers - pass context (other active filters) for smart suggestions
+const handleProjectSearch = (searchText: string) => searchProjects(searchText, 10, getAutocompleteContext('project'))
 const handleProjectSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('project', suggestion.name as string)
 const handleProjectClear = () => { updateQuickFilter('project', ''); clearProjectSuggestions() }
 
-const handlePersonSearch = (searchText: string) => searchPersons(searchText)
+const handlePersonSearch = (searchText: string) => searchPersons(searchText, 10, getAutocompleteContext('involved_person'))
 const handlePersonSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('involved_person', suggestion.display_name as string)
 const handlePersonClear = () => { updateQuickFilter('involved_person', ''); clearPersonSuggestions() }
 
-const handleCostGroupSearch = (searchText: string) => searchCostGroups(searchText)
+const handleCostGroupSearch = (searchText: string) => searchCostGroups(searchText, 10, getAutocompleteContext('kostengruppe'))
 const handleCostGroupSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('kostengruppe', String(suggestion.code))
 const handleCostGroupClear = () => { updateQuickFilter('kostengruppe', ''); clearCostGroupSuggestions() }
 
-const handleLocationSearch = (searchText: string) => searchLocations(searchText)
+const handleLocationSearch = (searchText: string) => searchLocations(searchText, 10, getAutocompleteContext('location'))
 const handleLocationSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('location', suggestion.name as string)
 const handleLocationClear = () => { updateQuickFilter('location', ''); clearLocationSuggestions() }
 
-const handleTagSearch = (searchText: string) => searchTags(searchText)
+const handleTagSearch = (searchText: string) => searchTags(searchText, 10, getAutocompleteContext('tags'))
 const handleTagSelect = (suggestion: AutocompleteSuggestion) => updateQuickFilter('tags', suggestion.name as string)
 const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestions() }
 </script>
