@@ -62,15 +62,15 @@ const showTooltip = ref(false)
 
 .info-tooltip {
   position: absolute;
-  z-index: 1000;
-  background: var(--bg-tertiary);
+  z-index: 9999;
+  background: #1a1a1a;
   border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 0.65rem 0.85rem;
   font-size: 0.8rem;
   color: var(--text-secondary);
   line-height: 1.45;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   width: max-content;
   max-width: 280px;
   pointer-events: none;

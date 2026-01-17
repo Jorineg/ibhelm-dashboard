@@ -10,6 +10,7 @@ export interface UserSettings {
   hide_completed_tasks: boolean
   default_sort_field: string
   default_sort_order: 'asc' | 'desc'
+  tooltips_disabled: boolean
   filter_configurations: FilterConfigurationsData
   key_bindings: Partial<Record<keyof KeyBindings, string>>
 }
@@ -36,6 +37,7 @@ const DEFAULT_USER_SETTINGS: UserSettings = {
   hide_completed_tasks: false,
   default_sort_field: 'updated_at',
   default_sort_order: 'desc',
+  tooltips_disabled: false,
   filter_configurations: { ...DEFAULT_FILTER_CONFIGURATIONS },
   key_bindings: {}
 }
@@ -229,6 +231,7 @@ export function useUserSettings() {
   const hideCompletedTasks = computed(() => settings.value.hide_completed_tasks)
   const defaultSortField = computed(() => settings.value.default_sort_field)
   const defaultSortOrder = computed(() => settings.value.default_sort_order)
+  const tooltipsDisabled = computed(() => settings.value.tooltips_disabled)
   const filterConfigurations = computed(() => settings.value.filter_configurations)
   const keyBindings = computed(() => settings.value.key_bindings)
 
@@ -237,6 +240,7 @@ export function useUserSettings() {
   const updateHideCompletedTasks = (value: boolean) => updateSetting('hide_completed_tasks', value)
   const updateDefaultSortField = (value: string) => updateSetting('default_sort_field', value)
   const updateDefaultSortOrder = (value: 'asc' | 'desc') => updateSetting('default_sort_order', value)
+  const updateTooltipsDisabled = (value: boolean) => updateSetting('tooltips_disabled', value)
   
   const updateFilterConfigurations = (value: FilterConfigurationsData) => {
     updateSetting('filter_configurations', value)
@@ -258,12 +262,14 @@ export function useUserSettings() {
     hideCompletedTasks,
     defaultSortField,
     defaultSortOrder,
+    tooltipsDisabled,
     filterConfigurations,
     keyBindings,
     // Updaters
     updateHideCompletedTasks,
     updateDefaultSortField,
     updateDefaultSortOrder,
+    updateTooltipsDisabled,
     updateFilterConfigurations,
     updateKeyBindings
   }

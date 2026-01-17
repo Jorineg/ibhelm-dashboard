@@ -3,44 +3,44 @@
     <div class="mini-config-bar">
       <TransitionGroup name="config-list">
         <div
-          v-for="config in sortedConfigurations"
+          v-for="(config, index) in sortedConfigurations"
           :key="config.id"
           class="config-item-wrapper"
           @mouseenter="hoveredConfigId = config.id"
           @mouseleave="hoveredConfigId = null"
         >
-          <button
-            :class="['mini-config-item', { 
-              active: config.id === activeConfigId,
-              dragging: draggedConfigId === config.id
-            }]"
-            @click="handleConfigClick(config.id)"
-            :title="config.name"
-            draggable="true"
-            @dragstart="onConfigDragStart($event, config.id)"
-            @dragover="onConfigDragOver($event, config.id)"
-            @drop="onConfigDrop"
-            @dragend="onConfigDragEnd"
-          >
-            <span v-if="!isRenaming(config.id)" class="config-name">{{ truncateName(config.name) }}</span>
-            <input
-              v-else
-              ref="renameInputRef"
-              v-model="renameValue"
-              class="rename-input"
-              @blur="finishRename"
-              @keydown.enter="finishRename"
-              @keydown.escape="cancelRename"
-              @click.stop
-            />
-          </button>
+          <Tooltip :text="config.name" :shortcut="getConfigShortcut(index)" position="right" block>
+            <button
+              :class="['mini-config-item', { 
+                active: config.id === activeConfigId,
+                dragging: draggedConfigId === config.id
+              }]"
+              @click="handleConfigClick(config.id)"
+              draggable="true"
+              @dragstart="onConfigDragStart($event, config.id)"
+              @dragover="onConfigDragOver($event, config.id)"
+              @drop="onConfigDrop"
+              @dragend="onConfigDragEnd"
+            >
+              <span v-if="!isRenaming(config.id)" class="config-name">{{ truncateName(config.name) }}</span>
+              <input
+                v-else
+                ref="renameInputRef"
+                v-model="renameValue"
+                class="rename-input"
+                @blur="finishRename"
+                @keydown.enter="finishRename"
+                @keydown.escape="cancelRename"
+                @click.stop
+              />
+            </button>
+          </Tooltip>
           
           <!-- Three dots menu button (outside button, positioned over it) -->
           <span 
             v-if="config.id === activeConfigId && !isRenaming(config.id) && (hoveredConfigId === config.id || openMenuId === config.id)"
             class="config-menu-btn" 
             @click="toggleMenu(config.id)"
-            title="Configuration options"
             ref="menuRef"
           >
             <i class="pi pi-ellipsis-v"></i>
@@ -49,38 +49,46 @@
           <!-- Dropdown menu -->
           <Transition name="dropdown">
             <div v-if="openMenuId === config.id" class="config-dropdown dropdown-panel">
-              <div class="dropdown-item" @click="startRename(config.id, config.name)">
-                <i class="pi pi-pencil"></i>
-                <span>Rename</span>
-              </div>
+              <Tooltip text="Rename" :shortcut="renameShortcut" position="right" block>
+                <div class="dropdown-item" @click="startRename(config.id, config.name)">
+                  <i class="pi pi-pencil"></i>
+                  <span>Rename</span>
+                </div>
+              </Tooltip>
               <div class="dropdown-item" @click="handleDuplicate(config.id)">
                 <i class="pi pi-copy"></i>
                 <span>Duplicate</span>
               </div>
-              <div 
-                class="dropdown-item danger" 
-                :class="{ disabled: configurations.length <= 1 }"
-                @click="handleDelete(config.id)"
-              >
-                <i class="pi pi-trash"></i>
-                <span>Delete</span>
-              </div>
+              <Tooltip :text="configurations.length <= 1 ? 'Cannot delete last config' : 'Delete'" :shortcut="configurations.length > 1 ? deleteShortcut : undefined" position="right" block>
+                <div 
+                  class="dropdown-item danger" 
+                  :class="{ disabled: configurations.length <= 1 }"
+                  @click="handleDelete(config.id)"
+                >
+                  <i class="pi pi-trash"></i>
+                  <span>Delete</span>
+                </div>
+              </Tooltip>
             </div>
           </Transition>
         </div>
       </TransitionGroup>
       
       <!-- Add new config button -->
-      <button class="add-config-btn" @click="handleCreateConfig" title="New configuration">
-        <i class="pi pi-plus"></i>
-      </button>
+      <Tooltip text="New Configuration" :shortcut="newConfigShortcut" position="right" block>
+        <button class="add-config-btn" @click="handleCreateConfig">
+          <i class="pi pi-plus"></i>
+        </button>
+      </Tooltip>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { Tooltip } from '@/components/common'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
+import { useKeyBindings } from '@/composables/useKeyBindings'
 
 const {
   configurations,
@@ -92,6 +100,20 @@ const {
   setActiveConfiguration,
   updateConfigOrder
 } = useFilterConfigs()
+
+const { keyBindings, formatKeyForDisplay } = useKeyBindings()
+
+// Get shortcut key for config index (1-9, then 0 for 10th)
+const getConfigShortcut = (index: number): string | undefined => {
+  if (index < 9) return String(index + 1)
+  if (index === 9) return '0'
+  return undefined
+}
+
+// Shortcuts for menu items
+const renameShortcut = computed(() => formatKeyForDisplay(keyBindings.value.renameConfig.key))
+const deleteShortcut = computed(() => formatKeyForDisplay(keyBindings.value.deleteConfig.key))
+const newConfigShortcut = computed(() => formatKeyForDisplay(keyBindings.value.newConfig.key))
 
 // Drag and drop state
 const draggedConfigId = ref<string | null>(null)
@@ -416,6 +438,7 @@ defineExpose({ startRenameActive })
 
 /* Add config button */
 .add-config-btn {
+  width: 100%;
   margin-top: 0.5rem;
   padding: 0.5rem 0.65rem;
   background: transparent;

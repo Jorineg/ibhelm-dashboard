@@ -10,12 +10,16 @@
       @sign-out="handleSignOut"
     >
       <template #actions>
-        <button class="refresh-btn" @click="refreshAll" :disabled="loading" title="Refresh">
-          <i class="pi" :class="loading ? 'pi-spin pi-spinner' : 'pi-refresh'" />
-        </button>
-        <button class="home-btn" @click="goBack" title="Home">
-          <i class="pi pi-home"></i>
-        </button>
+        <Tooltip text="Refresh" position="bottom">
+          <button class="refresh-btn" @click="refreshAll" :disabled="loading">
+            <i class="pi" :class="loading ? 'pi-spin pi-spinner' : 'pi-refresh'" />
+          </button>
+        </Tooltip>
+        <Tooltip text="Home" position="bottom">
+          <button class="home-btn" @click="goBack">
+            <i class="pi pi-home"></i>
+          </button>
+        </Tooltip>
       </template>
     </PageHeader>
 
@@ -85,7 +89,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { PageHeader } from '@/components/common'
+import { PageHeader, Tooltip } from '@/components/common'
 import { ServiceOverviewSection, ServiceDetailSection, ConfigurationSection } from '@/components/services'
 import { useAuth } from '@/composables/useAuth'
 import { useServices, type ServiceConfig } from '@/composables/useServices'

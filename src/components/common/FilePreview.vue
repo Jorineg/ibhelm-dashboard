@@ -148,6 +148,7 @@ const htmlContent = ref<string | null>(null)
 
 // PDF state - store document outside Vue reactivity to avoid Proxy issues with private fields
 let pdfDocInstance: pdfjsLib.PDFDocumentProxy | null = null
+let currentRenderTask: pdfjsLib.RenderTask | null = null
 const currentPage = ref(1)
 const totalPages = ref(0)
 const showNavHint = ref(true)
@@ -268,6 +269,12 @@ const loadPdf = async (url: string) => {
 const renderPage = async (pageNum: number) => {
   if (!pdfDocInstance || !canvasRef.value) return
   
+  // Cancel any pending render task to avoid overlapping renders
+  if (currentRenderTask) {
+    currentRenderTask.cancel()
+    currentRenderTask = null
+  }
+  
   try {
     const page = await pdfDocInstance.getPage(pageNum)
     const canvas = canvasRef.value
@@ -295,14 +302,21 @@ const renderPage = async (pageNum: number) => {
     canvas.style.width = `${scaledViewport.width}px`
     canvas.style.height = `${scaledViewport.height}px`
     
-    ctx.scale(pixelRatio, pixelRatio)
+    // Reset transform before scaling (fixes accumulated transform bug)
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
     
-    await page.render({
+    currentRenderTask = page.render({
       canvasContext: ctx,
       viewport: scaledViewport
-    }).promise
-  } catch (e) {
-    console.error('Error rendering page:', e)
+    })
+    
+    await currentRenderTask.promise
+    currentRenderTask = null
+  } catch (e: any) {
+    // Ignore cancelled render errors (expected when navigating quickly)
+    if (e?.name !== 'RenderingCancelledException') {
+      console.error('Error rendering page:', e)
+    }
   }
 }
 
@@ -361,6 +375,14 @@ onMounted(() => {
 // Watch for storage path changes
 watch(() => props.storagePath, () => {
   signedUrl.value = null
+  // Cancel pending render and clean up PDF
+  if (currentRenderTask) {
+    currentRenderTask.cancel()
+    currentRenderTask = null
+  }
+  if (pdfDocInstance) {
+    pdfDocInstance.destroy()
+  }
   pdfDocInstance = null
   currentPage.value = 1
   totalPages.value = 0
@@ -395,6 +417,11 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   if (resizeTimeout) clearTimeout(resizeTimeout)
+  // Cancel pending render task
+  if (currentRenderTask) {
+    currentRenderTask.cancel()
+    currentRenderTask = null
+  }
   // Clean up PDF document
   if (pdfDocInstance) {
     pdfDocInstance.destroy()

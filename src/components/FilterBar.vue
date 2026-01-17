@@ -15,10 +15,12 @@
             @drop="onDrop"
             @dragend="onDragEnd"
           >
-            <label :for="filterName" class="filter-label">
-              <i class="pi pi-bars drag-handle"></i>
-              {{ formatFilterName(filterName) }}
-            </label>
+            <Tooltip :shortcuts="getFilterShortcuts(filterName)" position="top">
+              <label :for="filterName" class="filter-label">
+                <i class="pi pi-bars drag-handle"></i>
+                {{ formatFilterName(filterName) }}
+              </label>
+            </Tooltip>
             
             <!-- Project autocomplete -->
             <div v-if="filterName === 'project'" class="filter-input-with-info">
@@ -120,8 +122,8 @@
               <InfoTooltip position="bottom">
                 <strong>Hierarchical search:</strong>
                 <ul>
-                  <li>Enter <code>4</code> to find all 4xx</li>
-                  <li>Enter <code>45</code> to find all 45x</li>
+                  <li>Enter <code>400</code> to find all 4xx</li>
+                  <li>Enter <code>450</code> to find all 45x</li>
                   <li>Enter <code>456</code> to find exact match</li>
                 </ul>
                 <strong style="margin-top: 0.5rem;">Or search by name</strong>
@@ -233,12 +235,12 @@
           </div>
 
           <Button
-            v-if="hasActiveFilters"
             label="Clear All"
             icon="pi pi-filter-slash"
             outlined
             severity="secondary"
             size="small"
+            :disabled="!hasActiveFilters"
             @click="clearAllFilters"
             class="filter-action-btn"
           />
@@ -368,10 +370,11 @@ import Button from 'primevue/button'
 import MultiSelect from 'primevue/multiselect'
 import Calendar from 'primevue/calendar'
 import TriStateCheckbox from 'primevue/tristatecheckbox'
-import { AutocompleteInput, InfoTooltip, type AutocompleteSuggestion } from '@/components/common'
+import { AutocompleteInput, InfoTooltip, Tooltip, type AutocompleteSuggestion } from '@/components/common'
 import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
 import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
+import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
 
 const {
@@ -470,6 +473,8 @@ const toggleAddFilterMenu = () => {
 
 
 
+const { keyBindings } = useKeyBindings()
+
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
     project: 'Projekt',
@@ -479,6 +484,23 @@ const formatFilterName = (name: string) => {
     tags: 'Tags'
   }
   return labels[name] || name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ')
+}
+
+const getFilterShortcuts = (name: string): { label: string, key: string }[] => {
+  const bindingMap: Record<string, keyof typeof keyBindings.value> = {
+    project: 'focusProject',
+    involved_person: 'focusInvolvedPerson',
+    location: 'focusLocation',
+    kostengruppe: 'focusCostGroup',
+    tags: 'focusTags'
+  }
+  const bindingKey = bindingMap[name]
+  if (!bindingKey) return []
+  const key = keyBindings.value[bindingKey].key
+  return [
+    { label: 'Focus', key },
+    { label: 'Clear', key: `Shift+${key}` }
+  ]
 }
 
 const focusQuickFilter = (filterName: keyof QuickFilters) => {
@@ -804,9 +826,9 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 
 .filter-actions-inline {
   display: flex;
-  gap: 1rem;
-  align-items: center;
-  padding-bottom: 0.25rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
   flex-shrink: 0;
 }
 

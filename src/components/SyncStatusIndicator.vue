@@ -1,15 +1,18 @@
 <template>
-  <div class="sync-indicator" @click="$emit('click')" :title="tooltip">
-    <span class="indicator-label">data status:</span>
-    <span class="indicator-status" :class="overallStatus">
-      <i :class="statusIcon"></i>
-      {{ statusText }}
-    </span>
-  </div>
+  <Tooltip :text="tooltip" position="bottom">
+    <div class="sync-indicator" @click="$emit('click')">
+      <span class="indicator-label">data status:</span>
+      <span class="indicator-status" :class="overallStatus">
+        <i :class="statusIcon"></i>
+        {{ statusText }}
+      </span>
+    </div>
+  </Tooltip>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Tooltip } from '@/components/common'
 import type { OverallStatus } from '@/composables/useSyncStatus'
 
 interface Props {

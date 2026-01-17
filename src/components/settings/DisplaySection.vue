@@ -51,6 +51,26 @@
         </span>
       </div>
     </div>
+
+    <div class="display-section">
+      <h4>Tooltips</h4>
+      <p class="section-hint">
+        Control the display of tooltips showing keyboard shortcuts and additional information.
+      </p>
+      <div class="checkbox-row">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            v-model="localTooltipsDisabled"
+            @change="handleSaveTooltipsDisabled"
+          />
+          <span class="checkbox-text">Disable tooltips</span>
+        </label>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
   </SectionCard>
 </template>
 
@@ -63,15 +83,18 @@ const {
   hideCompletedTasks,
   defaultSortField,
   defaultSortOrder,
+  tooltipsDisabled,
   saving,
   updateHideCompletedTasks,
   updateDefaultSortField,
-  updateDefaultSortOrder
+  updateDefaultSortOrder,
+  updateTooltipsDisabled
 } = useUserSettings()
 
 const localHideCompletedTasks = ref(false)
 const localSortField = ref('updated_at')
 const localSortOrder = ref<'asc' | 'desc'>('desc')
+const localTooltipsDisabled = ref(false)
 
 const sortableColumns = [
   { field: 'updated_at', header: 'Updated' },
@@ -97,9 +120,14 @@ const handleSaveDefaultSort = () => {
   updateDefaultSortOrder(localSortOrder.value)
 }
 
+const handleSaveTooltipsDisabled = () => {
+  updateTooltipsDisabled(localTooltipsDisabled.value)
+}
+
 watch(hideCompletedTasks, (val) => { localHideCompletedTasks.value = val }, { immediate: true })
 watch(defaultSortField, (val) => { localSortField.value = val }, { immediate: true })
 watch(defaultSortOrder, (val) => { localSortOrder.value = val }, { immediate: true })
+watch(tooltipsDisabled, (val) => { localTooltipsDisabled.value = val }, { immediate: true })
 </script>
 
 <style scoped>

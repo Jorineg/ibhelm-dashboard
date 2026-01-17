@@ -84,15 +84,15 @@
             <span class="pattern-label">{{ pattern.label }}</span>
             <code class="pattern-code">{{ pattern.pattern }}</code>
           </div>
-          <button
-            v-if="!pattern.builtin"
-            type="button"
-            class="pattern-delete"
-            @click="removePattern(pattern.pattern)"
-            title="Delete pattern"
-          >
-            <i class="pi pi-trash"></i>
-          </button>
+          <Tooltip v-if="!pattern.builtin" text="Delete pattern" position="top">
+            <button
+              type="button"
+              class="pattern-delete"
+              @click="removePattern(pattern.pattern)"
+            >
+              <i class="pi pi-trash"></i>
+            </button>
+          </Tooltip>
           <span v-else class="pattern-builtin-badge">built-in</span>
         </div>
       </div>
@@ -134,7 +134,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import Button from 'primevue/button'
-import { SectionCard, InfoBox, StatusBadge, StatsGrid } from '@/components/common'
+import { SectionCard, InfoBox, StatusBadge, StatsGrid, Tooltip } from '@/components/common'
 import { formatDate } from '@/lib/formatDate'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import type { FileLinkingRun } from '@/composables/useFiles'

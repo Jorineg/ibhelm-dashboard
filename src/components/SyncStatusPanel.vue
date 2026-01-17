@@ -36,20 +36,22 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span 
+            <Tooltip 
               v-if="source.data.pendingCount > 0 || source.data.processingCount > 0" 
-              class="detail-value queue pending"
-              :title="getQueuePendingTooltip(source.data.pendingCount, source.data.processingCount, source.data.oldestProcessingStarted)"
+              :text="getQueuePendingTooltip(source.data.pendingCount, source.data.processingCount, source.data.oldestProcessingStarted)"
+              position="right"
             >
-              {{ source.data.pendingCount }} pending<span v-if="source.data.processingCount > 0">, {{ source.data.processingCount }} processing</span>
-            </span>
-            <span 
+              <span class="detail-value queue pending">
+                {{ source.data.pendingCount }} pending<span v-if="source.data.processingCount > 0">, {{ source.data.processingCount }} processing</span>
+              </span>
+            </Tooltip>
+            <Tooltip 
               v-else 
-              class="detail-value queue ok"
-              :title="getQueueOkTooltip(source.data.lastChange, 'synced')"
+              :text="getQueueOkTooltip(source.data.lastChange, 'synced')"
+              position="right"
             >
-              ✓ synced
-            </span>
+              <span class="detail-value queue ok">✓ synced</span>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -78,30 +80,29 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span 
+            <Tooltip 
               v-if="syncStatus.files.pendingCount > 0 || syncStatus.files.processingCount > 0" 
-              class="detail-value queue pending"
-              :title="getQueuePendingTooltip(syncStatus.files.pendingCount, syncStatus.files.processingCount, syncStatus.files.oldestProcessingStarted)"
+              :text="getQueuePendingTooltip(syncStatus.files.pendingCount, syncStatus.files.processingCount, syncStatus.files.oldestProcessingStarted)"
+              position="right"
             >
-              {{ syncStatus.files.pendingCount }} pending<span v-if="syncStatus.files.processingCount > 0">, {{ syncStatus.files.processingCount }} uploading</span>
-            </span>
-            <span 
+              <span class="detail-value queue pending">
+                {{ syncStatus.files.pendingCount }} pending<span v-if="syncStatus.files.processingCount > 0">, {{ syncStatus.files.processingCount }} uploading</span>
+              </span>
+            </Tooltip>
+            <Tooltip 
               v-else 
-              class="detail-value queue ok"
-              :title="getQueueOkTooltip(syncStatus.files.lastProcessed, 'uploaded')"
+              :text="getQueueOkTooltip(syncStatus.files.lastProcessed, 'uploaded')"
+              position="right"
             >
-              ✓ uploaded
-            </span>
+              <span class="detail-value queue ok">✓ uploaded</span>
+            </Tooltip>
           </div>
           
           <div v-if="syncStatus.files.failedCount > 0" class="detail-row">
             <span class="detail-label">Failed:</span>
-            <span 
-              class="detail-value queue failed"
-              :title="getFailedTooltip(syncStatus.files.failedCount, syncStatus.files.lastFailed)"
-            >
-              {{ syncStatus.files.failedCount }} errors
-            </span>
+            <Tooltip :text="getFailedTooltip(syncStatus.files.failedCount, syncStatus.files.lastFailed)" position="right">
+              <span class="detail-value queue failed">{{ syncStatus.files.failedCount }} errors</span>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -130,30 +131,29 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span 
+            <Tooltip 
               v-if="syncStatus.thumbnails.pendingCount > 0 || syncStatus.thumbnails.processingCount > 0" 
-              class="detail-value queue pending"
-              :title="getQueuePendingTooltip(syncStatus.thumbnails.pendingCount, syncStatus.thumbnails.processingCount, syncStatus.thumbnails.oldestProcessingStarted)"
+              :text="getQueuePendingTooltip(syncStatus.thumbnails.pendingCount, syncStatus.thumbnails.processingCount, syncStatus.thumbnails.oldestProcessingStarted)"
+              position="right"
             >
-              {{ syncStatus.thumbnails.pendingCount }} pending<span v-if="syncStatus.thumbnails.processingCount > 0">, {{ syncStatus.thumbnails.processingCount }} processing</span>
-            </span>
-            <span 
+              <span class="detail-value queue pending">
+                {{ syncStatus.thumbnails.pendingCount }} pending<span v-if="syncStatus.thumbnails.processingCount > 0">, {{ syncStatus.thumbnails.processingCount }} processing</span>
+              </span>
+            </Tooltip>
+            <Tooltip 
               v-else 
-              class="detail-value queue ok"
-              :title="getQueueOkTooltip(syncStatus.thumbnails.lastProcessed, 'processed')"
+              :text="getQueueOkTooltip(syncStatus.thumbnails.lastProcessed, 'processed')"
+              position="right"
             >
-              ✓ processed
-            </span>
+              <span class="detail-value queue ok">✓ processed</span>
+            </Tooltip>
           </div>
           
           <div v-if="syncStatus.thumbnails.failedCount > 0" class="detail-row">
             <span class="detail-label">Failed:</span>
-            <span 
-              class="detail-value queue failed"
-              :title="getFailedTooltip(syncStatus.thumbnails.failedCount, syncStatus.thumbnails.lastFailed)"
-            >
-              {{ syncStatus.thumbnails.failedCount }} errors
-            </span>
+            <Tooltip :text="getFailedTooltip(syncStatus.thumbnails.failedCount, syncStatus.thumbnails.lastFailed)" position="right">
+              <span class="detail-value queue failed">{{ syncStatus.thumbnails.failedCount }} errors</span>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -182,30 +182,29 @@
           
           <div class="detail-row">
             <span class="detail-label">Queue:</span>
-            <span 
+            <Tooltip 
               v-if="syncStatus.attachments.pendingCount > 0 || syncStatus.attachments.processingCount > 0" 
-              class="detail-value queue pending"
-              :title="getQueuePendingTooltip(syncStatus.attachments.pendingCount, syncStatus.attachments.processingCount, syncStatus.attachments.oldestProcessingStarted)"
+              :text="getQueuePendingTooltip(syncStatus.attachments.pendingCount, syncStatus.attachments.processingCount, syncStatus.attachments.oldestProcessingStarted)"
+              position="right"
             >
-              {{ syncStatus.attachments.pendingCount }} pending<span v-if="syncStatus.attachments.processingCount > 0">, {{ syncStatus.attachments.processingCount }} downloading</span>
-            </span>
-            <span 
+              <span class="detail-value queue pending">
+                {{ syncStatus.attachments.pendingCount }} pending<span v-if="syncStatus.attachments.processingCount > 0">, {{ syncStatus.attachments.processingCount }} downloading</span>
+              </span>
+            </Tooltip>
+            <Tooltip 
               v-else 
-              class="detail-value queue ok"
-              :title="getQueueOkTooltip(syncStatus.attachments.lastProcessed, 'downloaded')"
+              :text="getQueueOkTooltip(syncStatus.attachments.lastProcessed, 'downloaded')"
+              position="right"
             >
-              ✓ downloaded
-            </span>
+              <span class="detail-value queue ok">✓ downloaded</span>
+            </Tooltip>
           </div>
           
           <div v-if="syncStatus.attachments.failedCount > 0" class="detail-row">
             <span class="detail-label">Failed:</span>
-            <span 
-              class="detail-value queue failed"
-              :title="getFailedTooltip(syncStatus.attachments.failedCount, syncStatus.attachments.lastFailed)"
-            >
-              {{ syncStatus.attachments.failedCount }} failed
-            </span>
+            <Tooltip :text="getFailedTooltip(syncStatus.attachments.failedCount, syncStatus.attachments.lastFailed)" position="right">
+              <span class="detail-value queue failed">{{ syncStatus.attachments.failedCount }} failed</span>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -215,6 +214,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Tooltip } from '@/components/common'
 import type { SyncStatus, SyncSourceStatus } from '@/composables/useSyncStatus'
 import { formatRelativeTime } from '@/lib/formatDate'
 

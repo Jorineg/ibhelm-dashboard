@@ -32,9 +32,11 @@
       </template>
       
       <template #actions>
-        <button class="home-btn" @click="goBack" title="Home">
-          <i class="pi pi-home"></i>
-        </button>
+        <Tooltip text="Home" position="bottom">
+          <button class="home-btn" @click="goBack">
+            <i class="pi pi-home"></i>
+          </button>
+        </Tooltip>
       </template>
     </PageHeader>
 
@@ -129,7 +131,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { PageHeader } from '@/components/common'
+import { PageHeader, Tooltip } from '@/components/common'
 import { 
   TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
   CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 

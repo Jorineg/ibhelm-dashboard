@@ -41,12 +41,16 @@
               </span>
             </div>
             <div class="config-actions">
-              <button class="action-btn" @click="editConfig(config)" title="Edit">
-                <i class="pi pi-pencil" />
-              </button>
-              <button class="action-btn delete" @click="confirmDelete(config)" title="Delete">
-                <i class="pi pi-trash" />
-              </button>
+              <Tooltip text="Edit" position="top">
+                <button class="action-btn" @click="editConfig(config)">
+                  <i class="pi pi-pencil" />
+                </button>
+              </Tooltip>
+              <Tooltip text="Delete" position="top">
+                <button class="action-btn delete" @click="confirmDelete(config)">
+                  <i class="pi pi-trash" />
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -159,7 +163,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { SectionCard } from '@/components/common'
+import { SectionCard, Tooltip } from '@/components/common'
 import type { ServiceConfig } from '@/composables/useServices'
 
 interface Props {

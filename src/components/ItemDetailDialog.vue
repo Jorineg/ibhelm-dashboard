@@ -367,42 +367,6 @@ const fetchSourceEmail = async (fileId: string) => {
   }
 }
 
-// Fetch files for an email
-const fetchEmailFiles = async (messageId: string) => {
-  const { data, error } = await supabase.rpc('get_email_files', { p_message_id: messageId })
-  if (!error && data) {
-    emailAttachmentFiles.value = data
-  } else {
-    emailAttachmentFiles.value = []
-  }
-}
-
-// Fetch email HTML body
-const fetchEmailBody = async (messageId: string) => {
-  loadingEmailBody.value = true
-  const { data, error } = await supabase.rpc('get_email_html_bodies', { p_message_ids: [messageId] })
-  loadingEmailBody.value = false
-  
-  if (!error && data && data.length > 0) {
-    emailHtmlBody.value = data[0].html_body
-  } else {
-    emailHtmlBody.value = null
-  }
-}
-
-// Fetch craft markdown
-const fetchCraftBody = async (documentId: string) => {
-  loadingCraftBody.value = true
-  const { data, error } = await supabase.rpc('get_craft_markdowns', { p_document_ids: [documentId] })
-  loadingCraftBody.value = false
-  
-  if (!error && data && data.length > 0) {
-    craftMarkdown.value = data[0].markdown
-  } else {
-    craftMarkdown.value = null
-  }
-}
-
 // Download file via signed URL
 const downloadAttachment = async (file: EmailFileInfo) => {
   if (!file.storage_path) return
@@ -436,20 +400,22 @@ const handleDialogKeydown = (e: KeyboardEvent) => {
   const key = e.key
   const scrollAmount = 100 // pixels for arrow key scrolling
   
-  // PDF file: delegate to FilePreview for page navigation
+  // PDF file: ensure FilePreview is focused so it handles navigation
+  // (Don't navigate here - FilePreview handles its own arrow key events)
   if (isFile.value && isDisplayableFile.value) {
     if (['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'].includes(key)) {
-      e.preventDefault()
-      if (key === 'ArrowLeft' || key === 'PageUp') {
-        filePreviewRef.value?.goToPrevPage()
-      } else if (key === 'ArrowRight' || key === 'PageDown') {
-        filePreviewRef.value?.goToNextPage()
-      }
-      // Also ensure preview is focused for internal handling
       const previewEl = previewMainRef.value?.querySelector('.detail-file-preview') as HTMLElement
       if (previewEl && document.activeElement !== previewEl) {
+        // FilePreview not focused - focus it and manually trigger navigation
         previewEl.focus()
+        e.preventDefault()
+        if (key === 'ArrowLeft' || key === 'PageUp') {
+          filePreviewRef.value?.goToPrevPage()
+        } else if (key === 'ArrowRight' || key === 'PageDown') {
+          filePreviewRef.value?.goToNextPage()
+        }
       }
+      // If FilePreview is focused, it already handled the event - do nothing here
     }
     return
   }
@@ -595,34 +561,47 @@ const formatValue = (value: any): string => {
   return String(value)
 }
 
-// Fetch content data for the current item
-const fetchItemContent = async () => {
+// Fetch content data for the current item (keeps old content visible until new is ready)
+const fetchItemContent = async (clearFirst = false) => {
   if (!props.item) return
   
   const item = props.item as DataItem
   
-  // Reset content state
-  sourceEmail.value = null
-  emailAttachmentFiles.value = []
-  emailHtmlBody.value = null
-  craftMarkdown.value = null
-  thumbnailFailed.value = false
-  failedFileThumbnails.clear()
+  // Only clear on initial open, not when navigating
+  if (clearFirst) {
+    sourceEmail.value = null
+    emailAttachmentFiles.value = []
+    emailHtmlBody.value = null
+    craftMarkdown.value = null
+    thumbnailFailed.value = false
+    failedFileThumbnails.clear()
+  }
   
-  // Fetch data based on item type
+  // Fetch data based on item type - update state only after fetch completes
   if (isFile.value && item.id) {
+    // Clear file-specific state, then fetch
+    sourceEmail.value = null
+    thumbnailFailed.value = false
     fetchSourceEmail(item.id)
   }
   
   if (isEmail.value && item.id) {
-    await Promise.all([
-      fetchEmailFiles(item.id),
-      fetchEmailBody(item.id)
+    // Fetch new content, then update atomically
+    const [filesResult, bodyResult] = await Promise.all([
+      supabase.rpc('get_email_files', { p_message_id: item.id }),
+      supabase.rpc('get_email_html_bodies', { p_message_ids: [item.id] })
     ])
+    
+    // Update state atomically after both fetches complete
+    emailAttachmentFiles.value = filesResult.data ?? []
+    emailHtmlBody.value = bodyResult.data?.[0]?.html_body ?? null
+    failedFileThumbnails.clear()
   }
   
   if (isCraft.value && item.id) {
-    fetchCraftBody(item.id)
+    // Fetch new content, then update
+    const { data } = await supabase.rpc('get_craft_markdowns', { p_document_ids: [item.id] })
+    craftMarkdown.value = data?.[0]?.markdown ?? null
   }
   
   // Focus preview after content loads
@@ -637,14 +616,14 @@ const fetchItemContent = async () => {
 watch(isVisible, async (visible) => {
   if (visible) {
     showEmptyFields.value = false
-    await fetchItemContent()
+    await fetchItemContent(true) // Clear old content on initial open
   }
 })
 
 // Fetch new content when item changes while dialog is open
 watch(() => props.item?.id, async (newId, oldId) => {
   if (isVisible.value && newId && newId !== oldId) {
-    await fetchItemContent()
+    await fetchItemContent(false) // Keep old content visible until new is ready
   }
 })
 </script>

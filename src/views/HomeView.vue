@@ -47,12 +47,16 @@
       </template>
       
       <template #actions>
-        <button v-if="isAdmin" class="services-btn" @click="goToServices" title="Services">
-          <i class="pi pi-server"></i>
-        </button>
-        <button class="settings-btn" @click="goToSettings" title="Settings">
-          <i class="pi pi-cog"></i>
-        </button>
+        <Tooltip v-if="isAdmin" text="Services" position="bottom">
+          <button class="services-btn" @click="goToServices">
+            <i class="pi pi-server"></i>
+          </button>
+        </Tooltip>
+        <Tooltip text="Settings" position="bottom">
+          <button class="settings-btn" @click="goToSettings">
+            <i class="pi pi-cog"></i>
+          </button>
+        </Tooltip>
       </template>
     </PageHeader>
 
@@ -132,7 +136,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import ExcelJS from 'exceljs'
 import { useRouter } from 'vue-router'
-import { PageHeader } from '@/components/common'
+import { PageHeader, Tooltip } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import DataTable from '@/components/DataTable.vue'
@@ -230,6 +234,7 @@ const searchQuery = computed(() => activeConfig.value?.searchQuery || '')
 const detailDialogVisible = ref(false)
 const selectedItem = ref<ViewDataItem | null>(null)
 const isPeeking = ref(false)
+const wasSelectionModeActive = ref(false) // Track if selection was active before opening dialog
 
 // Keyboard navigation
 const selectedRow = ref(-1)
@@ -442,6 +447,15 @@ const goToServices = () => {
 
 // Event handlers
 const handleRowClick = (item: ViewDataItem) => {
+  // Track if selection mode was active before opening dialog
+  wasSelectionModeActive.value = selectedRow.value >= 0
+  
+  // Find the index of the clicked item and set selection to it
+  const itemIndex = filteredAndSearchedItems.value.findIndex(i => i.id === item.id)
+  if (itemIndex >= 0) {
+    selectedRow.value = itemIndex
+  }
+  
   selectedItem.value = item
   detailDialogVisible.value = true
 }
@@ -670,6 +684,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
     if (detailDialogVisible.value) {
       detailDialogVisible.value = false
       isPeeking.value = false
+      // Restore selection state: clear if it wasn't active before opening
+      if (!wasSelectionModeActive.value) {
+        selectedRow.value = -1
+      }
       return
     }
     if (selectedRow.value >= 0) {
@@ -684,7 +702,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
     if (detailDialogVisible.value) {
       detailDialogVisible.value = false
       isPeeking.value = false
+      // Restore selection state: clear if it wasn't active before opening
+      if (!wasSelectionModeActive.value) {
+        selectedRow.value = -1
+      }
     } else if (selectedRow.value >= 0) {
+      // Opening from selection mode - remember this
+      wasSelectionModeActive.value = true
       const item = filteredAndSearchedItems.value[selectedRow.value]
       if (item) {
         selectedItem.value = item
@@ -722,11 +746,15 @@ const handleKeyDown = (event: KeyboardEvent) => {
   // Peek detail (hold key to show, release to hide)
   if (key === bindings.peek.key && !isTyping && !detailDialogVisible.value) {
     event.preventDefault()
+    // Track selection state before peeking
+    wasSelectionModeActive.value = selectedRow.value >= 0
     // Use selected row, or hovered row if nothing selected
     const targetRow = selectedRow.value >= 0 ? selectedRow.value : hoveredRow.value
     if (targetRow >= 0) {
       const item = filteredAndSearchedItems.value[targetRow]
       if (item) {
+        // Set selectedRow to the peeked item's index for arrow navigation
+        selectedRow.value = targetRow
         selectedItem.value = item
         detailDialogVisible.value = true
         isPeeking.value = true
@@ -913,10 +941,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
     return
   }
   
-  // Focus search
-  if (key === bindings.focusSearch.key) {
+  // Focus search or clear search (Shift+S)
+  if (key.toLowerCase() === bindings.focusSearch.key) {
     event.preventDefault()
-    dataTableRef.value?.focusSearch()
+    if (event.shiftKey) {
+      clearSearch()
+    } else {
+      dataTableRef.value?.focusSearch()
+    }
     return
   }
   
@@ -1035,9 +1067,15 @@ const handleKeyUp = (event: KeyboardEvent) => {
   }
 }
 
-// Reset isPeeking when dialog closes (e.g., by clicking outside)
+// Reset state when dialog closes (e.g., by clicking outside)
 watch(detailDialogVisible, (visible) => {
-  if (!visible) isPeeking.value = false
+  if (!visible) {
+    isPeeking.value = false
+    // Restore selection state: clear if it wasn't active before opening
+    if (!wasSelectionModeActive.value) {
+      selectedRow.value = -1
+    }
+  }
 })
 
 // Reset selection when data changes

@@ -5,13 +5,14 @@
   >
     <div class="task-type-header">
       <div class="task-type-info">
-        <input 
-          type="color" 
-          :value="taskType.color || '#6366f1'"
-          @input="(e) => $emit('color-change', taskType.id, (e.target as HTMLInputElement).value)"
-          class="task-type-color-input"
-          title="Click to change color"
-        />
+        <Tooltip text="Click to change color" position="top">
+          <input 
+            type="color" 
+            :value="taskType.color || '#6366f1'"
+            @input="(e) => $emit('color-change', taskType.id, (e.target as HTMLInputElement).value)"
+            class="task-type-color-input"
+          />
+        </Tooltip>
         <div class="task-type-details">
           <template v-if="isEditing">
             <InputText
@@ -53,23 +54,24 @@
           />
         </template>
         <template v-else>
-          <Button
-            icon="pi pi-pencil"
-            text
-            rounded
-            severity="secondary"
-            @click="$emit('start-edit', taskType)"
-            title="Edit name"
-          />
-          <Button
-            v-if="!taskType.is_default"
-            icon="pi pi-trash"
-            text
-            rounded
-            severity="danger"
-            @click="$emit('delete', taskType)"
-            title="Delete type"
-          />
+          <Tooltip text="Edit name" position="top">
+            <Button
+              icon="pi pi-pencil"
+              text
+              rounded
+              severity="secondary"
+              @click="$emit('start-edit', taskType)"
+            />
+          </Tooltip>
+          <Tooltip v-if="!taskType.is_default" text="Delete type" position="top">
+            <Button
+              icon="pi pi-trash"
+              text
+              rounded
+              severity="danger"
+              @click="$emit('delete', taskType)"
+            />
+          </Tooltip>
         </template>
       </div>
     </div>
@@ -125,6 +127,7 @@
 <script setup lang="ts">
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import { Tooltip } from '@/components/common'
 import type { TaskType, TaskTypeRule } from '@/types'
 
 interface Props {

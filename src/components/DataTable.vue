@@ -5,7 +5,9 @@
       <div class="toolbar-left">
         <!-- Search Bar -->
         <div class="search-wrapper">
-          <i class="pi pi-search search-icon" />
+          <Tooltip :shortcuts="searchShortcuts" position="bottom">
+            <i class="pi pi-search search-icon" />
+          </Tooltip>
           <InputText
             :model-value="props.searchQuery"
             @update:model-value="(value) => emit('update:searchQuery', value as string)"
@@ -60,54 +62,64 @@
         
         <div v-if="props.viewType === 'items' || !props.viewType" class="item-type-toggles no-bg">
             <!-- Task type checkboxes -->
-            <div 
-              v-for="taskType in taskTypes" 
+            <Tooltip
+              v-for="(taskType, idx) in taskTypes" 
               :key="taskType.id"
-              class="checkbox-group task-type-checkbox"
+              :text="`Toggle ${taskType.name}`"
+              :shortcut="taskTypeShortcuts[idx]"
+              position="bottom"
             >
-              <div class="task-type-checkbox-inner">
-                <Checkbox
-                  :model-value="isTaskTypeSelected(taskType.id)"
-                  @update:model-value="toggleTaskType(taskType.id)"
-                  :input-id="`task-type-${taskType.id}`"
-                  :binary="true"
-                />
-                <label :for="`task-type-${taskType.id}`" class="toggle-item-label">
-                  {{ taskType.name }}
-                </label>
+              <div class="checkbox-group task-type-checkbox">
+                <div class="task-type-checkbox-inner">
+                  <Checkbox
+                    :model-value="isTaskTypeSelected(taskType.id)"
+                    @update:model-value="toggleTaskType(taskType.id)"
+                    :input-id="`task-type-${taskType.id}`"
+                    :binary="true"
+                  />
+                  <label :for="`task-type-${taskType.id}`" class="toggle-item-label">
+                    {{ taskType.name }}
+                  </label>
+                </div>
+                <span 
+                  v-if="taskType.color" 
+                  class="task-type-color-bar"
+                  :style="{ backgroundColor: taskType.color }"
+                ></span>
               </div>
-              <span 
-                v-if="taskType.color" 
-                class="task-type-color-bar"
-                :style="{ backgroundColor: taskType.color }"
-              ></span>
-            </div>
+            </Tooltip>
             
             <div class="type-divider"></div>
             
-            <div class="checkbox-group email-checkbox">
-              <div class="email-checkbox-inner">
-                <Checkbox v-model="localShowEmails" input-id="show-emails" :binary="true" />
-                <label for="show-emails" class="toggle-item-label">Email</label>
+            <Tooltip text="Toggle Emails" :shortcut="emailShortcut" position="bottom">
+              <div class="checkbox-group email-checkbox">
+                <div class="email-checkbox-inner">
+                  <Checkbox v-model="localShowEmails" input-id="show-emails" :binary="true" />
+                  <label for="show-emails" class="toggle-item-label">Email</label>
+                </div>
+                <span class="email-color-bar" :style="{ backgroundColor: emailColor }"></span>
               </div>
-              <span class="email-color-bar" :style="{ backgroundColor: emailColor }"></span>
-            </div>
+            </Tooltip>
             
-            <div class="checkbox-group craft-checkbox">
-              <div class="craft-checkbox-inner">
-                <Checkbox v-model="localShowCraft" input-id="show-craft" :binary="true" />
-                <label for="show-craft" class="toggle-item-label">Craft</label>
+            <Tooltip text="Toggle Craft Docs" :shortcut="craftShortcut" position="bottom">
+              <div class="checkbox-group craft-checkbox">
+                <div class="craft-checkbox-inner">
+                  <Checkbox v-model="localShowCraft" input-id="show-craft" :binary="true" />
+                  <label for="show-craft" class="toggle-item-label">Craft</label>
+                </div>
+                <span class="craft-color-bar" :style="{ backgroundColor: craftColor }"></span>
               </div>
-              <span class="craft-color-bar" :style="{ backgroundColor: craftColor }"></span>
-            </div>
+            </Tooltip>
             
-            <div class="checkbox-group file-checkbox">
-              <div class="file-checkbox-inner">
-                <Checkbox v-model="localShowFiles" input-id="show-files" :binary="true" />
-                <label for="show-files" class="toggle-item-label">Files</label>
+            <Tooltip text="Toggle Files" :shortcut="fileShortcut" position="bottom">
+              <div class="checkbox-group file-checkbox">
+                <div class="file-checkbox-inner">
+                  <Checkbox v-model="localShowFiles" input-id="show-files" :binary="true" />
+                  <label for="show-files" class="toggle-item-label">Files</label>
+                </div>
+                <span class="file-color-bar" :style="{ backgroundColor: fileColor }"></span>
               </div>
-              <span class="file-color-bar" :style="{ backgroundColor: fileColor }"></span>
-            </div>
+            </Tooltip>
         </div>
         
         <MultiSelect
@@ -130,31 +142,36 @@
           <span class="results-line">displaying {{ itemCountData.loaded.toLocaleString() }}</span>
           <span class="results-line">of <span v-if="itemCountData.isCountLoading" class="count-shimmer">---</span><span v-else>{{ itemCountData.total?.toLocaleString() ?? '...' }}</span> {{ itemCountData.viewLabel }}</span>
         </span>
-        <i v-if="props.revalidating" class="pi pi-spin pi-spinner revalidating-spinner" title="Refreshing data..."></i>
+        <Tooltip v-if="props.revalidating" text="Refreshing data..." position="bottom">
+          <i class="pi pi-spin pi-spinner revalidating-spinner"></i>
+        </Tooltip>
       </div>
 
       <div class="toolbar-right">
-        <Button
-          icon="pi pi-download"
-          text
-          rounded
-          class="export-btn"
-          :loading="props.exporting"
-          @click="emit('export')"
-          title="Export to Excel"
-        />
-        <SelectButton
-          v-model="localViewMode"
-          :options="viewModeOptions"
-          option-label="label"
-          option-value="value"
-          class="view-mode-toggle"
-          @click="blurActiveElement"
-        >
-          <template #option="slotProps">
-            <i :class="slotProps.option.icon"></i>
-          </template>
-        </SelectButton>
+        <Tooltip text="Export to Excel">
+          <Button
+            icon="pi pi-download"
+            text
+            rounded
+            class="export-btn"
+            :loading="props.exporting"
+            @click="emit('export')"
+          />
+        </Tooltip>
+        <Tooltip text="Toggle View" :shortcut="viewToggleShortcut">
+          <SelectButton
+            v-model="localViewMode"
+            :options="viewModeOptions"
+            option-label="label"
+            option-value="value"
+            class="view-mode-toggle"
+            @click="blurActiveElement"
+          >
+            <template #option="slotProps">
+              <i :class="slotProps.option.icon"></i>
+            </template>
+          </SelectButton>
+        </Tooltip>
       </div>
     </div>
 
@@ -411,8 +428,9 @@ import Checkbox from 'primevue/checkbox'
 import SelectButton from 'primevue/selectbutton'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { InfoTooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, ExtensionBadge, type AutocompleteSuggestion } from '@/components/common'
+import { InfoTooltip, Tooltip, AutocompleteInput, EmailPreview, CraftPreview, FilePlaceholder, TaskPreview, ExtensionBadge, type AutocompleteSuggestion } from '@/components/common'
 import { useTaskTypes } from '@/composables/useTaskTypes'
+import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes } from '@/composables/useData'
@@ -477,6 +495,28 @@ const emit = defineEmits<Emits>()
 
 // Composables
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
+const { keyBindings, formatKeyForDisplay } = useKeyBindings()
+
+// Shortcut tooltip helpers
+const searchShortcuts = computed(() => {
+  const key = keyBindings.value.focusSearch.key
+  return [
+    { label: 'Focus', key },
+    { label: 'Clear', key: `Shift+${key}` }
+  ]
+})
+
+const viewToggleShortcut = computed(() => formatKeyForDisplay(keyBindings.value.toggleView.key))
+
+const emailShortcut = computed(() => formatKeyForDisplay(keyBindings.value.toggleEmails.key))
+const craftShortcut = computed(() => formatKeyForDisplay(keyBindings.value.toggleCraft.key))
+const fileShortcut = computed(() => formatKeyForDisplay(keyBindings.value.toggleFiles.key))
+
+const taskTypeShortcuts = computed(() => [
+  formatKeyForDisplay(keyBindings.value.toggleTaskType1.key),
+  formatKeyForDisplay(keyBindings.value.toggleTaskType2.key),
+  formatKeyForDisplay(keyBindings.value.toggleTaskType3.key)
+])
 const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
 const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
 
@@ -1500,10 +1540,14 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 }
 
 .search-icon {
-  position: absolute;
-  left: 1rem;
   color: var(--text-tertiary);
   font-size: 1rem;
+  cursor: help;
+}
+
+.search-wrapper > :deep(.tooltip-wrapper) {
+  position: absolute;
+  left: 1rem;
   z-index: 1;
 }
 
