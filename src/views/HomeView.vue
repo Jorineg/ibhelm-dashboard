@@ -66,11 +66,12 @@
       <ConfigurationPanel v-if="activeView === 'items'" ref="configPanelRef" />
 
       <!-- Filters and Table (aligned container) -->
-      <main class="center-content">
+      <main class="center-content" :style="stickyToolbar && activeView === 'items' ? { '--filter-bar-height': filterBarHeight + 'px' } : undefined">
         <main class="center-content-inner">
-        <FilterBar v-if="activeView === 'items'" ref="filterBarRef" :available-columns="availableColumns" class="filters-section" />
+        <FilterBar v-if="activeView === 'items'" ref="filterBarRef" :available-columns="availableColumns" class="filters-section" :sticky="stickyToolbar" />
         <DataTable
           ref="dataTableRef"
+          :sticky-toolbar="stickyToolbar"
           :search-query="searchQuery"
           @update:search-query="updateSearchQuery($event)"
           @clear-search="clearSearch"
@@ -161,7 +162,7 @@ const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnai
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
 const { craftSpaceId, filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
-const { hideCompletedTasks, hideInactiveProjects, initialize: initUserSettings } = useUserSettings()
+const { hideCompletedTasks, hideInactiveProjects, stickyToolbar, initialize: initUserSettings } = useUserSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -252,6 +253,14 @@ const configPanelRef = ref<{ startRenameActive: () => void } | null>(null)
 
 // Ref for FilterBar to focus/clear quick filters
 const filterBarRef = ref<{ focusQuickFilter: (filter: string) => void; clearQuickFilter: (filter: string) => void } | null>(null)
+
+// FilterBar height tracking for sticky toolbar stacking
+const filterBarHeight = ref(0)
+const filterBarResizeObserver = new ResizeObserver(entries => {
+  for (const entry of entries) {
+    filterBarHeight.value = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+  }
+})
 
 const selectedTaskTypes = computed(() => {
   if (!activeConfig.value) return []
@@ -1106,6 +1115,22 @@ watch(() => user.value?.id, async (newUserId) => {
   }
 }, { immediate: true })
 
+// Watch for FilterBar mount/unmount to observe its height
+watch(() => activeView.value, (view) => {
+  filterBarResizeObserver.disconnect()
+  filterBarHeight.value = 0
+  if (view === 'items') {
+    // Use nextTick to ensure DOM is updated, then query directly
+    nextTick(() => {
+      const el = document.querySelector('.filter-bar') as HTMLElement
+      if (el) {
+        filterBarHeight.value = el.offsetHeight
+        filterBarResizeObserver.observe(el)
+      }
+    })
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   await initTaskTypes()
   document.addEventListener('keydown', handleKeyDown)
@@ -1115,6 +1140,7 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('keyup', handleKeyUp)
+  filterBarResizeObserver.disconnect()
 })
 </script>
 
@@ -1278,13 +1304,10 @@ onUnmounted(() => {
 
 
 .center-content-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: block;
   width: fit-content;
-  min-height: 0;
-  flex: 1;
-  overflow: none;
+  min-height: min-content;
+  flex: 1 0 auto;
 }
 .filters-section {
   min-width: 0;

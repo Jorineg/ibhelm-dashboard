@@ -1,7 +1,7 @@
 <template>
-  <div class="data-table-wrapper">
+  <div class="data-table-wrapper" :style="props.stickyToolbar ? { '--toolbar-height': toolbarHeight + 'px' } : undefined">
     <!-- Column visibility selector -->
-    <div class="table-toolbar" :class="{ 'wide-view': props.viewType === 'projects' || props.viewType === 'people' }" ref="toolbarRef">
+    <div class="table-toolbar" :class="{ 'wide-view': props.viewType === 'projects' || props.viewType === 'people', 'table-toolbar--sticky': props.stickyToolbar }" ref="toolbarRef">
       <div class="toolbar-left">
         <!-- Search Bar -->
         <div class="search-wrapper">
@@ -195,7 +195,7 @@
 
     <!-- List View (TanStack Table) -->
     <div v-show="localViewMode === 'list'" class="table-scroll-container" ref="scrollContainerRef">
-      <div class="tanstack-table" :class="{ 'is-resizing': isResizing }">
+      <div class="tanstack-table" :class="{ 'is-resizing': isResizing, 'sticky-mode': props.stickyToolbar }">
         <!-- Header Row -->
         <div class="table-header-row">
           <!-- Frozen Type Column Header -->
@@ -465,6 +465,7 @@ interface Props {
   filterConfigId?: string
   projectFilter?: string
   gridColumns?: number
+  stickyToolbar?: boolean
 }
 
 interface Emits {
@@ -525,6 +526,8 @@ const scrollTrigger = ref<HTMLElement | null>(null)
 const galleryScrollTrigger = ref<HTMLElement | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const galleryGridRef = ref<HTMLElement | null>(null)
+const toolbarRef = ref<HTMLElement | null>(null)
+const toolbarHeight = ref(0)
 
 // State
 const isResizing = ref(false)
@@ -576,12 +579,25 @@ const transformCraftUrl = (url: string): string => {
   return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
 }
 
+// Toolbar height observer for sticky stacking
+let toolbarResizeObserver: ResizeObserver | null = null
+
 // Initialize on mount
 onMounted(async () => {
   await Promise.all([initTaskTypes(), initAppearance()])
   setupIntersectionObserver()
   setupEmailBodyObserver()
   setupCraftBodyObserver()
+  
+  // Set up toolbar height tracking for sticky header stacking
+  if (toolbarRef.value) {
+    toolbarResizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        toolbarHeight.value = entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height
+      }
+    })
+    toolbarResizeObserver.observe(toolbarRef.value)
+  }
 })
 
 // Task type toggles
@@ -635,6 +651,7 @@ watch(() => localViewMode.value, (mode) => {
 onUnmounted(() => {
   if (emailBodyObserver) emailBodyObserver.disconnect()
   if (craftBodyObserver) craftBodyObserver.disconnect()
+  toolbarResizeObserver?.disconnect()
 })
 
 const viewModeOptions = [
@@ -1405,6 +1422,14 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   border-top-right-radius: var(--radius-lg);
 }
 
+.table-toolbar--sticky {
+  top: var(--filter-bar-height, 0px);
+}
+
+.table-toolbar--sticky.wide-view {
+  top: 0;
+}
+
 .toolbar-left {
   display: flex;
   align-items: center;
@@ -1638,6 +1663,11 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   z-index: 100;
   background: var(--bg-tertiary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* When sticky mode is enabled, table header stacks below filter bar + toolbar */
+.sticky-mode .table-header-row {
+  top: calc(var(--filter-bar-height, 0px) + var(--toolbar-height, 0px));
 }
 
 .table-header-cells {

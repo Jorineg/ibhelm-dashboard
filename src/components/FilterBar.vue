@@ -1,5 +1,5 @@
 <template>
-  <div class="filter-bar" ref="filterBarRef">
+  <div class="filter-bar" :class="{ 'filter-bar--sticky': props.sticky }">
     <div class="filter-section">
 
       <!-- Quick filters with action buttons -->
@@ -392,6 +392,10 @@ import { useFilterConfigs } from '@/composables/useFilterConfigs'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useProjectAutocomplete, usePersonAutocomplete, useCostGroupAutocomplete, useLocationAutocomplete, useTagAutocomplete } from '@/composables/useAutocomplete'
 
+const props = defineProps<{
+  sticky?: boolean
+}>()
+
 const {
   activeConfig,
   quickFilterFields,
@@ -750,6 +754,10 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
   position: sticky !important;
   left: 0 !important;
   width: calc(100vw - 13.1rem);
+}
+
+.filter-bar--sticky {
+  top: 0;
 }
 
 .filter-bar::after {

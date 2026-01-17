@@ -12,6 +12,7 @@ export interface UserSettings {
   default_sort_field: string
   default_sort_order: 'asc' | 'desc'
   tooltips_disabled: boolean
+  sticky_toolbar: boolean
   filter_configurations: FilterConfigurationsData
   key_bindings: Partial<Record<keyof KeyBindings, string>>
 }
@@ -40,6 +41,7 @@ const DEFAULT_USER_SETTINGS: UserSettings = {
   default_sort_field: 'updated_at',
   default_sort_order: 'desc',
   tooltips_disabled: false,
+  sticky_toolbar: false,
   filter_configurations: { ...DEFAULT_FILTER_CONFIGURATIONS },
   key_bindings: {}
 }
@@ -235,6 +237,7 @@ export function useUserSettings() {
   const defaultSortField = computed(() => settings.value.default_sort_field)
   const defaultSortOrder = computed(() => settings.value.default_sort_order)
   const tooltipsDisabled = computed(() => settings.value.tooltips_disabled)
+  const stickyToolbar = computed(() => settings.value.sticky_toolbar)
   const filterConfigurations = computed(() => settings.value.filter_configurations)
   const keyBindings = computed(() => settings.value.key_bindings)
 
@@ -245,6 +248,7 @@ export function useUserSettings() {
   const updateDefaultSortField = (value: string) => updateSetting('default_sort_field', value)
   const updateDefaultSortOrder = (value: 'asc' | 'desc') => updateSetting('default_sort_order', value)
   const updateTooltipsDisabled = (value: boolean) => updateSetting('tooltips_disabled', value)
+  const updateStickyToolbar = (value: boolean) => updateSetting('sticky_toolbar', value)
   
   const updateFilterConfigurations = (value: FilterConfigurationsData) => {
     updateSetting('filter_configurations', value)
@@ -268,6 +272,7 @@ export function useUserSettings() {
     defaultSortField,
     defaultSortOrder,
     tooltipsDisabled,
+    stickyToolbar,
     filterConfigurations,
     keyBindings,
     // Updaters
@@ -276,6 +281,7 @@ export function useUserSettings() {
     updateDefaultSortField,
     updateDefaultSortOrder,
     updateTooltipsDisabled,
+    updateStickyToolbar,
     updateFilterConfigurations,
     updateKeyBindings
   }

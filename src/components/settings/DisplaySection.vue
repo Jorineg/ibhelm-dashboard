@@ -91,6 +91,26 @@
         </span>
       </div>
     </div>
+
+    <div class="display-section">
+      <h4>Sticky Toolbar</h4>
+      <p class="section-hint">
+        Keep filter bar and table toolbar always visible when scrolling. Useful on large screens.
+      </p>
+      <div class="checkbox-row">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            v-model="localStickyToolbar"
+            @change="handleSaveStickyToolbar"
+          />
+          <span class="checkbox-text">Keep toolbar sticky</span>
+        </label>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
   </SectionCard>
 </template>
 
@@ -105,12 +125,14 @@ const {
   defaultSortField,
   defaultSortOrder,
   tooltipsDisabled,
+  stickyToolbar,
   saving,
   updateHideCompletedTasks,
   updateHideInactiveProjects,
   updateDefaultSortField,
   updateDefaultSortOrder,
-  updateTooltipsDisabled
+  updateTooltipsDisabled,
+  updateStickyToolbar
 } = useUserSettings()
 
 const localHideCompletedTasks = ref(false)
@@ -118,6 +140,7 @@ const localHideInactiveProjects = ref(false)
 const localSortField = ref('updated_at')
 const localSortOrder = ref<'asc' | 'desc'>('desc')
 const localTooltipsDisabled = ref(false)
+const localStickyToolbar = ref(false)
 
 const sortableColumns = [
   { field: 'updated_at', header: 'Updated' },
@@ -151,11 +174,16 @@ const handleSaveTooltipsDisabled = () => {
   updateTooltipsDisabled(localTooltipsDisabled.value)
 }
 
+const handleSaveStickyToolbar = () => {
+  updateStickyToolbar(localStickyToolbar.value)
+}
+
 watch(hideCompletedTasks, (val) => { localHideCompletedTasks.value = val }, { immediate: true })
 watch(hideInactiveProjects, (val) => { localHideInactiveProjects.value = val }, { immediate: true })
 watch(defaultSortField, (val) => { localSortField.value = val }, { immediate: true })
 watch(defaultSortOrder, (val) => { localSortOrder.value = val }, { immediate: true })
 watch(tooltipsDisabled, (val) => { localTooltipsDisabled.value = val }, { immediate: true })
+watch(stickyToolbar, (val) => { localStickyToolbar.value = val }, { immediate: true })
 </script>
 
 <style scoped>
