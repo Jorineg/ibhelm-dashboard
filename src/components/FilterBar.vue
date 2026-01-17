@@ -758,6 +758,10 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 
 .filter-bar--sticky {
   top: 0;
+  /* Cover the corner gaps to prevent table rows showing through rounded corners */
+  box-shadow: 
+    calc(-1 * var(--radius-lg)) calc(-1 * var(--radius-lg)) 0 var(--radius-lg) var(--bg-primary),
+    calc(var(--radius-lg)) calc(-1 * var(--radius-lg)) 0 var(--radius-lg) var(--bg-primary);
 }
 
 .filter-bar::after {
