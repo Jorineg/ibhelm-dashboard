@@ -743,14 +743,23 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 <style scoped>
 .filter-bar {
   background: var(--bg-secondary);
-  padding: 2rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  padding: 1.5rem;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
   z-index: 160;
   position: sticky !important;
   left: 0 !important;
   width: calc(100vw - 13.1rem);
-    /* scrooling fix here*/
+}
+
+.filter-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 1.5rem;
+  right: 1.5rem;
+  height: 1px;
+  background: var(--border-primary);
 }
 
 .filter-section {

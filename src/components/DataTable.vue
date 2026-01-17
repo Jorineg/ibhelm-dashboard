@@ -1359,12 +1359,12 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 
 <style scoped>
 .data-table-wrapper {
-  border-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   width: fit-content;
-    /* scrooling fix here*/
   min-width: 0;
   /* Allow content to determine height, parent handles scroll */
   flex: 1 0 auto;
@@ -1393,8 +1393,6 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   gap: 1.5rem;
   flex-wrap: wrap;
   flex-shrink: 0;
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
   position: sticky !important;
   left: 0 !important;
   z-index: 150;
@@ -1403,7 +1401,8 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
 
 .table-toolbar.wide-view {
   width: calc(100vw - 4.3rem);
-    /* scrooling fix here*/
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
 }
 
 .toolbar-left {

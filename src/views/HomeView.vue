@@ -1280,10 +1280,8 @@ onUnmounted(() => {
 .center-content-inner {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0;
   width: fit-content;
-    /* scrooling fix here*/
-
   min-height: 0;
   flex: 1;
   overflow: none;
