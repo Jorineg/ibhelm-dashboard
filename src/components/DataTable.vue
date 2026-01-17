@@ -1573,16 +1573,28 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   position: relative;
 }
 
-/* Loading overlay */
+/* Loading overlay - sticky to stay visible regardless of scroll position */
 .loading-overlay {
-  position: absolute;
-  inset: 0;
-  top: 80px;
+  position: sticky;
+  top: 0; /* Default: non-sticky toolbar */
+  left: 0;
+  width: calc(100vw - 13rem);
+  height: calc(100vh - 150px);
+  margin-bottom: calc(-100vh + 150px); /* Negative margin to not affect layout */
   display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgba(42, 42, 42, 0.85);
   z-index: 50;
+}
+
+/* When toolbar is sticky, offset below it */
+.table-toolbar--sticky ~ .loading-overlay {
+  top: 100px;
+  height: calc(100vh - 250px);
+  margin-bottom: calc(-100vh + 250px);
+}
+
+.table-toolbar.wide-view ~ .loading-overlay {
+  width: calc(100vw - 4.3rem);
 }
 
 .table-toolbar {
@@ -2206,14 +2218,25 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   max-width: 150px;
 }
 
-/* Empty and loading states */
-.empty-state,
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+/* Loading and error states - centered content */
 .loading-state,
 .error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   padding: 4rem 2rem;
   color: var(--text-muted);
 }
@@ -2230,15 +2253,28 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   color: var(--accent-primary);
 }
 
+/* Error overlay - sticky to stay visible regardless of scroll position */
 .error-overlay {
-  position: absolute;
-  inset: 0;
-  top: 80px;
+  position: sticky;
+  top: 0; /* Default: non-sticky toolbar */
+  left: 0;
+  width: calc(100vw - 13rem);
+  height: calc(100vh - 150px);
+  margin-bottom: calc(-100vh + 150px); /* Negative margin to not affect layout */
   display: flex;
-  align-items: center;
-  justify-content: center;
   background: rgba(42, 42, 42, 0.95);
   z-index: 50;
+}
+
+/* When toolbar is sticky, offset below it */
+.table-toolbar--sticky ~ .error-overlay {
+  top: 100px;
+  height: calc(100vh - 250px);
+  margin-bottom: calc(-100vh + 250px);
+}
+
+.table-toolbar.wide-view ~ .error-overlay {
+  width: calc(100vw - 4.3rem);
 }
 
 .error-icon {

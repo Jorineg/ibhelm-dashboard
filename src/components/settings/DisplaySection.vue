@@ -26,7 +26,7 @@
     <div class="display-section">
       <h4>Hide Inactive Projects</h4>
       <p class="section-hint">
-        When enabled, only active projects will be shown in the Projects view.
+        Hides inactive projects and all items belonging to them across all views.
       </p>
       <div class="checkbox-row">
         <label class="checkbox-label">

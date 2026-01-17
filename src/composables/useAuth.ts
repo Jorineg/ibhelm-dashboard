@@ -30,7 +30,6 @@ export function useAuth() {
       return data
     } catch (err: any) {
       console.error('Exception sending magic link:', err)
-      // Check if it's a network or configuration error
       if (err.message?.includes('JSON') || err.name === 'SyntaxError') {
         throw new Error('Unable to connect to authentication service. Please check your configuration.')
       }
@@ -41,6 +40,26 @@ export function useAuth() {
   const verifyOtp = async (email: string, token: string) => {
     const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'magiclink' })
     if (error) throw new Error(error.message || 'Invalid code')
+    return data
+  }
+
+  const signInWithPassword = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message || 'Invalid email or password')
+    return data
+  }
+
+  const resetPassword = async (email: string) => {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+    if (error) throw new Error(error.message || 'Failed to send reset email')
+    return data
+  }
+
+  const updatePassword = async (password: string) => {
+    const { data, error } = await supabase.auth.updateUser({ password })
+    if (error) throw new Error(error.message || 'Failed to update password')
     return data
   }
 
@@ -123,7 +142,10 @@ export function useAuth() {
     loading,
     isAdmin,
     signInWithMagicLink,
+    signInWithPassword,
     verifyOtp,
+    resetPassword,
+    updatePassword,
     signOut,
     checkAuth
   }

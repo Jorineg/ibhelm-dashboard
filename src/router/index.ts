@@ -36,6 +36,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/oauth/consent',
       name: 'oauth-consent',
       component: () => import('@/views/OAuthConsentView.vue'),

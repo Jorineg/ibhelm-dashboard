@@ -3,70 +3,155 @@
     <div class="login-card">
       <div class="login-header">
         <h1>ibhelm Dashboard</h1>
-        <p>Sign in with your email</p>
+        <p>Sign in to continue</p>
       </div>
       
       <div class="login-content">
-        <div v-if="!magicLinkSent">
-          <div class="input-group">
-            <label for="email">Email address</label>
-            <InputText 
-              id="email"
-              v-model="email" 
-              type="email" 
-              placeholder="you@example.com"
-              class="email-input"
-              :disabled="loading"
-              @keyup.enter="handleSignIn"
-            />
-          </div>
-          
-          <Button 
-            label="Send Magic Link" 
-            icon="pi pi-envelope" 
-            @click="handleSignIn"
-            :loading="loading"
-            :disabled="!email || loading"
-            class="magic-link-button"
-            size="large"
-          />
+        <!-- Login Mode Tabs -->
+        <div class="login-tabs">
+          <button 
+            :class="['tab', { active: loginMode === 'magic' }]"
+            @click="switchMode('magic')"
+          >
+            <i class="pi pi-envelope"></i>
+            Magic Link
+          </button>
+          <button 
+            :class="['tab', { active: loginMode === 'password' }]"
+            @click="switchMode('password')"
+          >
+            <i class="pi pi-lock"></i>
+            Password
+          </button>
         </div>
 
-        <div v-else class="success-message">
-          <i class="pi pi-check-circle"></i>
-          <h3>Check your email</h3>
-          <p>We've sent a magic link and code to <strong>{{ email }}</strong></p>
-          
-          <div class="otp-section">
+        <!-- Magic Link Mode -->
+        <template v-if="loginMode === 'magic'">
+          <div v-if="!magicLinkSent">
             <div class="input-group">
-              <label for="otp">Enter code from email</label>
+              <label for="email">Email address</label>
               <InputText 
-                id="otp"
-                v-model="otpCode" 
-                placeholder="123456"
-                class="otp-input"
+                id="email"
+                v-model="email" 
+                type="email" 
+                placeholder="you@example.com"
+                class="full-input"
                 :disabled="loading"
-                @keyup.enter="handleVerifyOtp"
+                @keyup.enter="handleMagicLink"
               />
             </div>
+            
             <Button 
-              label="Verify Code" 
-              icon="pi pi-sign-in" 
-              @click="handleVerifyOtp"
+              label="Send Magic Link" 
+              icon="pi pi-envelope" 
+              @click="handleMagicLink"
               :loading="loading"
-              :disabled="!otpCode || loading"
-              class="verify-button"
+              :disabled="!email || loading"
+              class="submit-button"
+              size="large"
             />
           </div>
-          
-          <p class="hint">Or click the link in the email to sign in.</p>
-          <Button 
-            label="Send another link" 
-            link 
-            @click="resetForm"
-            class="resend-button"
-          />
-        </div>
+
+          <div v-else class="success-message">
+            <i class="pi pi-check-circle"></i>
+            <h3>Check your email</h3>
+            <p>We've sent a magic link and code to <strong>{{ email }}</strong></p>
+            
+            <div class="otp-section">
+              <div class="input-group">
+                <label for="otp">Enter code from email</label>
+                <InputText 
+                  id="otp"
+                  v-model="otpCode" 
+                  placeholder="123456"
+                  class="otp-input"
+                  :disabled="loading"
+                  @keyup.enter="handleVerifyOtp"
+                />
+              </div>
+              <Button 
+                label="Verify Code" 
+                icon="pi pi-sign-in" 
+                @click="handleVerifyOtp"
+                :loading="loading"
+                :disabled="!otpCode || loading"
+                class="verify-button"
+              />
+            </div>
+            
+            <p class="hint">Or click the link in the email to sign in.</p>
+            <Button 
+              label="Send another link" 
+              link 
+              @click="resetForm"
+              class="resend-button"
+            />
+          </div>
+        </template>
+
+        <!-- Password Mode -->
+        <template v-else-if="loginMode === 'password'">
+          <div v-if="!resetSent">
+            <div class="input-group">
+              <label for="email-pw">Email address</label>
+              <InputText 
+                id="email-pw"
+                v-model="email" 
+                type="email" 
+                placeholder="you@example.com"
+                class="full-input"
+                :disabled="loading"
+                @keyup.enter="$refs.passwordInput?.focus()"
+              />
+            </div>
+            
+            <div class="input-group">
+              <label for="password">Password</label>
+              <InputText 
+                ref="passwordInput"
+                id="password"
+                v-model="password" 
+                type="password" 
+                placeholder="••••••••"
+                class="full-input"
+                :disabled="loading"
+                @keyup.enter="handlePasswordLogin"
+              />
+            </div>
+            
+            <Button 
+              label="Sign In" 
+              icon="pi pi-sign-in" 
+              @click="handlePasswordLogin"
+              :loading="loading"
+              :disabled="!email || !password || loading"
+              class="submit-button"
+              size="large"
+            />
+            
+            <div class="forgot-password">
+              <Button 
+                label="Forgot password?" 
+                link 
+                @click="handleForgotPassword"
+                :disabled="loading"
+              />
+            </div>
+          </div>
+
+          <div v-else class="success-message">
+            <i class="pi pi-check-circle"></i>
+            <h3>Check your email</h3>
+            <p>We've sent a password reset link to <strong>{{ email }}</strong></p>
+            <p class="hint">Click the link in the email to reset your password.</p>
+            <Button 
+              label="Back to login" 
+              link 
+              @click="resetForm"
+              class="resend-button"
+            />
+          </div>
+        </template>
         
         <div v-if="error" class="error-message">
           {{ error }}
@@ -82,40 +167,39 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useAuth } from '@/composables/useAuth'
 
-const { signInWithMagicLink, verifyOtp } = useAuth()
+const { signInWithMagicLink, signInWithPassword, verifyOtp, resetPassword } = useAuth()
 
+type LoginMode = 'magic' | 'password'
+
+const loginMode = ref<LoginMode>('password')
 const email = ref('')
+const password = ref('')
 const otpCode = ref('')
 const loading = ref(false)
 const error = ref('')
 const magicLinkSent = ref(false)
+const resetSent = ref(false)
 
 onMounted(() => {
-  console.log('[LoginView] onMounted', {
-    currentUrl: window.location.href,
-    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
-    authRedirect: localStorage.getItem('auth_redirect')
-  })
+  console.log('[LoginView] onMounted')
 })
 
-const handleSignIn = async () => {
+const switchMode = (mode: LoginMode) => {
+  loginMode.value = mode
+  error.value = ''
+  magicLinkSent.value = false
+  resetSent.value = false
+}
+
+const handleMagicLink = async () => {
   if (!email.value) return
-  
-  console.log('[LoginView] handleSignIn', {
-    email: email.value,
-    oauthReturnUrl: localStorage.getItem('oauthReturnUrl'),
-    authRedirect: localStorage.getItem('auth_redirect')
-  })
-  
   loading.value = true
   error.value = ''
   
   try {
     await signInWithMagicLink(email.value)
-    console.log('[LoginView] Magic link sent successfully')
     magicLinkSent.value = true
   } catch (err: any) {
-    console.error('[LoginView] Magic link error:', err)
     error.value = err.message || 'Failed to send magic link'
   } finally {
     loading.value = false
@@ -135,9 +219,43 @@ const handleVerifyOtp = async () => {
   }
 }
 
+const handlePasswordLogin = async () => {
+  if (!email.value || !password.value) return
+  loading.value = true
+  error.value = ''
+  
+  try {
+    await signInWithPassword(email.value, password.value)
+  } catch (err: any) {
+    error.value = err.message || 'Invalid email or password'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleForgotPassword = async () => {
+  if (!email.value) {
+    error.value = 'Please enter your email address first'
+    return
+  }
+  loading.value = true
+  error.value = ''
+  
+  try {
+    await resetPassword(email.value)
+    resetSent.value = true
+  } catch (err: any) {
+    error.value = err.message || 'Failed to send reset email'
+  } finally {
+    loading.value = false
+  }
+}
+
 const resetForm = () => {
   magicLinkSent.value = false
+  resetSent.value = false
   otpCode.value = ''
+  password.value = ''
   error.value = ''
 }
 </script>
@@ -163,14 +281,14 @@ const resetForm = () => {
 
 .login-header {
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .login-header h1 {
   font-size: 2.25rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .login-header p {
@@ -178,10 +296,46 @@ const resetForm = () => {
   font-size: 1.1rem;
 }
 
+.login-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.25rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .login-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .input-group {
@@ -197,16 +351,21 @@ const resetForm = () => {
   color: var(--text-secondary);
 }
 
-.email-input {
+.full-input {
   width: 100%;
   padding: 0.875rem 1rem;
   font-size: 1rem;
 }
 
-.magic-link-button {
+.submit-button {
   width: 100%;
   justify-content: center;
   padding: 1rem;
+}
+
+.forgot-password {
+  text-align: center;
+  margin-top: 0.5rem;
 }
 
 .success-message {
