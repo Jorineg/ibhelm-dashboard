@@ -24,6 +24,26 @@
     </div>
 
     <div class="display-section">
+      <h4>Hide Inactive Projects</h4>
+      <p class="section-hint">
+        When enabled, only active projects will be shown in the Projects view.
+      </p>
+      <div class="checkbox-row">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            v-model="localHideInactiveProjects"
+            @change="handleSaveHideInactiveProjects"
+          />
+          <span class="checkbox-text">Hide inactive projects</span>
+        </label>
+        <span v-if="saving" class="saving-indicator">
+          <i class="pi pi-spin pi-spinner"></i>
+        </span>
+      </div>
+    </div>
+
+    <div class="display-section">
       <h4>Default Items Sorting</h4>
       <p class="section-hint">
         Default sorting used for new "Items" view configurations.
@@ -81,17 +101,20 @@ import { useUserSettings } from '@/composables/useUserSettings'
 
 const { 
   hideCompletedTasks,
+  hideInactiveProjects,
   defaultSortField,
   defaultSortOrder,
   tooltipsDisabled,
   saving,
   updateHideCompletedTasks,
+  updateHideInactiveProjects,
   updateDefaultSortField,
   updateDefaultSortOrder,
   updateTooltipsDisabled
 } = useUserSettings()
 
 const localHideCompletedTasks = ref(false)
+const localHideInactiveProjects = ref(false)
 const localSortField = ref('updated_at')
 const localSortOrder = ref<'asc' | 'desc'>('desc')
 const localTooltipsDisabled = ref(false)
@@ -115,6 +138,10 @@ const handleSaveHideCompletedTasks = () => {
   updateHideCompletedTasks(localHideCompletedTasks.value)
 }
 
+const handleSaveHideInactiveProjects = () => {
+  updateHideInactiveProjects(localHideInactiveProjects.value)
+}
+
 const handleSaveDefaultSort = () => {
   updateDefaultSortField(localSortField.value)
   updateDefaultSortOrder(localSortOrder.value)
@@ -125,6 +152,7 @@ const handleSaveTooltipsDisabled = () => {
 }
 
 watch(hideCompletedTasks, (val) => { localHideCompletedTasks.value = val }, { immediate: true })
+watch(hideInactiveProjects, (val) => { localHideInactiveProjects.value = val }, { immediate: true })
 watch(defaultSortField, (val) => { localSortField.value = val }, { immediate: true })
 watch(defaultSortOrder, (val) => { localSortOrder.value = val }, { immediate: true })
 watch(tooltipsDisabled, (val) => { localTooltipsDisabled.value = val }, { immediate: true })

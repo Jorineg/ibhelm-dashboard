@@ -101,6 +101,7 @@ function buildUnifiedItemsParams(
   sortConfig: SortConfig,
   page: number,
   hideCompletedTasks: boolean = false,
+  hideInactiveProjects: boolean = false,
   fileIgnorePatterns: string[] | null = null
 ) {
   const quick = filterConfig?.quickFilters || {}
@@ -169,6 +170,9 @@ function buildUnifiedItemsParams(
     // Hide completed tasks setting
     p_hide_completed_tasks: hideCompletedTasks || null,
 
+    // Hide items from inactive projects setting
+    p_hide_inactive_projects: hideInactiveProjects || null,
+
     // File ignore patterns (LIKE patterns for filtering out unwanted files)
     p_file_ignore_patterns: fileIgnorePatterns && fileIgnorePatterns.length > 0 ? fileIgnorePatterns : null,
 
@@ -215,6 +219,7 @@ export function useData() {
     sortConfig: SortConfig | null = null,
     selectedTaskTypes: string[] | null = null,
     hideCompletedTasks = false,
+    hideInactiveProjects = false,
     fileIgnorePatterns: string[] | null = null
   ) => {
     const sort = sortConfig || currentSort.value
@@ -228,7 +233,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, sort, page, hideCompletedTasks, fileIgnorePatterns
+      selectedTaskTypes, sort, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
     )
 
     const t0 = performance.now()
@@ -249,6 +254,7 @@ export function useData() {
     filterConfig: FilterConfiguration | null = null,
     selectedTaskTypes: string[] | null = null,
     hideCompletedTasks = false,
+    hideInactiveProjects = false,
     fileIgnorePatterns: string[] | null = null
   ): Promise<number> => {
     // Check if any type is selected
@@ -258,7 +264,7 @@ export function useData() {
 
     const params = buildUnifiedItemsParams(
       filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, 0, hideCompletedTasks, fileIgnorePatterns
+      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, 0, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
     )
 
     // Remove pagination/sort params - count doesn't need them
@@ -278,7 +284,8 @@ export function useData() {
     search = '',
     _includeCount = false,
     filterConfig: FilterConfiguration | null = null,
-    sortConfig: SortConfig | null = null
+    sortConfig: SortConfig | null = null,
+    hideInactiveProjects = false
   ) => {
     const sort = sortConfig || { field: 'name', order: 'asc' }
     const col = filterConfig?.columnFilters || {}
@@ -296,6 +303,9 @@ export function useData() {
     if (col.status_in?.length) query = query.in('status', col.status_in)
     if (col.status_not_in?.length) {
       col.status_not_in.forEach(s => { query = query.neq('status', s) })
+    }
+    if (hideInactiveProjects) {
+      query = query.eq('status', 'active')
     }
 
     const { data, error: queryError } = await query
@@ -346,6 +356,7 @@ export function useData() {
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
     hideCompletedTasks = false,
+    hideInactiveProjects = false,
     fileIgnorePatterns: string[] | null = null
   ): Promise<void> => {
     const myVersion = ++requestVersion
@@ -388,13 +399,13 @@ export function useData() {
       let result: { data: any[] }
       switch (viewType) {
         case 'projects':
-          result = await fetchProjects(0, search, false, filterConfig, sortConfig || currentSort.value)
+          result = await fetchProjects(0, search, false, filterConfig, sortConfig || currentSort.value, hideInactiveProjects)
           break
         case 'people':
           result = await fetchPeople(0, search, false, filterConfig, sortConfig || currentSort.value)
           break
         default:
-          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, sortConfig || currentSort.value, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
+          result = await fetchUnifiedItems(0, search, showTasks, showEmails, showCraft, showFiles, filterConfig, sortConfig || currentSort.value, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
       }
 
       if (!isCurrent()) return // Superseded - discard results
@@ -409,9 +420,9 @@ export function useData() {
       try {
         let count: number
         switch (viewType) {
-          case 'projects': count = await fetchProjectsCount(search, filterConfig); break
+          case 'projects': count = await fetchProjectsCount(search, filterConfig, hideInactiveProjects); break
           case 'people': count = await fetchPeopleCount(search, filterConfig); break
-          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
+          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
         }
         if (isCurrent()) {
           totalCount.value = count
@@ -435,7 +446,7 @@ export function useData() {
   }
 
   // Fetch project count
-  const fetchProjectsCount = async (search = '', filterConfig: FilterConfiguration | null = null): Promise<number> => {
+  const fetchProjectsCount = async (search = '', filterConfig: FilterConfiguration | null = null, hideInactiveProjects = false): Promise<number> => {
     const col = filterConfig?.columnFilters || {}
 
     let query = supabase
@@ -449,6 +460,9 @@ export function useData() {
     if (col.status_in?.length) query = query.in('status', col.status_in)
     if (col.status_not_in?.length) {
       col.status_not_in.forEach(s => { query = query.neq('status', s) })
+    }
+    if (hideInactiveProjects) {
+      query = query.eq('status', 'active')
     }
 
     const { count, error: queryError } = await query
@@ -480,6 +494,7 @@ export function useData() {
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
     hideCompletedTasks = false,
+    hideInactiveProjects = false,
     fileIgnorePatterns: string[] | null = null
   ) => {
     if (loading.value || !hasMore.value) return
@@ -495,14 +510,14 @@ export function useData() {
 
       switch (viewType) {
         case 'projects':
-          result = await fetchProjects(currentPage.value, search, false, filterConfig, currentSort.value)
+          result = await fetchProjects(currentPage.value, search, false, filterConfig, currentSort.value, hideInactiveProjects)
           break
         case 'people':
           result = await fetchPeople(currentPage.value, search, false, filterConfig, currentSort.value)
           break
         case 'items':
         default:
-          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes, hideCompletedTasks, fileIgnorePatterns)
+          result = await fetchUnifiedItems(currentPage.value, search, showTasks, showEmails, showCraft, showFiles, filterConfig, currentSort.value, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
           break
       }
 
@@ -535,6 +550,7 @@ export function useData() {
     viewType: ViewType = 'items',
     selectedTaskTypes: string[] | null = null,
     hideCompletedTasks = false,
+    hideInactiveProjects = false,
     fileIgnorePatterns: string[] | null = null
   ): Promise<ViewDataItem[]> => {
     const sort = currentSort.value
@@ -547,6 +563,9 @@ export function useData() {
           .order(sort.field, { ascending: sort.order === 'asc' })
         if (search) {
           query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,company_name.ilike.%${search}%,client_name.ilike.%${search}%`)
+        }
+        if (hideInactiveProjects) {
+          query = query.eq('status', 'active')
         }
         const { data } = await query
         return data || []
@@ -582,7 +601,7 @@ export function useData() {
         while (true) {
           const params = buildUnifiedItemsParams(
             filterConfig, search, showTasks, showEmails, showCraft, showFiles,
-            selectedTaskTypes, sort, page, hideCompletedTasks, fileIgnorePatterns
+            selectedTaskTypes, sort, page, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
           )
           // Use larger batch for export
           params.p_limit = 1000

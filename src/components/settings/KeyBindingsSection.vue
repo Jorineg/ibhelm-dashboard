@@ -68,7 +68,7 @@ const shortcutGroups: { id: string; label: string; actions: (keyof KeyBindings)[
   {
     id: 'config_mgmt',
     label: 'Config Management',
-    actions: ['newConfig', 'deleteConfig', 'renameConfig']
+    actions: ['newConfig', 'deleteConfig', 'renameConfig', 'saveConfig']
   },
   {
     id: 'view',

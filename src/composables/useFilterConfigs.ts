@@ -1,6 +1,11 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, shallowRef } from 'vue'
 import { useUserSettings, type FilterConfigurationsData } from '@/composables/useUserSettings'
 import type { FilterConfiguration, ViewType, SortConfig, QuickFilters, ColumnFilters } from '@/types'
+
+// Working copy of the active config (not persisted until saved)
+const workingConfig = shallowRef<FilterConfiguration | null>(null)
+// ID of the config the working copy is based on
+const workingConfigBaseId = ref<string | null>(null)
 
 // Default quick filter fields per view type
 const DEFAULT_QUICK_FILTERS_BY_VIEW: Record<ViewType, (keyof QuickFilters)[]> = {
@@ -216,11 +221,63 @@ export function useFilterConfigs() {
 
   const activeConfigId = computed(() => activeConfigIds.value[currentViewType.value] || '')
 
-  const activeConfig = computed<FilterConfiguration | null>(() => {
+  // The saved (persisted) config
+  const savedConfig = computed<FilterConfiguration | null>(() => {
     const currentId = activeConfigIds.value[currentViewType.value]
     if (!currentId) return null
     return allConfigurations.value.find(c => c.id === currentId) || null
   })
+
+  // Initialize or sync working copy when saved config changes
+  watch(savedConfig, (newSaved) => {
+    if (!newSaved) {
+      workingConfig.value = null
+      workingConfigBaseId.value = null
+      return
+    }
+    // Only reset working copy if we switched to a different config
+    if (workingConfigBaseId.value !== newSaved.id) {
+      workingConfig.value = JSON.parse(JSON.stringify(newSaved))
+      workingConfigBaseId.value = newSaved.id
+    }
+  }, { immediate: true })
+
+  // The active config returns the working copy (unsaved changes)
+  const activeConfig = computed<FilterConfiguration | null>(() => {
+    return workingConfig.value
+  })
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = computed(() => {
+    if (!workingConfig.value || !savedConfig.value) return false
+    return JSON.stringify(workingConfig.value) !== JSON.stringify(savedConfig.value)
+  })
+
+  // Save working copy to persistent storage
+  const saveActiveConfiguration = () => {
+    if (!workingConfig.value || !hasUnsavedChanges.value) return false
+    const index = allConfigurations.value.findIndex(c => c.id === workingConfig.value!.id)
+    if (index === -1) return false
+    
+    const updatedConfig = {
+      ...workingConfig.value,
+      updatedAt: new Date().toISOString()
+    }
+    const newConfigs = [...allConfigurations.value]
+    newConfigs.splice(index, 1, updatedConfig)
+    updateData({ configs: newConfigs })
+    
+    // Update working copy to match saved (so hasUnsavedChanges becomes false)
+    workingConfig.value = JSON.parse(JSON.stringify(updatedConfig))
+    return true
+  }
+
+  // Discard unsaved changes
+  const discardChanges = () => {
+    if (savedConfig.value) {
+      workingConfig.value = JSON.parse(JSON.stringify(savedConfig.value))
+    }
+  }
 
   // Push current config to history stack
   const pushToHistory = (viewType: ViewType) => {
@@ -339,21 +396,17 @@ export function useFilterConfigs() {
     return true
   }
 
+  // Update the working copy (does NOT persist - call saveActiveConfiguration to persist)
   const updateConfiguration = (id: string, updates: Partial<FilterConfiguration>) => {
-    const index = allConfigurations.value.findIndex(c => c.id === id)
-    if (index === -1) return false
-
-    const config = allConfigurations.value[index]
-    const updatedConfig = {
-      ...config,
-      ...updates,
-      updatedAt: new Date().toISOString()
+    // Only update working copy if it's the active config
+    if (workingConfig.value && workingConfig.value.id === id) {
+      workingConfig.value = {
+        ...workingConfig.value,
+        ...updates
+      }
+      return true
     }
-
-    const newConfigs = [...allConfigurations.value]
-    newConfigs.splice(index, 1, updatedConfig)
-    updateData({ configs: newConfigs })
-    return true
+    return false
   }
 
   const setActiveConfiguration = (id: string) => {
@@ -467,6 +520,7 @@ export function useFilterConfigs() {
     currentViewType,
     quickFilterFields,
     hasActiveFilters,
+    hasUnsavedChanges,
     activeColumnFilterKeys,
     setCurrentView,
     createConfiguration,
@@ -474,6 +528,8 @@ export function useFilterConfigs() {
     deleteConfiguration,
     updateConfiguration,
     setActiveConfiguration,
+    saveActiveConfiguration,
+    discardChanges,
     updateSearchQuery,
     updateQuickFilter,
     updateQuickFilterOrder,

@@ -186,6 +186,7 @@ export interface AppSettings {
 // User settings (user_settings table) - per-user preferences
 export interface UserSettings {
   hide_completed_tasks: boolean
+  hide_inactive_projects: boolean
   default_sort_field: string
   default_sort_order: 'asc' | 'desc'
   filter_configurations: FilterConfigurationsData

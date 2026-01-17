@@ -33,6 +33,7 @@ export interface KeyBindings {
   newConfig: KeyBinding
   deleteConfig: KeyBinding
   renameConfig: KeyBinding
+  saveConfig: KeyBinding
   // View
   focusSearch: KeyBinding
   toggleView: KeyBinding
@@ -79,6 +80,7 @@ const defaultBindings: KeyBindings = {
   newConfig: { key: 'f', description: 'Create new filter config', group: 'config_mgmt' },
   deleteConfig: { key: 'd', description: 'Delete current filter config', group: 'config_mgmt' },
   renameConfig: { key: 'r', description: 'Rename current filter config', group: 'config_mgmt' },
+  saveConfig: { key: 'j', description: 'Save current filter config', group: 'config_mgmt' },
   // View
   focusSearch: { key: 's', description: 'Focus search box', group: 'view' },
   toggleView: { key: 'g', description: 'Toggle list/gallery view', group: 'view' },

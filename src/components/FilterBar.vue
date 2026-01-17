@@ -210,40 +210,55 @@
         
         <!-- Filter action buttons -->
         <div class="filter-actions-inline">
-          <div class="add-filter-container" ref="addFilterRef">
+          <div class="filter-actions-left">
+            <div class="add-filter-container" ref="addFilterRef">
+              <Button
+                label="Add Filter"
+                icon="pi pi-plus"
+                outlined
+                size="small"
+                @click="toggleAddFilterMenu"
+                class="filter-action-btn"
+              />
+              <Transition name="dropdown">
+                <div v-if="showAddFilter && availableFilters.length > 0" class="add-filter-dropdown dropdown-panel">
+                  <div
+                    v-for="col in availableFilters"
+                    :key="col.field"
+                    class="dropdown-item"
+                    @click="selectFilter(col)"
+                  >
+                    <i :class="getTypeIcon(col.type)" class="filter-icon"></i>
+                    <span>{{ col.label }}</span>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+
             <Button
-              label="Add Filter"
-              icon="pi pi-plus"
+              label="Clear All"
+              icon="pi pi-filter-slash"
               outlined
+              severity="secondary"
               size="small"
-              @click="toggleAddFilterMenu"
+              :disabled="!hasActiveFilters"
+              @click="clearAllFilters"
               class="filter-action-btn"
             />
-            <Transition name="dropdown">
-              <div v-if="showAddFilter && availableFilters.length > 0" class="add-filter-dropdown dropdown-panel">
-                <div
-                  v-for="col in availableFilters"
-                  :key="col.field"
-                  class="dropdown-item"
-                  @click="selectFilter(col)"
-                >
-                  <i :class="getTypeIcon(col.type)" class="filter-icon"></i>
-                  <span>{{ col.label }}</span>
-                </div>
-              </div>
-            </Transition>
           </div>
 
-          <Button
-            label="Clear All"
-            icon="pi pi-filter-slash"
-            outlined
-            severity="secondary"
-            size="small"
-            :disabled="!hasActiveFilters"
-            @click="clearAllFilters"
-            class="filter-action-btn"
-          />
+          <Tooltip text="Save changes" :shortcut="keyBindings.saveConfig.key" position="top">
+            <Button
+              label="Save"
+              icon="pi pi-save"
+              :outlined="!hasUnsavedChanges"
+              :disabled="!hasUnsavedChanges"
+              size="small"
+              @click="saveActiveConfiguration"
+              class="filter-save-btn"
+              :class="{ 'has-changes': hasUnsavedChanges }"
+            />
+          </Tooltip>
         </div>
       </div>
 
@@ -381,13 +396,17 @@ const {
   activeConfig,
   quickFilterFields,
   hasActiveFilters,
+  hasUnsavedChanges,
   activeColumnFilterKeys,
   updateQuickFilter,
   updateQuickFilterOrder,
   updateColumnFilter,
   removeColumnFilter,
-  clearAllFilters
+  clearAllFilters,
+  saveActiveConfiguration
 } = useFilterConfigs()
+
+const { keyBindings } = useKeyBindings()
 
 // Drag and drop state
 const draggedFilter = ref<keyof QuickFilters | null>(null)
@@ -470,10 +489,6 @@ const showAddFilter = ref(false)
 const toggleAddFilterMenu = () => {
   showAddFilter.value = !showAddFilter.value
 }
-
-
-
-const { keyBindings } = useKeyBindings()
 
 const formatFilterName = (name: string) => {
   const labels: Record<string, string> = {
@@ -826,15 +841,37 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 
 .filter-actions-inline {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: stretch;
   flex-shrink: 0;
+}
+
+.filter-actions-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .filter-action-btn {
   font-size: 0.875rem !important;
   white-space: nowrap;
+}
+
+.filter-save-btn {
+  font-size: 0.875rem !important;
+  white-space: nowrap;
+  height: 100%;
+  min-height: 4rem;
+}
+
+.filter-save-btn.has-changes {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.filter-save-btn:not(.has-changes) {
+  opacity: 0.5;
 }
 
 /* Add filter dropdown */

@@ -156,12 +156,12 @@ import type { ViewDataItem, Column, SortConfig, ViewType } from '@/types'
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
-const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery } = useFilterConfigs()
+const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
 const { craftSpaceId, filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
-const { hideCompletedTasks, initialize: initUserSettings } = useUserSettings()
+const { hideCompletedTasks, hideInactiveProjects, initialize: initUserSettings } = useUserSettings()
 
 // Transform craft URL to include space ID (same as DataTable)
 const transformCraftUrl = (url: string): string => {
@@ -362,6 +362,7 @@ const dataFetchConfigKey = computed(() => {
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters,
     hideCompletedTasks: hideCompletedTasks.value,
+    hideInactiveProjects: hideInactiveProjects.value,
     fileIgnorePatterns: enabledFileIgnorePatterns.value
   })
 })
@@ -393,7 +394,7 @@ watch(dataFetchConfigKey, (newKey) => {
     loadData(
       params.showTasks, params.showEmails, params.showCraft, params.showFiles,
       params.search, params.config, params.sortConfig, params.viewType, params.taskTypes,
-      hideCompletedTasks.value, enabledFileIgnorePatterns.value
+      hideCompletedTasks.value, hideInactiveProjects.value, enabledFileIgnorePatterns.value
     )
   }
   
@@ -472,6 +473,7 @@ const handleLoadMore = async () => {
       currentViewType.value,
       selectedTaskTypes.value,
       hideCompletedTasks.value,
+      hideInactiveProjects.value,
       enabledFileIgnorePatterns.value
     )
   }
@@ -570,6 +572,7 @@ const handleSort = async (sortConfig: SortConfig) => {
       currentViewType.value,
       selectedTaskTypes.value,
       hideCompletedTasks.value,
+      hideInactiveProjects.value,
       enabledFileIgnorePatterns.value
     )
   }
@@ -588,6 +591,7 @@ const handleRetry = async () => {
       currentViewType.value,
       selectedTaskTypes.value,
       hideCompletedTasks.value,
+      hideInactiveProjects.value,
       enabledFileIgnorePatterns.value
     )
   }
@@ -608,6 +612,7 @@ const handleExport = async () => {
       currentViewType.value,
       selectedTaskTypes.value,
       hideCompletedTasks.value,
+      hideInactiveProjects.value,
       enabledFileIgnorePatterns.value
     )
     
@@ -938,6 +943,15 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (key === bindings.renameConfig.key) {
     event.preventDefault()
     configPanelRef.value?.startRenameActive()
+    return
+  }
+  
+  // Save config
+  if (key === bindings.saveConfig.key) {
+    event.preventDefault()
+    if (hasUnsavedChanges.value) {
+      saveActiveConfiguration()
+    }
     return
   }
   

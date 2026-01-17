@@ -8,6 +8,7 @@ import type { KeyBindings } from './useKeyBindings'
 
 export interface UserSettings {
   hide_completed_tasks: boolean
+  hide_inactive_projects: boolean
   default_sort_field: string
   default_sort_order: 'asc' | 'desc'
   tooltips_disabled: boolean
@@ -35,6 +36,7 @@ const DEFAULT_FILTER_CONFIGURATIONS: FilterConfigurationsData = {
 
 const DEFAULT_USER_SETTINGS: UserSettings = {
   hide_completed_tasks: false,
+  hide_inactive_projects: false,
   default_sort_field: 'updated_at',
   default_sort_order: 'desc',
   tooltips_disabled: false,
@@ -229,6 +231,7 @@ export function useUserSettings() {
   // ===== COMPUTED ACCESSORS =====
 
   const hideCompletedTasks = computed(() => settings.value.hide_completed_tasks)
+  const hideInactiveProjects = computed(() => settings.value.hide_inactive_projects)
   const defaultSortField = computed(() => settings.value.default_sort_field)
   const defaultSortOrder = computed(() => settings.value.default_sort_order)
   const tooltipsDisabled = computed(() => settings.value.tooltips_disabled)
@@ -238,6 +241,7 @@ export function useUserSettings() {
   // ===== UPDATE HELPERS =====
 
   const updateHideCompletedTasks = (value: boolean) => updateSetting('hide_completed_tasks', value)
+  const updateHideInactiveProjects = (value: boolean) => updateSetting('hide_inactive_projects', value)
   const updateDefaultSortField = (value: string) => updateSetting('default_sort_field', value)
   const updateDefaultSortOrder = (value: 'asc' | 'desc') => updateSetting('default_sort_order', value)
   const updateTooltipsDisabled = (value: boolean) => updateSetting('tooltips_disabled', value)
@@ -260,6 +264,7 @@ export function useUserSettings() {
     saveSettings,
     // Individual accessors
     hideCompletedTasks,
+    hideInactiveProjects,
     defaultSortField,
     defaultSortOrder,
     tooltipsDisabled,
@@ -267,6 +272,7 @@ export function useUserSettings() {
     keyBindings,
     // Updaters
     updateHideCompletedTasks,
+    updateHideInactiveProjects,
     updateDefaultSortField,
     updateDefaultSortOrder,
     updateTooltipsDisabled,
