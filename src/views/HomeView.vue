@@ -685,6 +685,10 @@ const handleKeyDown = (event: KeyboardEvent) => {
   const target = event.target as HTMLElement
   const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
   
+  // Let browser handle Ctrl/Cmd/Alt modified shortcuts (e.g., Cmd+R for reload)
+  // Shift is allowed since we use it for clearing filters
+  if (event.ctrlKey || event.metaKey || event.altKey) return
+  
   const bindings = keyBindings.value
   const key = event.key
   

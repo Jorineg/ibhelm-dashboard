@@ -153,6 +153,9 @@ export function useKeyboardShortcuts(handlers: Partial<Record<keyof KeyBindings,
   const { keyBindings } = useKeyBindings()
   
   const handleKeyDown = (event: KeyboardEvent) => {
+    // Let browser handle Ctrl/Cmd/Alt modified shortcuts (e.g., Cmd+R for reload)
+    if (event.ctrlKey || event.metaKey || event.altKey) return
+    
     // Ignore if user is typing in an input
     const target = event.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
