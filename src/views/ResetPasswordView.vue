@@ -84,8 +84,20 @@ const error = ref('')
 const success = ref(false)
 
 onMounted(() => {
-  // Supabase handles the token from the URL automatically via onAuthStateChange
-  console.log('[ResetPasswordView] mounted')
+  // Check for error in URL hash (e.g., expired reset link)
+  const hash = window.location.hash
+  if (hash.includes('error=')) {
+    const params = new URLSearchParams(hash.substring(1))
+    const errorCode = params.get('error_code')
+    const errorDesc = params.get('error_description')
+    
+    if (errorCode === 'otp_expired') {
+      error.value = 'Reset link expired. Please request a new one from the login page.'
+    } else if (errorDesc) {
+      error.value = decodeURIComponent(errorDesc.replace(/\+/g, ' '))
+    }
+    window.history.replaceState(null, '', window.location.pathname)
+  }
 })
 
 const handleReset = async () => {

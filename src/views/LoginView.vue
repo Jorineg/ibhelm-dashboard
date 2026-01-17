@@ -181,7 +181,21 @@ const magicLinkSent = ref(false)
 const resetSent = ref(false)
 
 onMounted(() => {
-  console.log('[LoginView] onMounted')
+  // Check for error in URL hash (e.g., expired magic link or reset link)
+  const hash = window.location.hash
+  if (hash.includes('error=')) {
+    const params = new URLSearchParams(hash.substring(1))
+    const errorCode = params.get('error_code')
+    const errorDesc = params.get('error_description')
+    
+    if (errorCode === 'otp_expired') {
+      error.value = 'Link expired. Please request a new one.'
+    } else if (errorDesc) {
+      error.value = decodeURIComponent(errorDesc.replace(/\+/g, ' '))
+    }
+    // Clean up URL
+    window.history.replaceState(null, '', window.location.pathname)
+  }
 })
 
 const switchMode = (mode: LoginMode) => {
