@@ -448,6 +448,14 @@ watch(() => activeConfig.value?.visibleColumns, (newColumns, oldColumns) => {
   }
 }, { deep: true })
 
+// Reset scroll position when switching filter configurations
+watch(() => activeConfig.value?.id, () => {
+  const scrollContainer = document.querySelector('.center-content')
+  if (scrollContainer) {
+    scrollContainer.scrollTo({ top: 0, left: 0 })
+  }
+})
+
 // Navigation
 const handleSignOut = async () => {
   await signOut()
