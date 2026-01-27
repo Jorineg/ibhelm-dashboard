@@ -441,4 +441,3 @@ export const GROUPABLE_COLUMNS = [
   { field: 'creator', label: 'Creator' },
   { field: 'tasklist', label: 'Tasklist' },
 ] as const
-

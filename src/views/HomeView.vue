@@ -1163,7 +1163,7 @@ onUnmounted(() => {
   padding-right: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* View Tabs */
@@ -1275,12 +1275,12 @@ onUnmounted(() => {
   gap: 0.75rem;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .center-content {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -1317,8 +1317,8 @@ onUnmounted(() => {
 .center-content-inner {
   display: block;
   width: fit-content;
+  min-width: 100%;
   min-height: min-content;
-  flex: 1 0 auto;
 }
 .filters-section {
   min-width: 0;
