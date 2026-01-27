@@ -10,6 +10,7 @@ export { default as AppearanceSection } from './AppearanceSection.vue'
 export { default as GeneralSection } from './GeneralSection.vue'
 export { default as DisplaySection } from './DisplaySection.vue'
 export { default as KeyBindingsSection } from './KeyBindingsSection.vue'
+export { default as LinkHandlingSection } from './LinkHandlingSection.vue'
 export { default as PlaceholderSection } from './PlaceholderSection.vue'
 export { default as SyncFiltersSection } from './SyncFiltersSection.vue'
 

@@ -98,7 +98,7 @@
               <div class="email-from">from {{ sourceEmail.from_name || sourceEmail.from_email || 'Unknown' }}</div>
           <a
             v-if="sourceEmail.missive_url"
-            :href="sourceEmail.missive_url"
+            :href="transformMissiveUrl(sourceEmail.missive_url)"
             target="_blank"
                 class="email-link"
           >
@@ -253,6 +253,7 @@ import AccordionTab from 'primevue/accordiontab'
 import { TypeLinkButton, EmailPreview, CraftPreview, FilePlaceholder, FilePreview, ExtensionBadge } from '@/components/common'
 import { supabase } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useLinkTransform } from '@/composables/useLinkTransform'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
 
 interface SourceEmailInfo {
@@ -301,6 +302,7 @@ const emailPreviewRef = ref<InstanceType<typeof EmailPreview> | null>(null)
 const craftPreviewRef = ref<InstanceType<typeof CraftPreview> | null>(null)
 
 const { filesBucket } = useAppearanceSettings()
+const { transformMissiveUrl } = useLinkTransform()
 
 const isVisible = computed({
   get: () => props.visible,

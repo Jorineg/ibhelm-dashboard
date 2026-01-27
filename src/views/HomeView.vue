@@ -156,6 +156,7 @@ import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useUserSettings } from '@/composables/useUserSettings'
+import { useLinkTransform } from '@/composables/useLinkTransform'
 import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, GroupConfig, ViewType } from '@/types'
 
@@ -165,16 +166,9 @@ const { activeConfig, configurations, updateConfiguration, setCurrentView, curre
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
-const { craftSpaceId, filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
+const { filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
 const { hideCompletedTasks, hideInactiveProjects, stickyToolbar, initialize: initUserSettings } = useUserSettings()
-
-// Transform craft URL to include space ID (same as DataTable)
-const transformCraftUrl = (url: string): string => {
-  if (!url || !craftSpaceId.value) return url
-  const blockIdMatch = url.match(/blockId=([^&]+)/)
-  if (!blockIdMatch) return url
-  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
-}
+const { transformCraftUrl, transformMissiveUrl } = useLinkTransform()
 
 // Sync popup state
 const syncPopupVisible = ref(false)
@@ -655,7 +649,7 @@ const handleExport = async () => {
     // Helper to get primary URL (for files, export storage path since signed URLs expire)
     const getLink = (item: ViewDataItem): string => {
       if (item.teamwork_url) return item.teamwork_url
-      if (item.missive_url) return item.missive_url
+      if (item.missive_url) return transformMissiveUrl(item.missive_url)
       if (item.craft_url) return transformCraftUrl(item.craft_url)
       if (item.storage_path) return `storage:${item.storage_path}`
       return ''
@@ -946,10 +940,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
         return
       }
       // Other item types
-      let url = item.teamwork_url || item.missive_url
-      if (!url && item.craft_url) {
-        url = transformCraftUrl(item.craft_url)
-      }
+      let url = item.teamwork_url
+      if (!url && item.missive_url) url = transformMissiveUrl(item.missive_url)
+      if (!url && item.craft_url) url = transformCraftUrl(item.craft_url)
       if (url) window.open(url, '_blank')
     }
     return

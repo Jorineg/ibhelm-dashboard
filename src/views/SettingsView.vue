@@ -79,6 +79,7 @@
         <!-- User Sections -->
         <DisplaySection v-if="activeSection === 'display'" />
         <KeyBindingsSection v-else-if="activeSection === 'keybindings'" />
+        <LinkHandlingSection v-else-if="activeSection === 'link-handling'" />
 
         <!-- Admin Sections -->
         <template v-if="isAdmin">
@@ -135,7 +136,7 @@ import { PageHeader, Tooltip } from '@/components/common'
 import { 
   TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
   CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 
-  DisplaySection, KeyBindingsSection, SyncFiltersSection 
+  DisplaySection, KeyBindingsSection, SyncFiltersSection, LinkHandlingSection 
 } from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
@@ -202,7 +203,8 @@ const {
 // User settings sections (visible to all)
 const userSections = [
   { id: 'display', label: 'Display', icon: 'pi pi-sliders-h' },
-  { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' }
+  { id: 'keybindings', label: 'Key Bindings', icon: 'pi pi-key' },
+  { id: 'link-handling', label: 'Link Handling', icon: 'pi pi-external-link' }
 ]
 
 // Admin settings sections (visible to admins only)

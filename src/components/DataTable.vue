@@ -486,6 +486,7 @@ import { InfoTooltip, Tooltip, AutocompleteInput, EmailPreview, CraftPreview, Fi
 import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useLinkTransform } from '@/composables/useLinkTransform'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes, type GroupCounts } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
@@ -578,7 +579,8 @@ const taskTypeShortcuts = computed(() => [
   formatKeyForDisplay(keyBindings.value.toggleTaskType2.key),
   formatKeyForDisplay(keyBindings.value.toggleTaskType3.key)
 ])
-const { emailColor, craftColor, fileColor, craftSpaceId, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
+const { emailColor, craftColor, fileColor, personColor, projectColor, teamworkBaseUrl, filesBucket, initialize: initAppearance } = useAppearanceSettings()
+const { transformCraftUrl, transformMissiveUrl } = useLinkTransform()
 const { suggestions: projectSuggestions, loading: projectLoading, search: searchProjects, clear: clearProjectSuggestions } = useProjectAutocomplete()
 
 // Refs
@@ -630,14 +632,6 @@ const craftItemRefs = ref<Map<string, HTMLElement>>(new Map())
 const handleProjectSearch = (searchText: string) => searchProjects(searchText)
 const handleProjectSelect = (suggestion: AutocompleteSuggestion) => emit('update:projectFilter', suggestion.name as string)
 const handleProjectClear = () => { emit('update:projectFilter', ''); clearProjectSuggestions() }
-
-// Transform craft URL
-const transformCraftUrl = (url: string): string => {
-  if (!url || !craftSpaceId.value) return url
-  const blockIdMatch = url.match(/blockId=([^&]+)/)
-  if (!blockIdMatch) return url
-  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
-}
 
 // Toolbar height observer for sticky stacking
 let toolbarResizeObserver: ResizeObserver | null = null
@@ -1240,7 +1234,7 @@ const getRowPrimaryUrl = (item: ViewDataItem): string => {
     return baseUrl && projectId ? `${baseUrl.replace(/\/$/, '')}/app/projects/${projectId}` : '#'
   }
   if (item.teamwork_url) return item.teamwork_url
-  if (item.missive_url) return item.missive_url
+  if (item.missive_url) return transformMissiveUrl(item.missive_url)
   if (item.craft_url) return transformCraftUrl(item.craft_url)
   if (item.type?.toLowerCase() === 'file') return 'javascript:void(0)'
   return '#'

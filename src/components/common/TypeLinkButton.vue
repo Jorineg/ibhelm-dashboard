@@ -17,6 +17,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useLinkTransform } from '@/composables/useLinkTransform'
 import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, DataItem, PersonItem, ProjectItem } from '@/types'
 
@@ -29,14 +30,8 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const { emailColor, craftColor, fileColor, personColor, projectColor, craftSpaceId, teamworkBaseUrl, filesBucket } = useAppearanceSettings()
-
-const transformCraftUrl = (url: string): string => {
-  if (!url || !craftSpaceId.value) return url
-  const blockIdMatch = url.match(/blockId=([^&]+)/)
-  if (!blockIdMatch) return url
-  return `craftdocs://open?spaceId=${craftSpaceId.value}&blockId=${blockIdMatch[1]}`
-}
+const { emailColor, craftColor, fileColor, personColor, projectColor, teamworkBaseUrl, filesBucket } = useAppearanceSettings()
+const { transformCraftUrl, transformMissiveUrl } = useLinkTransform()
 
 const isFile = computed(() => {
   if (props.itemType !== 'item') return false
@@ -62,7 +57,7 @@ const url = computed(() => {
   const item = props.item as DataItem
   if (item.type?.toLowerCase() === 'file') return '#' // handled via click
   if (item.teamwork_url) return item.teamwork_url
-  if (item.missive_url) return item.missive_url
+  if (item.missive_url) return transformMissiveUrl(item.missive_url)
   if (item.craft_url) return transformCraftUrl(item.craft_url)
   return '#'
 })

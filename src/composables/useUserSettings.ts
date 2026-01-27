@@ -15,6 +15,8 @@ export interface UserSettings {
   sticky_toolbar: boolean
   filter_configurations: FilterConfigurationsData
   key_bindings: Partial<Record<keyof KeyBindings, string>>
+  open_craft_in_browser: boolean
+  open_missive_in_browser: boolean
 }
 
 export interface FilterConfigurationsData {
@@ -43,7 +45,9 @@ const DEFAULT_USER_SETTINGS: UserSettings = {
   tooltips_disabled: false,
   sticky_toolbar: false,
   filter_configurations: { ...DEFAULT_FILTER_CONFIGURATIONS },
-  key_bindings: {}
+  key_bindings: {},
+  open_craft_in_browser: false,
+  open_missive_in_browser: false
 }
 
 // ===== MODULE STATE =====
@@ -240,6 +244,8 @@ export function useUserSettings() {
   const stickyToolbar = computed(() => settings.value.sticky_toolbar)
   const filterConfigurations = computed(() => settings.value.filter_configurations)
   const keyBindings = computed(() => settings.value.key_bindings)
+  const openCraftInBrowser = computed(() => settings.value.open_craft_in_browser)
+  const openMissiveInBrowser = computed(() => settings.value.open_missive_in_browser)
 
   // ===== UPDATE HELPERS =====
 
@@ -257,6 +263,9 @@ export function useUserSettings() {
   const updateKeyBindings = (value: Partial<Record<keyof KeyBindings, string>>) => {
     updateSetting('key_bindings', value)
   }
+  
+  const updateOpenCraftInBrowser = (value: boolean) => updateSetting('open_craft_in_browser', value)
+  const updateOpenMissiveInBrowser = (value: boolean) => updateSetting('open_missive_in_browser', value)
 
   return {
     settings,
@@ -283,6 +292,10 @@ export function useUserSettings() {
     updateTooltipsDisabled,
     updateStickyToolbar,
     updateFilterConfigurations,
-    updateKeyBindings
+    updateKeyBindings,
+    openCraftInBrowser,
+    openMissiveInBrowser,
+    updateOpenCraftInBrowser,
+    updateOpenMissiveInBrowser
   }
 }
