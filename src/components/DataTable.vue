@@ -272,7 +272,7 @@
               <div class="table-cell group-header-content" :style="{ width: 'auto', minWidth: 'auto', maxWidth: 'none', flex: 1 }">
                 <span class="group-label">{{ getGroupLabel() }}</span>
                 <span class="group-value">{{ tableRow.groupValue }}</span>
-                <span class="group-count">({{ tableRow.itemCount }} {{ tableRow.itemCount === 1 ? 'item' : 'items' }})</span>
+                <span class="group-count">(<span v-if="props.groupCountsLoading" class="count-shimmer">---</span><span v-else>{{ getGroupCount(tableRow.groupValue) }}</span> {{ getGroupCount(tableRow.groupValue) === 1 ? 'item' : 'items' }})</span>
               </div>
             </div>
             <!-- Data Row -->
@@ -327,7 +327,7 @@
           <i class="pi pi-folder-open group-icon"></i>
           <span class="group-label">{{ getGroupLabel() }}</span>
           <span class="group-value">{{ group.groupValue }}</span>
-          <span class="group-count">({{ group.items.length }} {{ group.items.length === 1 ? 'item' : 'items' }})</span>
+          <span class="group-count">(<span v-if="props.groupCountsLoading" class="count-shimmer">---</span><span v-else>{{ getGroupCount(group.groupValue) }}</span> {{ getGroupCount(group.groupValue) === 1 ? 'item' : 'items' }})</span>
         </div>
         
         <!-- Gallery Grid for this group -->
@@ -487,7 +487,7 @@ import { useTaskTypes } from '@/composables/useTaskTypes'
 import { useKeyBindings } from '@/composables/useKeyBindings'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
-import { getVisibleColumnsForTypes } from '@/composables/useData'
+import { getVisibleColumnsForTypes, type GroupCounts } from '@/composables/useData'
 import { supabase } from '@/lib/supabase'
 import { formatDateShort } from '@/lib/formatDate'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, GroupConfig, ViewType } from '@/types'
@@ -498,6 +498,8 @@ interface Props {
   columns: ColumnType[]
   loading: boolean
   countLoading?: boolean
+  groupCounts?: GroupCounts
+  groupCountsLoading?: boolean
   revalidating?: boolean
   error?: string | null
   hasMore?: boolean
@@ -783,6 +785,17 @@ const getGroupLabel = (): string => {
   if (!props.groupConfig) return ''
   const col = GROUPABLE_COLUMNS.find(c => c.field === props.groupConfig!.field)
   return col?.label || props.groupConfig.field
+}
+
+// Get count for a specific group value - uses actual DB counts if available, otherwise falls back to loaded items count
+const getGroupCount = (groupValue: string): number => {
+  // Normalize "(No value)" back to empty string for lookup
+  const lookupKey = groupValue === '(No value)' ? '' : groupValue
+  if (props.groupCounts && props.groupCounts.has(lookupKey)) {
+    return props.groupCounts.get(lookupKey)!
+  }
+  // Fallback: count loaded items (used while loading or if counts unavailable)
+  return props.items.filter(item => (item.group_value ?? '') === lookupKey).length
 }
 
 // Should show column based on item types

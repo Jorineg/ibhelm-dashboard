@@ -79,6 +79,8 @@
           :columns="availableColumns"
           :loading="loading"
           :count-loading="countLoading"
+          :group-counts="groupCounts"
+          :group-counts-loading="groupCountsLoading"
           :revalidating="revalidating"
           :error="error"
           :has-more="hasMore"
@@ -222,6 +224,8 @@ const {
   dataItems,
   loading,
   countLoading,
+  groupCounts,
+  groupCountsLoading,
   revalidating,
   hasMore,
   totalCount,

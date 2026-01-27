@@ -6,6 +6,9 @@ import type { ViewDataItem, FilterConfiguration, SortConfig, GroupConfig, ViewTy
 
 const PAGE_SIZE = 50
 
+// Type for group counts map
+export type GroupCounts = Map<string, number>
+
 // Single version counter for race condition handling
 // Pattern: increment at start, check before any state update
 let requestVersion = 0
@@ -207,6 +210,8 @@ export function useData() {
   const currentPage = ref(0)
   const searchQuery = ref('')
   const totalCount = ref<number | null>(null)
+  const groupCounts = ref<GroupCounts>(new Map()) // Counts per group when grouping enabled
+  const groupCountsLoading = ref(false)
   const { defaultSortField, defaultSortOrder } = useUserSettings()
   const currentSort = ref<SortConfig>({
     field: defaultSortField.value || 'updated_at',
@@ -288,6 +293,52 @@ export function useData() {
 
     if (queryError) throw queryError
     return data ?? 0
+  }
+
+  // Fetch grouped counts when grouping is enabled
+  const fetchGroupedCounts = async (
+    groupConfig: GroupConfig,
+    search = '',
+    showTasks = true,
+    showEmails = true,
+    showCraft = true,
+    showFiles = true,
+    filterConfig: FilterConfiguration | null = null,
+    selectedTaskTypes: string[] | null = null,
+    hideCompletedTasks = false,
+    hideInactiveProjects = false,
+    fileIgnorePatterns: string[] | null = null
+  ): Promise<GroupCounts> => {
+    const hasTypes = showTasks || showEmails || showCraft || showFiles ||
+      (selectedTaskTypes && selectedTaskTypes.length > 0)
+    if (!hasTypes) return new Map()
+
+    const params = buildUnifiedItemsParams(
+      filterConfig, search, showTasks, showEmails, showCraft, showFiles,
+      selectedTaskTypes, { field: 'updated_at', order: 'desc' }, null, 0, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns
+    )
+
+    // Remove pagination/sort params, add group params
+    const { p_sort_field, p_sort_order, p_group_by, p_group_order, p_limit, p_offset, ...countParams } = params
+
+    const t0 = performance.now()
+    const { data, error: queryError } = await supabase.rpc('count_unified_items_grouped', {
+      p_group_by: groupConfig.field,
+      p_group_order: groupConfig.order,
+      ...countParams
+    })
+    console.log(`[TIMING] count_unified_items_grouped: ${(performance.now() - t0).toFixed(0)}ms, groups: ${data?.length ?? 0}`)
+
+    if (queryError) throw queryError
+
+    // Convert to Map for fast lookup
+    const countsMap = new Map<string, number>()
+    if (data) {
+      for (const row of data) {
+        countsMap.set(row.group_value ?? '', row.group_count)
+      }
+    }
+    return countsMap
   }
 
   // Fetch projects from project_overview view
@@ -384,6 +435,8 @@ export function useData() {
     // Show cache or loading state (check version before updating)
     if (!isCurrent()) return
 
+    const groupConfig = filterConfig?.groupConfig || null
+
     const cached = getCachedQuery<ViewDataItem[]>(cacheKey)
     if (cached) {
       items.value = cached.data
@@ -405,6 +458,9 @@ export function useData() {
     hasMore.value = true
     currentViewType.value = viewType
     error.value = null
+    // Reset group counts when starting new query
+    groupCounts.value = new Map()
+    groupCountsLoading.value = groupConfig !== null && viewType === 'items'
 
     // Fetch fresh data
     try {
@@ -428,23 +484,40 @@ export function useData() {
       loading.value = false
       revalidating.value = false
 
-      // Fetch count in background
-      try {
-        let count: number
-        switch (viewType) {
-          case 'projects': count = await fetchProjectsCount(search, filterConfig, hideInactiveProjects); break
-          case 'people': count = await fetchPeopleCount(search, filterConfig); break
-          default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
+      // Fetch count and group counts in background (in parallel)
+      const countPromise = (async () => {
+        try {
+          let count: number
+          switch (viewType) {
+            case 'projects': count = await fetchProjectsCount(search, filterConfig, hideInactiveProjects); break
+            case 'people': count = await fetchPeopleCount(search, filterConfig); break
+            default: count = await fetchUnifiedItemsCount(search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
+          }
+          if (isCurrent()) {
+            totalCount.value = count
+            setCachedQuery(cacheKey, result.data, count)
+          }
+        } catch {
+          if (isCurrent()) setCachedQuery(cacheKey, result.data, null)
+        } finally {
+          if (isCurrent()) countLoading.value = false
         }
-        if (isCurrent()) {
-          totalCount.value = count
-          setCachedQuery(cacheKey, result.data, count)
+      })()
+
+      // Fetch group counts if grouping is enabled (items view only)
+      const groupCountPromise = (async () => {
+        if (!groupConfig || viewType !== 'items') return
+        try {
+          const counts = await fetchGroupedCounts(groupConfig, search, showTasks, showEmails, showCraft, showFiles, filterConfig, selectedTaskTypes, hideCompletedTasks, hideInactiveProjects, fileIgnorePatterns)
+          if (isCurrent()) groupCounts.value = counts
+        } catch (err) {
+          console.error('Error fetching group counts:', err)
+        } finally {
+          if (isCurrent()) groupCountsLoading.value = false
         }
-      } catch {
-        if (isCurrent()) setCachedQuery(cacheKey, result.data, null)
-      } finally {
-        if (isCurrent()) countLoading.value = false
-      }
+      })()
+
+      await Promise.all([countPromise, groupCountPromise])
     } catch (err) {
       if (!isCurrent()) return
       console.error('Error loading data:', err)
@@ -453,6 +526,7 @@ export function useData() {
       }
       loading.value = false
       countLoading.value = false
+      groupCountsLoading.value = false
       revalidating.value = false
     }
   }
@@ -637,10 +711,12 @@ export function useData() {
     items.value = []
     loading.value = true
     countLoading.value = true
+    groupCountsLoading.value = false
     revalidating.value = false
     cacheTimestamp.value = null
     hasMore.value = true
     totalCount.value = null
+    groupCounts.value = new Map()
     error.value = null
   }
 
@@ -652,6 +728,8 @@ export function useData() {
     dataItems,
     loading,
     countLoading,
+    groupCounts,
+    groupCountsLoading,
     revalidating,
     cacheAge,
     hasMore,
