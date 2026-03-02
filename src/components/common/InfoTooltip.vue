@@ -1,36 +1,86 @@
 <template>
-  <div class="info-tooltip-wrapper">
+  <div class="info-tooltip-wrapper" ref="wrapperRef">
     <button
       type="button"
       class="info-icon-btn"
-      @mouseenter="showTooltip = true"
-      @mouseleave="showTooltip = false"
-      @focus="showTooltip = true"
-      @blur="showTooltip = false"
+      @mouseenter="show"
+      @mouseleave="hide"
+      @focus="show"
+      @blur="hide"
       tabindex="0"
     >
       <i class="pi pi-info-circle" />
     </button>
-    <Transition name="tooltip">
-      <div v-if="showTooltip" class="info-tooltip" :class="position">
-        <slot />
-      </div>
-    </Transition>
+    <Teleport to="body">
+      <Transition name="info-tt">
+        <div v-if="visible" class="info-tooltip" :style="posStyle">
+          <slot />
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
+
+const GAP = 6
 
 interface Props {
   position?: 'top' | 'bottom' | 'left' | 'right'
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   position: 'bottom'
 })
 
-const showTooltip = ref(false)
+const visible = ref(false)
+const wrapperRef = ref<HTMLElement>()
+const posStyle = ref<Record<string, string>>({})
+
+function computePosition() {
+  if (!wrapperRef.value) return
+  const r = wrapperRef.value.getBoundingClientRect()
+
+  switch (props.position) {
+    case 'bottom':
+      posStyle.value = { top: `${r.bottom + GAP}px`, left: `${r.right}px`, transform: 'translateX(-100%)' }
+      break
+    case 'top':
+      posStyle.value = { bottom: `${window.innerHeight - r.top + GAP}px`, left: `${r.right}px`, transform: 'translateX(-100%)' }
+      break
+    case 'left':
+      posStyle.value = { top: `${r.top + r.height / 2}px`, left: `${r.left - GAP}px`, transform: 'translate(-100%, -50%)' }
+      break
+    case 'right':
+      posStyle.value = { top: `${r.top + r.height / 2}px`, left: `${r.right + GAP}px`, transform: 'translateY(-50%)' }
+      break
+  }
+}
+
+async function show() {
+  computePosition()
+  visible.value = true
+  await nextTick()
+  clampToViewport()
+}
+
+function hide() {
+  visible.value = false
+}
+
+function clampToViewport() {
+  const el = document.querySelector('.info-tooltip') as HTMLElement
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const pad = 8
+  if (rect.left < pad) {
+    posStyle.value = { ...posStyle.value, left: `${pad}px`, transform: posStyle.value.transform?.replace('translateX(-100%)', '') || '' }
+  }
+  if (rect.right > window.innerWidth - pad) {
+    posStyle.value = { ...posStyle.value, left: `${window.innerWidth - pad - rect.width}px`, transform: posStyle.value.transform?.replace('translateX(-100%)', '') || '' }
+  }
+}
 </script>
 
 <style scoped>
@@ -59,9 +109,12 @@ const showTooltip = ref(false)
   color: var(--accent-primary);
   outline: none;
 }
+</style>
 
+<style>
+/* Global styles (not scoped) since tooltip is teleported to body */
 .info-tooltip {
-  position: absolute;
+  position: fixed;
   z-index: 9999;
   background: #1a1a1a;
   border: 1px solid var(--border-secondary);
@@ -76,70 +129,29 @@ const showTooltip = ref(false)
   pointer-events: none;
 }
 
-.info-tooltip.bottom {
-  top: calc(100% + 6px);
-  right: 0;
-}
-
-.info-tooltip.top {
-  bottom: calc(100% + 6px);
-  right: 0;
-}
-
-.info-tooltip.left {
-  right: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.info-tooltip.right {
-  left: calc(100% + 6px);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-/* Tooltip content styling */
-.info-tooltip :deep(strong) {
+.info-tooltip strong {
   color: var(--text-primary);
   font-weight: 600;
   display: block;
   margin-bottom: 0.35rem;
 }
 
-.info-tooltip :deep(ul) {
+.info-tooltip ul {
   margin: 0;
   padding-left: 1rem;
 }
 
-.info-tooltip :deep(li) {
+.info-tooltip li {
   margin: 0.15rem 0;
 }
 
-/* Tooltip transition */
-.tooltip-enter-active,
-.tooltip-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+.info-tt-enter-active,
+.info-tt-leave-active {
+  transition: opacity 0.15s ease;
 }
 
-.tooltip-enter-from,
-.tooltip-leave-to {
+.info-tt-enter-from,
+.info-tt-leave-to {
   opacity: 0;
-  transform: translateY(-2px);
-}
-
-.info-tooltip.left.tooltip-enter-from,
-.info-tooltip.left.tooltip-leave-to {
-  transform: translateY(-50%) translateX(2px);
-}
-
-.info-tooltip.right.tooltip-enter-from,
-.info-tooltip.right.tooltip-leave-to {
-  transform: translateY(-50%) translateX(-2px);
-}
-
-.info-tooltip.top.tooltip-enter-from,
-.info-tooltip.top.tooltip-leave-to {
-  transform: translateY(2px);
 }
 </style>
-

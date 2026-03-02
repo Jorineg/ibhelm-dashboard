@@ -11,7 +11,7 @@
           <InputText
             :model-value="props.searchQuery"
             @update:model-value="(value) => emit('update:searchQuery', value as string)"
-            placeholder="Search..."
+            placeholder="Search... (multiple words, &quot;phrase&quot;, -exclude, OR)"
             class="search-input"
           />
           <Button
@@ -23,14 +23,14 @@
             @click="emit('clearSearch')"
           />
           <InfoTooltip position="bottom">
-            <strong>Searches in:</strong>
+            <strong>Search operators:</strong>
             <ul>
-              <li>Name, subject, filename, title</li>
-              <li>Description &amp; preview</li>
-              <li>Email body &amp; craft markdown</li>
-              <li>File extracted text (PDF, etc.)</li>
-              <li>Conversation comments</li>
+              <li><code>Fenster Dach</code> — both words must match</li>
+              <li><code>"Fenster einbauen"</code> — exact phrase</li>
+              <li><code>-Rechnung</code> — exclude word</li>
+              <li><code>Fenster OR Tür</code> — either word</li>
             </ul>
+            <strong>Searches in:</strong> name, description, email body, file text, comments, tags, assignees, recipients, attachments
           </InfoTooltip>
         </div>
         
