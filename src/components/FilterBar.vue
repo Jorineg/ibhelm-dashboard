@@ -210,6 +210,17 @@
         
         <!-- Filter action buttons -->
         <div class="filter-actions-inline">
+          <div class="filter-toggles">
+            <label class="filter-toggle" @click.prevent="updateHideCompletedTasks(!activeConfig?.hideCompletedTasks)">
+              <Checkbox :model-value="activeConfig?.hideCompletedTasks ?? false" :binary="true" />
+              <span>Hide Completed</span>
+            </label>
+            <label class="filter-toggle" @click.prevent="updateHideInactiveProjects(!activeConfig?.hideInactiveProjects)">
+              <Checkbox :model-value="activeConfig?.hideInactiveProjects ?? false" :binary="true" />
+              <span>Hide Inactive</span>
+            </label>
+          </div>
+
           <div class="filter-actions-left">
             <div class="add-filter-container" ref="addFilterRef">
               <Button
@@ -386,6 +397,7 @@ import MultiSelect from 'primevue/multiselect'
 import Calendar from 'primevue/calendar'
 import TriStateCheckbox from 'primevue/tristatecheckbox'
 import { AutocompleteInput, InfoTooltip, Tooltip, type AutocompleteSuggestion } from '@/components/common'
+import Checkbox from 'primevue/checkbox'
 import type { QuickFilters, ColumnFilters, FilterableColumn } from '@/types'
 import { FILTERABLE_COLUMNS } from '@/types'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
@@ -407,7 +419,9 @@ const {
   updateColumnFilter,
   removeColumnFilter,
   clearAllFilters,
-  saveActiveConfiguration
+  saveActiveConfiguration,
+  updateHideCompletedTasks,
+  updateHideInactiveProjects
 } = useFilterConfigs()
 
 const { keyBindings } = useKeyBindings()
@@ -896,6 +910,28 @@ const handleTagClear = () => { updateQuickFilter('tags', ''); clearTagSuggestion
 .filter-action-btn {
   font-size: 0.875rem !important;
   white-space: nowrap;
+}
+
+.filter-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.filter-toggle:hover {
+  color: var(--text-primary);
 }
 
 .filter-save-btn {

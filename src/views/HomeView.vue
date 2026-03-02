@@ -167,7 +167,7 @@ const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnai
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
 const { filesBucket, enabledFileIgnorePatterns } = useAppearanceSettings()
-const { hideCompletedTasks, hideInactiveProjects, stickyToolbar, initialize: initUserSettings } = useUserSettings()
+const { stickyToolbar, initialize: initUserSettings } = useUserSettings()
 const { transformCraftUrl, transformMissiveUrl } = useLinkTransform()
 
 // Sync popup state
@@ -371,8 +371,8 @@ const dataFetchConfigKey = computed(() => {
     quickFilters: activeConfig.value.quickFilters,
     columnFilters: activeConfig.value.columnFilters,
     groupConfig: activeConfig.value.groupConfig,
-    hideCompletedTasks: hideCompletedTasks.value,
-    hideInactiveProjects: hideInactiveProjects.value,
+    hideCompletedTasks: activeConfig.value.hideCompletedTasks,
+    hideInactiveProjects: activeConfig.value.hideInactiveProjects,
     fileIgnorePatterns: enabledFileIgnorePatterns.value
   })
 })
@@ -404,7 +404,7 @@ watch(dataFetchConfigKey, (newKey) => {
     loadData(
       params.showTasks, params.showEmails, params.showCraft, params.showFiles,
       params.search, params.config, params.sortConfig, params.viewType, params.taskTypes,
-      hideCompletedTasks.value, hideInactiveProjects.value, enabledFileIgnorePatterns.value
+      params.config?.hideCompletedTasks ?? false, params.config?.hideInactiveProjects ?? false, enabledFileIgnorePatterns.value
     )
   }
   
@@ -490,8 +490,8 @@ const handleLoadMore = async () => {
       activeConfig.value,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value,
-      hideInactiveProjects.value,
+      activeConfig.value.hideCompletedTasks,
+      activeConfig.value.hideInactiveProjects,
       enabledFileIgnorePatterns.value
     )
   }
@@ -580,7 +580,6 @@ const handleUpdateGroupConfig = (config: GroupConfig | null) => {
 
 const handleSort = async (sortConfig: SortConfig) => {
   if (activeConfig.value) {
-    // Save sort config to filter configuration for persistence
     updateConfiguration(activeConfig.value.id, { sortConfig })
     
     await loadData(
@@ -593,8 +592,8 @@ const handleSort = async (sortConfig: SortConfig) => {
       sortConfig,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value,
-      hideInactiveProjects.value,
+      activeConfig.value.hideCompletedTasks,
+      activeConfig.value.hideInactiveProjects,
       enabledFileIgnorePatterns.value
     )
   }
@@ -612,8 +611,8 @@ const handleRetry = async () => {
       activeConfig.value.sortConfig,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value,
-      hideInactiveProjects.value,
+      activeConfig.value.hideCompletedTasks,
+      activeConfig.value.hideInactiveProjects,
       enabledFileIgnorePatterns.value
     )
   }
@@ -633,8 +632,8 @@ const handleExport = async () => {
       activeConfig.value || null,
       currentViewType.value,
       selectedTaskTypes.value,
-      hideCompletedTasks.value,
-      hideInactiveProjects.value,
+      activeConfig.value?.hideCompletedTasks ?? false,
+      activeConfig.value?.hideInactiveProjects ?? false,
       enabledFileIgnorePatterns.value
     )
     

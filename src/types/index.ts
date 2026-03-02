@@ -393,6 +393,8 @@ export interface FilterConfiguration {
   showCraft: boolean
   showFiles: boolean
   selectedTaskTypes?: string[]  // Task type IDs to show (undefined = all)
+  hideCompletedTasks: boolean
+  hideInactiveProjects: boolean
   viewMode: 'list' | 'gallery'
   sortConfig?: SortConfig
   groupConfig?: GroupConfig | null  // Group by column (null = no grouping)

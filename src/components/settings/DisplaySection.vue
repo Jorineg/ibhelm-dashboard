@@ -4,46 +4,6 @@
     description="Personal display preferences for your account."
   >
     <div class="display-section">
-      <h4>Hide Completed Tasks</h4>
-      <p class="section-hint">
-        When enabled, tasks with status "completed" will be hidden from the Items view by default.
-      </p>
-      <div class="checkbox-row">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            v-model="localHideCompletedTasks"
-            @change="handleSaveHideCompletedTasks"
-          />
-          <span class="checkbox-text">Hide completed tasks</span>
-        </label>
-        <span v-if="saving" class="saving-indicator">
-          <i class="pi pi-spin pi-spinner"></i>
-        </span>
-      </div>
-    </div>
-
-    <div class="display-section">
-      <h4>Hide Inactive Projects</h4>
-      <p class="section-hint">
-        Hides inactive projects and all items belonging to them across all views.
-      </p>
-      <div class="checkbox-row">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            v-model="localHideInactiveProjects"
-            @change="handleSaveHideInactiveProjects"
-          />
-          <span class="checkbox-text">Hide inactive projects</span>
-        </label>
-        <span v-if="saving" class="saving-indicator">
-          <i class="pi pi-spin pi-spinner"></i>
-        </span>
-      </div>
-    </div>
-
-    <div class="display-section">
       <h4>Default Items Sorting</h4>
       <p class="section-hint">
         Default sorting used for new "Items" view configurations.
@@ -120,23 +80,17 @@ import { SectionCard } from '@/components/common'
 import { useUserSettings } from '@/composables/useUserSettings'
 
 const { 
-  hideCompletedTasks,
-  hideInactiveProjects,
   defaultSortField,
   defaultSortOrder,
   tooltipsDisabled,
   stickyToolbar,
   saving,
-  updateHideCompletedTasks,
-  updateHideInactiveProjects,
   updateDefaultSortField,
   updateDefaultSortOrder,
   updateTooltipsDisabled,
   updateStickyToolbar
 } = useUserSettings()
 
-const localHideCompletedTasks = ref(false)
-const localHideInactiveProjects = ref(false)
 const localSortField = ref('updated_at')
 const localSortOrder = ref<'asc' | 'desc'>('desc')
 const localTooltipsDisabled = ref(false)
@@ -157,14 +111,6 @@ const sortableColumns = [
   { field: 'cost_group_code', header: 'Cost Code' }
 ]
 
-const handleSaveHideCompletedTasks = () => {
-  updateHideCompletedTasks(localHideCompletedTasks.value)
-}
-
-const handleSaveHideInactiveProjects = () => {
-  updateHideInactiveProjects(localHideInactiveProjects.value)
-}
-
 const handleSaveDefaultSort = () => {
   updateDefaultSortField(localSortField.value)
   updateDefaultSortOrder(localSortOrder.value)
@@ -178,8 +124,6 @@ const handleSaveStickyToolbar = () => {
   updateStickyToolbar(localStickyToolbar.value)
 }
 
-watch(hideCompletedTasks, (val) => { localHideCompletedTasks.value = val }, { immediate: true })
-watch(hideInactiveProjects, (val) => { localHideInactiveProjects.value = val }, { immediate: true })
 watch(defaultSortField, (val) => { localSortField.value = val }, { immediate: true })
 watch(defaultSortOrder, (val) => { localSortOrder.value = val }, { immediate: true })
 watch(tooltipsDisabled, (val) => { localTooltipsDisabled.value = val }, { immediate: true })

@@ -57,6 +57,8 @@ const createDefaultConfig = (viewType: ViewType, userSettings?: { default_sort_f
     showEmails: true,
     showCraft: true,
     showFiles: true,
+    hideCompletedTasks: true,
+    hideInactiveProjects: true,
     viewMode: 'list',
     sortConfig: sortConfig,
     searchQuery: '',
@@ -109,6 +111,12 @@ export function useFilterConfigs() {
     const newConfigs = [...currentData.configs]
     const newActiveIds = { ...currentData.activeConfigIds }
     const newOrder = { ...currentData.configOrder }
+
+    // Backfill new boolean fields on existing configs loaded from DB
+    for (const config of newConfigs) {
+      if (config.hideCompletedTasks === undefined) { config.hideCompletedTasks = false; needsUpdate = true }
+      if (config.hideInactiveProjects === undefined) { config.hideInactiveProjects = false; needsUpdate = true }
+    }
 
     for (const viewType of viewTypes) {
       const viewConfigs = newConfigs.filter(c => c.viewType === viewType)
@@ -502,6 +510,18 @@ export function useFilterConfigs() {
     }
   }
 
+  const updateHideCompletedTasks = (value: boolean) => {
+    if (activeConfig.value) {
+      updateConfiguration(activeConfig.value.id, { hideCompletedTasks: value })
+    }
+  }
+
+  const updateHideInactiveProjects = (value: boolean) => {
+    if (activeConfig.value) {
+      updateConfiguration(activeConfig.value.id, { hideInactiveProjects: value })
+    }
+  }
+
   const clearAllFilters = () => {
     if (activeConfig.value) {
       updateConfiguration(activeConfig.value.id, {
@@ -576,6 +596,8 @@ export function useFilterConfigs() {
     updateConfigOrder,
     updateColumnFilter,
     removeColumnFilter,
-    clearAllFilters
+    clearAllFilters,
+    updateHideCompletedTasks,
+    updateHideInactiveProjects
   }
 }
