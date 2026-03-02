@@ -2,6 +2,16 @@ import { ref, computed, watch, shallowRef } from 'vue'
 import { useUserSettings, type FilterConfigurationsData } from '@/composables/useUserSettings'
 import type { FilterConfiguration, ViewType, SortConfig, GroupConfig, QuickFilters, ColumnFilters } from '@/types'
 
+// generateUUID() requires secure context (HTTPS/localhost); fallback for LAN HTTP access
+const generateUUID = (): string => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`
+}
+
 // Working copy of the active config (not persisted until saved)
 const workingConfig = shallowRef<FilterConfiguration | null>(null)
 // ID of the config the working copy is based on
@@ -40,7 +50,7 @@ const createDefaultConfig = (viewType: ViewType, userSettings?: { default_sort_f
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     name: 'Default Configuration',
     viewType,
     showTasks: true,
@@ -326,7 +336,7 @@ export function useFilterConfigs() {
 
     const duplicate: FilterConfiguration = {
       ...JSON.parse(JSON.stringify(original)),
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       name: `${original.name} (copy)`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

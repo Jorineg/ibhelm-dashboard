@@ -14,7 +14,8 @@ export default defineConfig({
     }
   },
   server: {
-    allowedHosts: ['dashboard.ibhelm.de']
+    host: '0.0.0.0',
+    allowedHosts: ['dashboard.ibhelm.de', 'ibhelm.local']
   }
 })
 
