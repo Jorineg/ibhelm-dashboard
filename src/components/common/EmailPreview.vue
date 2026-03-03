@@ -91,7 +91,7 @@
 import { ref, computed, watch, onUnmounted, onMounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import FilePlaceholder from './FilePlaceholder.vue'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseUrl } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
 // PDF.js worker
@@ -118,8 +118,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { filesBucket } = useAppearanceSettings()
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const contentHeight = ref(0)
 const containerHeight = ref(0)

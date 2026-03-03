@@ -113,13 +113,11 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
 import { heicTo } from 'heic-to'
 import FilePlaceholder from './FilePlaceholder.vue'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseUrl } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
 // Set PDF.js worker using jsdelivr CDN (most reliable, uses npm registry)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 
 interface Props {
   storagePath: string

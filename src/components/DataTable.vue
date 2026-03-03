@@ -489,7 +489,7 @@ import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useLinkTransform } from '@/composables/useLinkTransform'
 import { useProjectAutocomplete } from '@/composables/useAutocomplete'
 import { getVisibleColumnsForTypes, type GroupCounts } from '@/composables/useData'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseUrl } from '@/lib/supabase'
 import { formatDateShort } from '@/lib/formatDate'
 import type { DataItem, ViewDataItem, Column as ColumnType, SortConfig, GroupConfig, ViewType } from '@/types'
 import { GROUPABLE_COLUMNS } from '@/types'
@@ -1279,7 +1279,6 @@ const handleTypeBadgeClick = async (event: MouseEvent, item: ViewDataItem) => {
 }
 
 // Thumbnail helpers
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const getThumbnailUrl = (thumbnailPath: string): string => 
   `${supabaseUrl}/storage/v1/object/public/thumbnails/${thumbnailPath}`
 

@@ -251,7 +251,7 @@ import Checkbox from 'primevue/checkbox'
 import Accordion from 'primevue/accordion'
 import AccordionTab from 'primevue/accordiontab'
 import { TypeLinkButton, EmailPreview, CraftPreview, FilePlaceholder, FilePreview, ExtensionBadge } from '@/components/common'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseUrl } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useLinkTransform } from '@/composables/useLinkTransform'
 import type { ViewDataItem, DataItem, ProjectItem, PersonItem } from '@/types'
@@ -344,7 +344,6 @@ const dialogStyle = computed(() => {
 })
 
 // Thumbnail support
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const hasThumbnail = computed(() => {
   if (!props.item || thumbnailFailed.value) return false
   return !!(props.item as DataItem).thumbnail_path

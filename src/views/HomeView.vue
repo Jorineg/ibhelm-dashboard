@@ -19,6 +19,7 @@
           >
             {{ view.label }}
           </button>
+          <button class="view-tab" @click="goToChat">Chat</button>
         </nav>
       </template>
       
@@ -454,6 +455,10 @@ watch(() => activeConfig.value?.id, () => {
 const handleSignOut = async () => {
   await signOut()
   router.push('/login')
+}
+
+const goToChat = () => {
+  router.push('/chat')
 }
 
 const goToSettings = () => {
