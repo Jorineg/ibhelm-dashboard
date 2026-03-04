@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase'
 
 const CHAT_SERVICE_URL = import.meta.env.VITE_CHAT_SERVICE_URL || `${window.location.origin}/chat`
 
-// Types
 export interface ChatSession {
   id: string
   title: string | null
@@ -18,15 +17,22 @@ export interface ToolCall {
   error?: string
 }
 
+export interface TokenUsage {
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string | null
   tool_calls: ToolCall[] | null
+  metadata: TokenUsage | null
   created_at: string
 }
 
-// Streaming state for the current assistant response being built
 export interface StreamingState {
   text: string
   toolCalls: ToolCall[]
@@ -63,6 +69,19 @@ export function useChat() {
   const currentSession = computed(() =>
     sessions.value.find(s => s.id === currentSessionId.value) ?? null
   )
+
+  const sessionUsage = computed<TokenUsage>(() => {
+    const totals: TokenUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
+    for (const msg of messages.value) {
+      if (msg.metadata) {
+        totals.input_tokens += msg.metadata.input_tokens || 0
+        totals.output_tokens += msg.metadata.output_tokens || 0
+        totals.cache_read_input_tokens += msg.metadata.cache_read_input_tokens || 0
+        totals.cache_creation_input_tokens += msg.metadata.cache_creation_input_tokens || 0
+      }
+    }
+    return totals
+  })
 
   async function fetchSessions() {
     sessionsLoading.value = true
@@ -155,17 +174,16 @@ export function useChat() {
 
     const sessionId = currentSessionId.value
 
-    // Add user message to local state immediately
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content,
       tool_calls: null,
+      metadata: null,
       created_at: new Date().toISOString()
     }
     messages.value.push(userMsg)
 
-    // Reset streaming state
     streaming.value = { text: '', toolCalls: [], currentToolId: null, isStreaming: true }
     sendingMessage.value = true
 
@@ -240,9 +258,9 @@ export function useChat() {
                   role: 'assistant',
                   content: event.content || streaming.value.text,
                   tool_calls: event.tool_calls || (streaming.value.toolCalls.length > 0 ? [...streaming.value.toolCalls] : null),
+                  metadata: event.metadata || null,
                   created_at: new Date().toISOString()
                 }
-                // Clear streaming state BEFORE pushing message to avoid double render
                 streaming.value = { text: '', toolCalls: [], currentToolId: null, isStreaming: false }
                 messages.value.push(assistantMsg)
                 break
@@ -266,7 +284,6 @@ export function useChat() {
       sendingMessage.value = false
       abortController = null
 
-      // Move session to top of list
       const idx = sessions.value.findIndex(s => s.id === sessionId)
       if (idx > 0) {
         const [s] = sessions.value.splice(idx, 1)
@@ -285,6 +302,7 @@ export function useChat() {
     sessionsLoading,
     messagesLoading,
     sendingMessage,
+    sessionUsage,
     fetchSessions,
     createSession,
     deleteSession,

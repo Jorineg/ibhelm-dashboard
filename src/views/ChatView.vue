@@ -64,6 +64,20 @@
 
       <!-- Main Chat Area -->
       <main class="chat-main">
+        <!-- Session token usage indicator -->
+        <div v-if="currentSessionId && sessionUsage.input_tokens > 0" class="usage-bar">
+          <button class="usage-toggle" @click="showUsage = !showUsage" title="Token usage">
+            <i class="pi pi-chart-bar"></i>
+            <span class="usage-summary">{{ formatTokens(sessionUsage.input_tokens + sessionUsage.output_tokens) }} tokens</span>
+          </button>
+          <div v-if="showUsage" class="usage-detail">
+            <div class="usage-row"><span>Input</span><span>{{ formatTokens(sessionUsage.input_tokens) }}</span></div>
+            <div class="usage-row"><span>Output</span><span>{{ formatTokens(sessionUsage.output_tokens) }}</span></div>
+            <div v-if="sessionUsage.cache_read_input_tokens" class="usage-row"><span>Cache read</span><span>{{ formatTokens(sessionUsage.cache_read_input_tokens) }}</span></div>
+            <div v-if="sessionUsage.cache_creation_input_tokens" class="usage-row"><span>Cache write</span><span>{{ formatTokens(sessionUsage.cache_creation_input_tokens) }}</span></div>
+          </div>
+        </div>
+
         <!-- Empty state -->
         <div v-if="!currentSessionId" class="chat-empty">
           <i class="pi pi-comments"></i>
@@ -186,9 +200,18 @@ const { user, signOut, isAdmin } = useAuth()
 const {
   sessions, currentSessionId, messages, streaming,
   sessionsLoading, messagesLoading, sendingMessage,
+  sessionUsage,
   fetchSessions, createSession, deleteSession, selectSession,
   sendMessage, cancelStream,
 } = useChat()
+
+const showUsage = ref(false)
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k'
+  return String(n)
+}
 
 const inputText = ref('')
 const inputEl = ref<HTMLTextAreaElement>()
@@ -684,4 +707,57 @@ onMounted(async () => {
 }
 
 .stop-btn:hover { background: #662020; }
+
+/* Token usage bar */
+.usage-bar {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.25rem 2rem 0;
+  flex-shrink: 0;
+}
+
+.usage-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+
+.usage-toggle:hover { color: var(--text-secondary); }
+.usage-toggle i { font-size: 0.8rem; }
+
+.usage-detail {
+  position: absolute;
+  top: 100%;
+  right: 2rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  min-width: 160px;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 0.15rem 0;
+}
+
+.usage-row span:last-child {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  color: var(--text-primary);
+}
 </style>
