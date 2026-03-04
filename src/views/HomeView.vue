@@ -8,19 +8,7 @@
       @sign-out="handleSignOut"
     >
       <template #after-title>
-        <!-- View Tabs -->
-        <nav class="view-tabs">
-          <button 
-            v-for="view in viewTabs"
-            :key="view.id"
-            class="view-tab" 
-            :class="{ active: activeView === view.id }"
-            @click="switchView(view.id)"
-          >
-            {{ view.label }}
-          </button>
-          <button class="view-tab" @click="goToChat">Chat</button>
-        </nav>
+        <NavigationTabs />
       </template>
       
       <template #center>
@@ -142,7 +130,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import ExcelJS from 'exceljs'
 import { useRouter } from 'vue-router'
-import { PageHeader, Tooltip } from '@/components/common'
+import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import DataTable from '@/components/DataTable.vue'
@@ -163,7 +151,7 @@ import type { ViewDataItem, Column, SortConfig, GroupConfig, ViewType } from '@/
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
-const { activeConfig, configurations, updateConfiguration, setCurrentView, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, updateGroupConfig, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
+const { activeConfig, configurations, updateConfiguration, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, updateGroupConfig, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
 const { keyBindings } = useKeyBindings()
@@ -205,14 +193,6 @@ const gridZoomOut = () => {
   localStorage.setItem(GRID_ZOOM_STORAGE_KEY, String(gridColumns.value))
 }
 
-// View tabs configuration
-const viewTabs = [
-  { id: 'items' as ViewType, label: 'Items' },
-  { id: 'projects' as ViewType, label: 'Projects' },
-  { id: 'people' as ViewType, label: 'People' }
-]
-
-// Active view state - sync with filter config's currentViewType
 const activeView = computed(() => currentViewType.value)
 
 const {
@@ -349,11 +329,6 @@ const availableColumns = computed<Column[]>(() => {
   }
 })
 
-// Switch view handler - just changes view, watcher handles data loading
-const switchView = (view: ViewType) => {
-  if (currentViewType.value === view) return
-  setCurrentView(view)
-}
 
 // Filtered items (server-side filtering is primary)
 const filteredAndSearchedItems = computed(() => dataItems.value)
@@ -457,17 +432,8 @@ const handleSignOut = async () => {
   router.push('/login')
 }
 
-const goToChat = () => {
-  router.push('/chat')
-}
-
-const goToSettings = () => {
-  router.push('/settings')
-}
-
-const goToServices = () => {
-  router.push('/services')
-}
+const goToSettings = () => router.push('/settings')
+const goToServices = () => router.push('/services')
 
 // Event handlers
 const handleRowClick = (item: ViewDataItem) => {
@@ -1173,48 +1139,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: clip;
-}
-
-/* View Tabs */
-.view-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.view-tab {
-  padding: 0.5rem 0.75rem;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 1rem;
-  font-weight: 400;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: color 0.15s ease, background 0.15s ease;
-  letter-spacing: 0.01em;
-  position: relative;
-}
-
-.view-tab:hover:not(.active) {
-  color: var(--text-secondary);
-}
-
-.view-tab.active {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.view-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70%;
-  height: 2px;
-  background: var(--accent-primary);
-  border-radius: 1px;
 }
 
 /* Sync Status Wrapper */

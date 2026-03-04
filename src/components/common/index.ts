@@ -1,5 +1,6 @@
 // Common reusable components
 export { default as PageHeader } from './PageHeader.vue'
+export { default as NavigationTabs } from './NavigationTabs.vue'
 export { default as InfoBox } from './InfoBox.vue'
 export { default as InfoTooltip } from './InfoTooltip.vue'
 export { default as Tooltip } from './Tooltip.vue'

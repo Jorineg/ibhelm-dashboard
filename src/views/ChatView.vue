@@ -8,12 +8,7 @@
       @sign-out="handleSignOut"
     >
       <template #after-title>
-        <nav class="view-tabs">
-          <button class="view-tab" @click="router.push('/')">Items</button>
-          <button class="view-tab" @click="router.push('/')">Projects</button>
-          <button class="view-tab" @click="router.push('/')">People</button>
-          <button class="view-tab active">Chat</button>
-        </nav>
+        <NavigationTabs />
       </template>
       <template #actions>
         <Tooltip v-if="isAdmin" text="Services" position="bottom">
@@ -45,6 +40,9 @@
             placeholder="Search chats..."
             type="text"
           />
+          <button v-if="sessionSearch" class="session-search-clear" @click="sessionSearch = ''">
+            <i class="pi pi-times"></i>
+          </button>
         </div>
 
         <div class="sessions-list thin-scrollbar">
@@ -120,7 +118,7 @@
               </div>
               <!-- Persisted messages -->
               <div
-                v-for="(msg, mi) in messages"
+                v-for="(msg, mi) in displayMessages"
                 :key="msg.id"
                 class="message"
                 :class="msg.role"
@@ -199,6 +197,12 @@
                       </template>
                     </template>
                     <div v-else-if="msg.content" class="markdown-content" v-html="renderMarkdown(msg.content)"></div>
+                    <span v-if="msg.status === 'generating' && !streaming.isStreaming" class="typing-indicator">
+                      <span></span><span></span><span></span>
+                    </span>
+                    <div v-if="msg.status === 'error' && !msg.content && !msg.blocks?.length" class="generation-error">
+                      <i class="pi pi-exclamation-triangle"></i> Generation failed
+                    </div>
                   </div>
                   <!-- Message actions -->
                   <div v-if="editingMessageId !== msg.id" class="msg-actions">
@@ -351,7 +355,7 @@ import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import 'katex/dist/katex.min.css'
-import { PageHeader, Tooltip } from '@/components/common'
+import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
 import { useChat, type ContentBlock } from '@/composables/useChat'
 
@@ -450,6 +454,12 @@ function workGroupSummary(items: ContentBlock[]): string {
 
 const streamingGroups = computed(() => groupBlocks(streaming.value.blocks))
 
+const displayMessages = computed(() =>
+  streaming.value.isStreaming
+    ? messages.value.filter(m => m.status !== 'generating')
+    : messages.value
+)
+
 function formatTime(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -477,7 +487,7 @@ function autoResizeInput() {
   const el = inputEl.value
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 200) + 'px'
+  el.style.height = Math.min(el.scrollHeight, 280) + 'px'
 }
 
 function scrollToBottom() {
@@ -625,47 +635,6 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* Reuse tab style from HomeView */
-.view-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.view-tab {
-  padding: 0.5rem 0.75rem;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 1rem;
-  font-weight: 400;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: color 0.15s ease;
-  position: relative;
-}
-
-.view-tab:hover:not(.active) {
-  color: var(--text-secondary);
-}
-
-.view-tab.active {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.view-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70%;
-  height: 2px;
-  background: var(--accent-primary);
-  border-radius: 1px;
-}
-
 .icon-btn {
   display: flex;
   align-items: center;
@@ -749,6 +718,26 @@ onUnmounted(() => {
 }
 .session-search:focus { border-color: var(--accent-primary); }
 .session-search::placeholder { color: var(--text-muted); }
+
+.session-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+.session-search-clear:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 
 .sidebar-empty {
   text-align: center;
@@ -1090,7 +1079,6 @@ details[open] > *:not(summary) {
 }
 
 .chat-input {
-  flex: 1;
   border: none;
   background: transparent;
   color: var(--text-primary);
@@ -1099,9 +1087,16 @@ details[open] > *:not(summary) {
   line-height: 1.5;
   resize: none;
   outline: none;
-  max-height: 200px;
+  max-height: 280px;
+  overflow-y: auto;
   padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
 }
+.chat-input::-webkit-scrollbar { width: 4px; }
+.chat-input::-webkit-scrollbar-track { background: transparent; }
+.chat-input::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 2px; }
+.chat-input::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 .input-bottom-row {
   display: flex;
@@ -1409,6 +1404,16 @@ details[open] > *:not(summary) {
   color: var(--text-muted);
 }
 .thinking-summary-inline i { font-size: 0.75rem; }
+
+.generation-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--error-text);
+  font-size: 0.9rem;
+  padding: 0.4rem 0;
+}
+.generation-error i { font-size: 0.85rem; }
 
 .thinking-content {
   padding: 0.7rem 0.85rem;
