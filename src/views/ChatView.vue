@@ -37,11 +37,22 @@
           New Chat
         </button>
 
+        <div class="session-search-wrap">
+          <i class="pi pi-search session-search-icon"></i>
+          <input
+            v-model="sessionSearch"
+            class="session-search"
+            placeholder="Search chats..."
+            type="text"
+          />
+        </div>
+
         <div class="sessions-list thin-scrollbar">
           <div v-if="sessionsLoading" class="sidebar-loading">
             <i class="pi pi-spin pi-spinner"></i>
           </div>
           <template v-else>
+            <div v-if="!sessions.length && sessionSearch" class="sidebar-empty">No matches</div>
             <div
               v-for="session in sessions"
               :key="session.id"
@@ -49,11 +60,11 @@
               :class="{ active: session.id === currentSessionId }"
               @click="selectSession(session.id)"
             >
-              <span class="session-title">{{ session.title || 'Neuer Chat' }}</span>
+              <span class="session-title">{{ session.title || 'New Chat' }}</span>
               <button
                 class="session-delete"
                 @click.stop="handleDelete(session.id)"
-                title="Löschen"
+                title="Delete"
               >
                 <i class="pi pi-trash"></i>
               </button>
@@ -68,84 +79,190 @@
         <div v-if="currentSessionId && sessionUsage.input_tokens > 0" class="usage-bar">
           <button class="usage-toggle" @click="showUsage = !showUsage" title="Token usage">
             <i class="pi pi-chart-bar"></i>
-            <span class="usage-summary">{{ formatTokens(sessionUsage.input_tokens + sessionUsage.output_tokens) }} tokens</span>
+            <span class="usage-summary">{{ sessionCost }}</span>
           </button>
           <div v-if="showUsage" class="usage-detail">
             <div class="usage-row"><span>Input</span><span>{{ formatTokens(sessionUsage.input_tokens) }}</span></div>
             <div class="usage-row"><span>Output</span><span>{{ formatTokens(sessionUsage.output_tokens) }}</span></div>
             <div v-if="sessionUsage.cache_read_input_tokens" class="usage-row"><span>Cache read</span><span>{{ formatTokens(sessionUsage.cache_read_input_tokens) }}</span></div>
             <div v-if="sessionUsage.cache_creation_input_tokens" class="usage-row"><span>Cache write</span><span>{{ formatTokens(sessionUsage.cache_creation_input_tokens) }}</span></div>
+            <div class="usage-row usage-row-total"><span>Cost</span><span>{{ sessionCost }}</span></div>
           </div>
         </div>
 
-        <!-- Empty state -->
-        <div v-if="!currentSessionId" class="chat-empty">
-          <i class="pi pi-comments"></i>
-          <p>Wähle einen Chat oder starte einen neuen</p>
-        </div>
-
-        <!-- Messages -->
-        <template v-else>
+        <!-- Messages area (always visible) -->
           <div ref="messagesContainer" class="messages-container thin-scrollbar">
             <div v-if="messagesLoading" class="messages-loading">
               <i class="pi pi-spin pi-spinner"></i>
             </div>
             <template v-else>
+              <!-- Empty state suggestions -->
+              <div v-if="!messages.length && !streaming.isStreaming" class="chat-empty session-empty">
+                <p>What can I help you with?</p>
+                <div class="example-queries">
+                  <button class="example-query" @click="handleSendText('Welche Aufgaben sind diese Woche überfällig?')">
+                    <i class="pi pi-clock"></i>
+                    Überfällige Aufgaben
+                  </button>
+                  <button class="example-query" @click="handleSendText('Zeige mir die neuesten E-Mails')">
+                    <i class="pi pi-envelope"></i>
+                    Neueste E-Mails
+                  </button>
+                  <button class="example-query" @click="handleSendText('Gib mir einen Überblick über die aktiven Projekte')">
+                    <i class="pi pi-briefcase"></i>
+                    Aktive Projekte
+                  </button>
+                  <button class="example-query" @click="handleSendText('Erkläre was du alles machen kannst. Was für Arten von Fragen kannst du beantworten?')">
+                    <i class="pi pi-question-circle"></i>
+                    Was kannst du?
+                  </button>
+                </div>
+              </div>
               <!-- Persisted messages -->
               <div
-                v-for="msg in messages"
+                v-for="(msg, mi) in messages"
                 :key="msg.id"
                 class="message"
                 :class="msg.role"
               >
-                <div v-if="msg.role === 'user'" class="message-bubble user-bubble">
-                  {{ msg.content }}
-                </div>
-                <div v-else class="message-bubble assistant-bubble">
-                  <!-- Tool calls (collapsible) -->
-                  <div v-if="msg.tool_calls?.length" class="tool-calls">
-                    <details v-for="tc in msg.tool_calls" :key="tc.id" class="tool-call">
-                      <summary class="tool-summary">
-                        <i class="pi pi-code"></i>
-                        Python
-                        <span v-if="tc.error" class="tool-error-badge">error</span>
-                      </summary>
-                      <pre class="tool-code">{{ tc.code }}</pre>
-                      <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
-                      <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
-                    </details>
+                <div class="message-col">
+                  <div v-if="msg.role === 'user' && editingMessageId === msg.id" class="message-bubble user-bubble editing">
+                    <textarea
+                      ref="editInputEl"
+                      v-model="editText"
+                      class="edit-textarea"
+                      @keydown.enter.exact="confirmEdit(msg.id)"
+                      @keydown.escape="cancelEdit"
+                    ></textarea>
+                    <div class="edit-actions">
+                      <button class="edit-btn edit-save" @click="confirmEdit(msg.id)">Save & Resend</button>
+                      <button class="edit-btn edit-cancel" @click="cancelEdit">Cancel</button>
+                    </div>
                   </div>
-                  <div v-if="msg.content" class="markdown-content" v-html="renderMarkdown(msg.content)"></div>
+                  <div v-else-if="msg.role === 'user'" class="message-bubble user-bubble">
+                    {{ msg.content }}
+                  </div>
+                  <div v-else class="message-bubble assistant-bubble">
+                    <template v-if="msg.blocks?.length">
+                      <template v-for="(group, gi) in groupBlocks(msg.blocks)" :key="gi">
+                        <div v-if="group.type === 'text' && group.text" class="markdown-content" v-html="renderMarkdown(group.text)"></div>
+                        <div v-else-if="group.type === 'thinking'" class="thinking-block">
+                          <details class="thinking-details">
+                            <summary class="thinking-summary">
+                              <i class="pi pi-sparkles"></i>
+                              Thinking
+                            </summary>
+                            <div class="thinking-content">{{ group.text }}</div>
+                          </details>
+                        </div>
+                        <div v-else-if="group.type === 'tool_group'" class="tool-group">
+                          <details v-if="group.calls!.length > 1" class="tool-group-details">
+                            <summary class="tool-group-summary">
+                              <i class="pi pi-code"></i>
+                              <span>Ran {{ group.calls!.length }} queries</span>
+                              <span v-if="group.calls!.some(c => c.error)" class="tool-error-badge">error</span>
+                              <i class="pi pi-chevron-right tool-chevron"></i>
+                            </summary>
+                            <div class="tool-group-content">
+                              <details v-for="tc in group.calls" :key="tc.id" class="tool-call">
+                                <summary class="tool-summary">
+                                  <i class="pi pi-code"></i>
+                                  Python
+                                  <span v-if="tc.error" class="tool-error-badge">error</span>
+                                </summary>
+                                <pre class="tool-code">{{ tc.code }}</pre>
+                                <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
+                                <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
+                              </details>
+                            </div>
+                          </details>
+                          <details v-else class="tool-call">
+                            <summary class="tool-summary">
+                              <i class="pi pi-code"></i>
+                              Python
+                              <span v-if="group.calls![0].error" class="tool-error-badge">error</span>
+                            </summary>
+                            <pre class="tool-code">{{ group.calls![0].code }}</pre>
+                            <pre v-if="group.calls![0].result" class="tool-result">{{ group.calls![0].result }}</pre>
+                            <pre v-if="group.calls![0].error" class="tool-result tool-error">{{ group.calls![0].error }}</pre>
+                          </details>
+                        </div>
+                      </template>
+                    </template>
+                    <div v-else-if="msg.content" class="markdown-content" v-html="renderMarkdown(msg.content)"></div>
+                  </div>
+                  <!-- Message actions -->
+                  <div v-if="editingMessageId !== msg.id" class="msg-actions">
+                    <span class="msg-actions-time">{{ formatTime(msg.created_at) }}</span>
+                    <button class="msg-action-btn" title="Copy" @click="copyMessage(msg)">
+                      <i class="pi pi-copy"></i>
+                    </button>
+                    <button v-if="msg.role === 'user'" class="msg-action-btn" title="Edit" @click="startEdit(msg)">
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <button class="msg-action-btn" title="Retry" @click="handleRetryMsg(mi)">
+                      <i class="pi pi-refresh"></i>
+                    </button>
+                    <button class="msg-action-btn msg-action-delete" title="Delete from here" @click="handleDeleteMsg(mi)">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <!-- Streaming assistant response -->
-              <div v-if="streaming.isStreaming || streaming.text || streaming.toolCalls.length" class="message assistant">
+              <div v-if="streaming.isStreaming || streaming.blocks.length" class="message assistant">
+                <div class="message-col">
                 <div class="message-bubble assistant-bubble">
-                  <!-- Streaming tool calls -->
-                  <div v-if="streaming.toolCalls.length" class="tool-calls">
-                    <details
-                      v-for="tc in streaming.toolCalls"
-                      :key="tc.id"
-                      class="tool-call"
-                      :open="tc.id === streaming.currentToolId"
-                    >
-                      <summary class="tool-summary">
-                        <i class="pi pi-code"></i>
-                        Python
-                        <i v-if="tc.id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
-                        <span v-if="tc.error" class="tool-error-badge">error</span>
-                      </summary>
-                      <pre class="tool-code">{{ tc.code }}</pre>
-                      <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
-                      <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
-                    </details>
-                  </div>
-                  <!-- Streaming text -->
-                  <div v-if="streaming.text" class="markdown-content" v-html="renderMarkdown(streaming.text)"></div>
-                  <span v-if="streaming.isStreaming && !streaming.text && !streaming.currentToolId" class="typing-indicator">
+                  <template v-for="(group, gi) in streamingGroups" :key="gi">
+                    <div v-if="group.type === 'text' && group.text" class="markdown-content" v-html="renderMarkdown(group.text)"></div>
+                    <div v-else-if="group.type === 'thinking'" class="thinking-block">
+                      <details class="thinking-details" open>
+                        <summary class="thinking-summary">
+                          <i class="pi pi-sparkles"></i>
+                          Thinking...
+                        </summary>
+                        <div class="thinking-content">{{ group.text }}</div>
+                      </details>
+                    </div>
+                    <div v-else-if="group.type === 'tool_group'" class="tool-group">
+                      <details v-if="group.calls!.length > 1" class="tool-group-details" open>
+                        <summary class="tool-group-summary">
+                          <i class="pi pi-code"></i>
+                          <span>Running {{ group.calls!.length }} queries...</span>
+                          <i class="pi pi-chevron-right tool-chevron"></i>
+                        </summary>
+                        <div class="tool-group-content">
+                          <details v-for="tc in group.calls" :key="tc.id" class="tool-call" :open="tc.id === streaming.currentToolId">
+                            <summary class="tool-summary">
+                              <i class="pi pi-code"></i>
+                              Python
+                              <i v-if="tc.id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
+                              <span v-if="tc.error" class="tool-error-badge">error</span>
+                            </summary>
+                            <pre class="tool-code">{{ tc.code }}</pre>
+                            <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
+                            <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
+                          </details>
+                        </div>
+                      </details>
+                      <details v-else class="tool-call" :open="group.calls![0].id === streaming.currentToolId">
+                        <summary class="tool-summary">
+                          <i class="pi pi-code"></i>
+                          Python
+                          <i v-if="group.calls![0].id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
+                          <span v-if="group.calls![0].error" class="tool-error-badge">error</span>
+                        </summary>
+                        <pre class="tool-code">{{ group.calls![0].code }}</pre>
+                        <pre v-if="group.calls![0].result" class="tool-result">{{ group.calls![0].result }}</pre>
+                        <pre v-if="group.calls![0].error" class="tool-result tool-error">{{ group.calls![0].error }}</pre>
+                      </details>
+                    </div>
+                  </template>
+                  <span v-if="streaming.isStreaming && !streaming.blocks.length" class="typing-indicator">
                     <span></span><span></span><span></span>
                   </span>
+                </div>
                 </div>
               </div>
             </template>
@@ -158,52 +275,90 @@
                 ref="inputEl"
                 v-model="inputText"
                 class="chat-input"
-                placeholder="Nachricht schreiben..."
+                placeholder="Message..."
                 rows="1"
                 @keydown.enter.exact="handleSend"
                 @input="autoResizeInput"
               ></textarea>
-              <button
-                v-if="sendingMessage"
-                class="send-btn stop-btn"
-                @click="cancelStream"
-                title="Stop"
-              >
-                <i class="pi pi-stop-circle"></i>
-              </button>
-              <button
-                v-else
-                class="send-btn"
-                :disabled="!inputText.trim()"
-                @click="handleSend"
-              >
-                <i class="pi pi-send"></i>
-              </button>
+              <div class="input-bottom-row">
+                <div class="model-picker-wrap">
+                  <button
+                    v-if="availableModels.length > 1"
+                    class="model-picker"
+                    @click="showModelMenu = !showModelMenu"
+                  >
+                    {{ selectedModel?.name || 'Model' }}
+                    <i class="pi pi-chevron-down"></i>
+                  </button>
+                  <span v-else-if="selectedModel" class="model-label">{{ selectedModel.name }}</span>
+                  <div v-if="showModelMenu" class="model-menu">
+                    <button
+                      v-for="m in availableModels"
+                      :key="m.id"
+                      class="model-menu-item"
+                      :class="{ active: m.id === selectedModelId }"
+                      @click="selectedModelId = m.id; showModelMenu = false"
+                    >
+                      <span class="model-menu-name">{{ m.name }}</span>
+                      <span class="model-menu-price">${{ m.input_price }} / ${{ m.output_price }}</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="input-bottom-spacer"></div>
+                <button
+                  v-if="sendingMessage"
+                  class="send-btn stop-btn"
+                  @click="cancelStream"
+                  title="Stop"
+                >
+                  <i class="pi pi-stop-circle"></i>
+                </button>
+                <button
+                  v-else
+                  class="send-btn"
+                  :disabled="!inputText.trim()"
+                  @click="handleSend"
+                >
+                  <i class="pi pi-send"></i>
+                </button>
+              </div>
             </div>
           </div>
-        </template>
       </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
+import 'katex/dist/katex.min.css'
 import { PageHeader, Tooltip } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
-import { useChat } from '@/composables/useChat'
+import { useChat, type ContentBlock } from '@/composables/useChat'
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
 const {
   sessions, currentSessionId, messages, streaming,
   sessionsLoading, messagesLoading, sendingMessage,
-  sessionUsage,
-  fetchSessions, createSession, deleteSession, selectSession,
+  sessionUsage, availableModels, selectedModelId, selectedModel,
+  fetchModels, fetchSessions, createSession, deleteSession, selectSession,
   sendMessage, cancelStream,
+  deleteMessagesFrom, retryFromMessage, editAndResend,
 } = useChat()
+
+const editingMessageId = ref<string | null>(null)
+const editText = ref('')
+const sessionSearch = ref('')
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch(sessionSearch, (q) => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => fetchSessions(q.trim() || undefined), 250)
+})
 
 const showUsage = ref(false)
 
@@ -213,12 +368,84 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
+function getModelPricing(modelId?: string) {
+  if (modelId) {
+    const m = availableModels.value.find(m => m.id === modelId)
+    if (m) return m
+  }
+  return selectedModel.value
+}
+
+function calcMessageCost(meta: any): number {
+  const m = getModelPricing(meta?.model)
+  if (!m || !meta) return 0
+  const input = meta.input_tokens || 0
+  const output = meta.output_tokens || 0
+  const cacheRead = meta.cache_read_input_tokens || 0
+  const cacheWrite = meta.cache_creation_input_tokens || 0
+  const baseInput = input - cacheRead - cacheWrite
+  return (
+    baseInput * (m.input_price || 0) +
+    output * (m.output_price || 0) +
+    cacheRead * (m.cache_read_price || 0) +
+    cacheWrite * (m.cache_write_price || 0)
+  ) / 1_000_000
+}
+
+const sessionCost = computed(() => {
+  let total = 0
+  for (const msg of messages.value) {
+    if (msg.metadata) total += calcMessageCost(msg.metadata)
+  }
+  if (total < 0.005) return '<$0.01'
+  return '$' + total.toFixed(2)
+})
+
+interface GroupedBlock {
+  type: 'text' | 'tool_group' | 'thinking'
+  text?: string
+  calls?: ContentBlock[]
+}
+
+function groupBlocks(blocks: ContentBlock[]): GroupedBlock[] {
+  const groups: GroupedBlock[] = []
+  for (const b of blocks) {
+    if (b.type === 'text') {
+      groups.push({ type: 'text', text: b.text })
+    } else if (b.type === 'thinking') {
+      groups.push({ type: 'thinking', text: b.text })
+    } else if (b.type === 'tool_call') {
+      const last = groups[groups.length - 1]
+      if (last?.type === 'tool_group') {
+        last.calls!.push(b)
+      } else {
+        groups.push({ type: 'tool_group', calls: [b] })
+      }
+    }
+  }
+  return groups
+}
+
+const streamingGroups = computed(() => groupBlocks(streaming.value.blocks))
+
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch { return '' }
+}
+
 const inputText = ref('')
 const inputEl = ref<HTMLTextAreaElement>()
 const messagesContainer = ref<HTMLElement>()
 
-// Markdown renderer
-marked.setOptions({ breaks: true, gfm: true })
+// Markdown renderer - links open in new tab + LaTeX support
+const renderer = new marked.Renderer()
+renderer.link = ({ href, title, text }) => {
+  const titleAttr = title ? ` title="${title}"` : ''
+  return `<a href="${href}"${titleAttr} target="_blank" rel="noopener">${text}</a>`
+}
+marked.use(markedKatex({ throwOnError: false }))
+marked.setOptions({ breaks: true, gfm: true, renderer })
 
 function renderMarkdown(text: string): string {
   return marked.parse(text) as string
@@ -260,9 +487,59 @@ async function handleSend(e?: Event) {
   inputText.value = ''
   if (inputEl.value) inputEl.value.style.height = 'auto'
 
+  if (!(await ensureSession())) return
   scrollToBottom()
   await sendMessage(text)
   scrollToBottom()
+}
+
+async function copyMessage(msg: any) {
+  const text = msg.content || ''
+  try { await navigator.clipboard.writeText(text) } catch {}
+}
+
+async function handleDeleteMsg(mi: number) {
+  const msg = messages.value[mi]
+  if (msg) await deleteMessagesFrom(msg.id)
+}
+
+async function handleRetryMsg(mi: number) {
+  await retryFromMessage(mi)
+}
+
+function startEdit(msg: any) {
+  editingMessageId.value = msg.id
+  editText.value = msg.content || ''
+}
+
+function cancelEdit() {
+  editingMessageId.value = null
+  editText.value = ''
+}
+
+async function confirmEdit(msgId: string) {
+  const text = editText.value.trim()
+  if (!text) return
+  editingMessageId.value = null
+  editText.value = ''
+  await editAndResend(msgId, text)
+}
+
+const showModelMenu = ref(false)
+
+async function ensureSession(): Promise<boolean> {
+  if (currentSessionId.value) return true
+  const id = await createSession()
+  if (!id) return false
+  await selectSession(id)
+  await nextTick()
+  return true
+}
+
+async function handleSendText(text: string) {
+  if (!text.trim() || sendingMessage.value) return
+  if (!(await ensureSession())) return
+  await sendMessage(text)
 }
 
 async function handleSignOut() {
@@ -271,27 +548,44 @@ async function handleSignOut() {
 }
 
 // Auto-scroll on streaming updates
-watch(() => streaming.value.text, scrollToBottom)
-watch(() => streaming.value.toolCalls.length, scrollToBottom)
+watch(() => streaming.value.blocks.length, scrollToBottom)
+watch(() => {
+  const blocks = streaming.value.blocks
+  const last = blocks[blocks.length - 1]
+  return last?.type === 'text' ? last.text?.length : 0
+}, scrollToBottom)
 watch(() => messages.value.length, scrollToBottom)
 
+function handleGlobalClick(e: MouseEvent) {
+  const t = e.target as HTMLElement
+  if (showUsage.value && !t.closest('.usage-bar')) showUsage.value = false
+  if (showModelMenu.value && !t.closest('.model-picker-wrap')) showModelMenu.value = false
+}
+
 onMounted(async () => {
-  await fetchSessions()
-  // Auto-select most recent session if any
+  document.addEventListener('click', handleGlobalClick)
+  await Promise.all([fetchSessions(), fetchModels()])
   if (sessions.value.length > 0 && !currentSessionId.value) {
     await selectSession(sessions.value[0].id)
   }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick)
 })
 </script>
 
 <style scoped>
 .chat-view {
-  height: 100%;
+  position: fixed;
+  inset: 0;
   background: var(--bg-primary);
   padding: 2rem;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
+  z-index: 1;
 }
 
 /* Reuse tab style from HomeView */
@@ -356,6 +650,7 @@ onMounted(async () => {
   flex: 1;
   min-height: 0;
   gap: 0;
+  overflow: hidden;
 }
 
 /* Sidebar */
@@ -386,6 +681,43 @@ onMounted(async () => {
 .new-chat-btn:hover {
   background: var(--bg-secondary);
   border-color: var(--accent-primary);
+}
+
+/* Session search */
+.session-search-wrap {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.session-search-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.session-search {
+  width: 100%;
+  padding: 0.75rem 0.6rem 0.75rem 2rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.session-search:focus { border-color: var(--accent-primary); }
+.session-search::placeholder { color: var(--text-muted); }
+
+.sidebar-empty {
+  text-align: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .sessions-list {
@@ -423,7 +755,7 @@ onMounted(async () => {
 
 .session-title {
   flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -468,15 +800,50 @@ onMounted(async () => {
   gap: 1rem;
 }
 
-.chat-empty i { font-size: 3rem; color: var(--text-disabled); }
+.chat-empty i.pi-comments { font-size: 3rem; color: var(--text-disabled); }
+.session-empty { padding-top: 3rem; }
+.session-empty p { font-size: 1.2rem; color: var(--text-secondary); }
+
+/* Example queries */
+.example-queries {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+  max-width: 480px;
+}
+
+.example-query {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+.example-query:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+.example-query i { font-size: 1rem; color: var(--text-muted); flex-shrink: 0; }
+.example-query:hover i { color: var(--accent-primary); }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-height: 0;
 }
 
 .messages-loading {
@@ -490,18 +857,21 @@ onMounted(async () => {
 .message {
   display: flex;
   max-width: 100%;
+  min-width: 0;
 }
 
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
 
 .message-bubble {
-  max-width: min(75%, 700px);
-  padding: 0.75rem 1rem;
+  max-width: 100%;
+  padding: 0.9rem 1.2rem;
   border-radius: var(--radius-lg);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 1.12rem;
+  line-height: 1.7;
   word-wrap: break-word;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .user-bubble {
@@ -519,7 +889,7 @@ onMounted(async () => {
 
 /* Tool calls */
 .tool-calls {
-  margin-bottom: 0.75rem;
+  margin: 0.75rem 0 0.85rem;
 }
 
 .tool-call {
@@ -533,8 +903,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   cursor: pointer;
   background: var(--bg-tertiary);
@@ -543,10 +913,10 @@ onMounted(async () => {
 
 .tool-summary:hover { color: var(--text-primary); }
 
-.tool-spinner { font-size: 0.75rem; }
+.tool-spinner { font-size: 0.8rem; }
 
 .tool-error-badge {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--error-text);
   background: var(--error-bg);
   padding: 0.1rem 0.4rem;
@@ -554,8 +924,8 @@ onMounted(async () => {
 }
 
 .tool-code {
-  padding: 0.6rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
   font-family: 'Fira Code', 'Consolas', monospace;
   background: #1a1a2e;
   color: #a8d8ea;
@@ -567,8 +937,8 @@ onMounted(async () => {
 }
 
 .tool-result {
-  padding: 0.6rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.8rem;
   font-family: 'Fira Code', 'Consolas', monospace;
   background: #1a1a1a;
   color: var(--text-secondary);
@@ -586,34 +956,45 @@ onMounted(async () => {
   background: var(--error-bg);
 }
 
+/* Expand/collapse animation for details content */
+details[open] > *:not(summary) {
+  animation: detailsSlideDown 0.2s ease-out;
+}
+@keyframes detailsSlideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Markdown content */
-.markdown-content :deep(p) { margin: 0.4rem 0; }
+.markdown-content :deep(p) { margin: 0.5rem 0; }
 .markdown-content :deep(p:first-child) { margin-top: 0; }
 .markdown-content :deep(p:last-child) { margin-bottom: 0; }
-.markdown-content :deep(ul), .markdown-content :deep(ol) { padding-left: 1.5rem; margin: 0.4rem 0; }
+.markdown-content :deep(ul), .markdown-content :deep(ol) { padding-left: 1.5rem; margin: 0.5rem 0; }
+.markdown-content :deep(li) { margin: 0.25rem 0; }
 .markdown-content :deep(code) {
   background: var(--bg-tertiary);
-  padding: 0.1rem 0.3rem;
+  padding: 0.15rem 0.35rem;
   border-radius: 3px;
-  font-size: 0.85em;
+  font-size: 0.88em;
   font-family: 'Fira Code', 'Consolas', monospace;
 }
 .markdown-content :deep(pre) {
   background: #1a1a2e;
-  padding: 0.75rem;
+  padding: 0.85rem;
   border-radius: var(--radius-sm);
   overflow-x: auto;
-  margin: 0.5rem 0;
+  margin: 0.6rem 0;
+  font-size: 0.9rem;
 }
 .markdown-content :deep(pre code) { background: transparent; padding: 0; }
 .markdown-content :deep(table) {
   border-collapse: collapse;
-  margin: 0.5rem 0;
-  font-size: 0.85em;
+  margin: 0.6rem 0;
+  font-size: 0.92em;
 }
 .markdown-content :deep(th), .markdown-content :deep(td) {
   border: 1px solid var(--border-primary);
-  padding: 0.4rem 0.6rem;
+  padding: 0.45rem 0.65rem;
 }
 .markdown-content :deep(th) { background: var(--bg-tertiary); }
 .markdown-content :deep(strong) { color: #fff; }
@@ -644,22 +1025,27 @@ onMounted(async () => {
 
 /* Input area */
 .chat-input-area {
-  padding: 0.6rem 2rem 0.75rem;
+  padding: 0.4rem 2rem 0.75rem;
   border-top: 1px solid var(--border-primary);
   flex-shrink: 0;
 }
 
+.model-label {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
 .chat-input-wrapper {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
   max-width: 700px;
   margin: 0 auto;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  border-radius: 1.1rem;
+  padding: 0.6rem 0.7rem 0.4rem 0.85rem;
   transition: border-color 0.15s ease;
+  gap: 0.3rem;
 }
 
 .chat-input-wrapper:focus-within {
@@ -677,7 +1063,74 @@ onMounted(async () => {
   resize: none;
   outline: none;
   max-height: 200px;
-  padding: 0.2rem 0;
+  padding: 0;
+}
+
+.input-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.input-bottom-spacer { flex: 1; }
+
+.model-picker-wrap { position: relative; }
+
+.model-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.model-picker:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
+.model-picker i { font-size: 0.65rem; opacity: 0.6; }
+
+.model-menu {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.3rem;
+  min-width: 200px;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  animation: detailsSlideDown 0.15s ease-out;
+}
+
+.model-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.1s;
+  gap: 1.2rem;
+}
+.model-menu-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.model-menu-item.active { color: var(--accent-primary); }
+
+.model-menu-name { white-space: nowrap; }
+.model-menu-price {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-family: 'Fira Code', 'Consolas', monospace;
 }
 
 .chat-input::placeholder { color: var(--text-muted); }
@@ -708,6 +1161,185 @@ onMounted(async () => {
 
 .stop-btn:hover { background: #662020; }
 
+/* Message column wrapper for actions */
+.message-col {
+  display: flex;
+  flex-direction: column;
+  max-width: min(80%, 800px);
+}
+.message.user .message-col { align-items: flex-end; }
+.message.assistant .message-col { align-items: flex-start; }
+
+/* Message actions bar */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.25rem;
+  padding: 0 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+  height: 1.5rem;
+}
+.message:hover .msg-actions { opacity: 1; }
+
+.msg-actions-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: 0.35rem;
+}
+
+.msg-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.1s;
+  font-size: 0.8rem;
+}
+.msg-action-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+.msg-action-delete:hover { color: var(--error-text); }
+
+/* Inline message editing */
+.message-bubble.editing {
+  padding: 0.6rem;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 3rem;
+  max-height: 200px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 0.5rem 0.7rem;
+  resize: vertical;
+  outline: none;
+}
+.edit-textarea:focus { border-color: var(--accent-primary); }
+
+.edit-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  justify-content: flex-end;
+}
+
+.edit-btn {
+  padding: 0.3rem 0.7rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.edit-save {
+  background: var(--accent-primary);
+  color: #fff;
+}
+.edit-save:hover { opacity: 0.85; }
+
+.edit-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.edit-cancel:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+
+/* Tool group (multiple consecutive calls) */
+.tool-group { margin: 0.75rem 0 0.85rem; }
+
+.tool-group-details {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.tool-group-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  user-select: none;
+  list-style: none;
+}
+.tool-group-summary::-webkit-details-marker { display: none; }
+.tool-group-summary:hover { color: var(--text-primary); }
+
+.tool-chevron {
+  margin-left: auto;
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+.tool-group-details[open] > .tool-group-summary .tool-chevron { transform: rotate(90deg); }
+
+.tool-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.tool-group-content .tool-call {
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--border-primary);
+  margin-bottom: 0;
+}
+
+/* Thinking block */
+.thinking-block { margin: 0.75rem 0 0.85rem; }
+
+.thinking-details {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 450px;
+}
+
+.thinking-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  user-select: none;
+  list-style: none;
+  font-style: italic;
+}
+.thinking-summary::-webkit-details-marker { display: none; }
+.thinking-summary:hover { color: var(--text-secondary); }
+.thinking-summary i { font-size: 0.8rem; }
+
+.thinking-content {
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  font-style: italic;
+  line-height: 1.55;
+}
+
 /* Token usage bar */
 .usage-bar {
   position: relative;
@@ -720,19 +1352,19 @@ onMounted(async () => {
 .usage-toggle {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.5rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   cursor: pointer;
   border-radius: var(--radius-sm);
   transition: color 0.15s;
 }
 
 .usage-toggle:hover { color: var(--text-secondary); }
-.usage-toggle i { font-size: 0.8rem; }
+.usage-toggle i { font-size: 0.9rem; }
 
 .usage-detail {
   position: absolute;
@@ -741,8 +1373,8 @@ onMounted(async () => {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 0.5rem 0.75rem;
-  min-width: 160px;
+  padding: 0.6rem 0.85rem;
+  min-width: 180px;
   z-index: 10;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -751,13 +1383,20 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  padding: 0.15rem 0;
+  padding: 0.2rem 0;
 }
 
 .usage-row span:last-child {
   font-family: 'Fira Code', 'Consolas', monospace;
   color: var(--text-primary);
+}
+
+.usage-row-total {
+  border-top: 1px solid var(--border-primary);
+  margin-top: 0.2rem;
+  padding-top: 0.35rem;
+  font-weight: 600;
 }
 </style>

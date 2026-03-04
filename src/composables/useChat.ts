@@ -10,9 +10,11 @@ export interface ChatSession {
   updated_at: string
 }
 
-export interface ToolCall {
-  id: string
-  code: string
+export interface ContentBlock {
+  type: 'text' | 'tool_call' | 'thinking'
+  text?: string
+  id?: string
+  code?: string
   result?: string
   error?: string
 }
@@ -22,22 +24,32 @@ export interface TokenUsage {
   output_tokens: number
   cache_read_input_tokens: number
   cache_creation_input_tokens: number
+  model?: string
 }
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string | null
-  tool_calls: ToolCall[] | null
+  blocks: ContentBlock[] | null
   metadata: TokenUsage | null
   created_at: string
 }
 
 export interface StreamingState {
-  text: string
-  toolCalls: ToolCall[]
+  blocks: ContentBlock[]
   currentToolId: string | null
   isStreaming: boolean
+}
+
+export interface ChatModel {
+  id: string
+  name: string
+  default?: boolean
+  input_price?: number
+  output_price?: number
+  cache_read_price?: number
+  cache_write_price?: number
 }
 
 // Module-level state
@@ -45,14 +57,15 @@ const sessions = ref<ChatSession[]>([])
 const currentSessionId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
 const streaming = ref<StreamingState>({
-  text: '',
-  toolCalls: [],
+  blocks: [],
   currentToolId: null,
   isStreaming: false,
 })
 const sessionsLoading = ref(false)
 const messagesLoading = ref(false)
 const sendingMessage = ref(false)
+const availableModels = ref<ChatModel[]>([])
+const selectedModelId = ref<string | null>(null)
 
 let abortController: AbortController | null = null
 
@@ -70,6 +83,10 @@ export function useChat() {
     sessions.value.find(s => s.id === currentSessionId.value) ?? null
   )
 
+  const selectedModel = computed(() =>
+    availableModels.value.find(m => m.id === selectedModelId.value) ?? null
+  )
+
   const sessionUsage = computed<TokenUsage>(() => {
     const totals: TokenUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
     for (const msg of messages.value) {
@@ -83,11 +100,30 @@ export function useChat() {
     return totals
   })
 
-  async function fetchSessions() {
+  async function fetchModels() {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${CHAT_SERVICE_URL}/models`, { headers })
+      if (!res.ok) return
+      const models: ChatModel[] = await res.json()
+      availableModels.value = models
+      if (!selectedModelId.value) {
+        const def = models.find(m => m.default)
+        selectedModelId.value = def?.id || models[0]?.id || null
+      }
+    } catch (e: any) {
+      console.error('[useChat] fetchModels error:', e)
+    }
+  }
+
+  async function fetchSessions(query?: string) {
     sessionsLoading.value = true
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions`, { headers })
+      const url = query
+        ? `${CHAT_SERVICE_URL}/sessions?q=${encodeURIComponent(query)}`
+        : `${CHAT_SERVICE_URL}/sessions`
+      const res = await fetch(url, { headers })
       if (!res.ok) throw new Error(`${res.status}`)
       sessions.value = await res.json()
     } catch (e: any) {
@@ -178,13 +214,13 @@ export function useChat() {
       id: crypto.randomUUID(),
       role: 'user',
       content,
-      tool_calls: null,
+      blocks: null,
       metadata: null,
       created_at: new Date().toISOString()
     }
     messages.value.push(userMsg)
 
-    streaming.value = { text: '', toolCalls: [], currentToolId: null, isStreaming: true }
+    streaming.value = { blocks: [], currentToolId: null, isStreaming: true }
     sendingMessage.value = true
 
     abortController = new AbortController()
@@ -194,7 +230,7 @@ export function useChat() {
       const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, model: selectedModelId.value }),
         signal: abortController.signal
       })
 
@@ -224,20 +260,41 @@ export function useChat() {
             const event = JSON.parse(jsonStr)
 
             switch (event.type) {
-              case 'text':
-                streaming.value.text += event.content
+              case 'text': {
+                const blocks = streaming.value.blocks
+                const last = blocks[blocks.length - 1]
+                if (last && last.type === 'text') {
+                  last.text = (last.text || '') + event.content
+                } else {
+                  blocks.push({ type: 'text', text: event.content })
+                }
                 break
+              }
+
+              case 'thinking': {
+                const blocks = streaming.value.blocks
+                const last = blocks[blocks.length - 1]
+                if (last && last.type === 'thinking') {
+                  last.text = (last.text || '') + event.content
+                } else {
+                  blocks.push({ type: 'thinking', text: event.content })
+                }
+                break
+              }
 
               case 'tool_call':
                 streaming.value.currentToolId = event.id
-                streaming.value.toolCalls.push({
+                streaming.value.blocks.push({
+                  type: 'tool_call',
                   id: event.id,
                   code: event.code,
                 })
                 break
 
               case 'tool_result': {
-                const tc = streaming.value.toolCalls.find(t => t.id === event.id)
+                const tc = streaming.value.blocks.find(
+                  b => b.type === 'tool_call' && b.id === event.id
+                )
                 if (tc) {
                   if (event.result !== undefined) tc.result = event.result
                   if (event.error !== undefined) tc.error = event.error
@@ -256,12 +313,12 @@ export function useChat() {
                 const assistantMsg: ChatMessage = {
                   id: crypto.randomUUID(),
                   role: 'assistant',
-                  content: event.content || streaming.value.text,
-                  tool_calls: event.tool_calls || (streaming.value.toolCalls.length > 0 ? [...streaming.value.toolCalls] : null),
+                  content: event.content || null,
+                  blocks: event.blocks || (streaming.value.blocks.length > 0 ? [...streaming.value.blocks] : null),
                   metadata: event.metadata || null,
                   created_at: new Date().toISOString()
                 }
-                streaming.value = { text: '', toolCalls: [], currentToolId: null, isStreaming: false }
+                streaming.value = { blocks: [], currentToolId: null, isStreaming: false }
                 messages.value.push(assistantMsg)
                 break
               }
@@ -293,6 +350,54 @@ export function useChat() {
     }
   }
 
+  async function deleteMessagesFrom(messageId: string) {
+    if (!currentSessionId.value) return
+    try {
+      const headers = await getAuthHeaders()
+      await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/from/${messageId}`, {
+        method: 'DELETE', headers
+      })
+      const idx = messages.value.findIndex(m => m.id === messageId)
+      if (idx >= 0) messages.value.splice(idx)
+    } catch (e: any) {
+      console.error('[useChat] deleteMessagesFrom error:', e)
+    }
+  }
+
+  async function updateMessage(messageId: string, content: string) {
+    if (!currentSessionId.value) return
+    try {
+      const headers = await getAuthHeaders()
+      await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/${messageId}`, {
+        method: 'PATCH', headers, body: JSON.stringify({ content })
+      })
+      const msg = messages.value.find(m => m.id === messageId)
+      if (msg) msg.content = content
+    } catch (e: any) {
+      console.error('[useChat] updateMessage error:', e)
+    }
+  }
+
+  async function retryFromMessage(index: number) {
+    const msg = messages.value[index]
+    if (!msg) return
+    const userIndex = msg.role === 'user' ? index : index - 1
+    const userMsg = messages.value[userIndex]
+    if (!userMsg?.content || userMsg.role !== 'user') return
+    const content = userMsg.content
+    await deleteMessagesFrom(userMsg.id)
+    await sendMessage(content)
+  }
+
+  async function editAndResend(messageId: string, newContent: string) {
+    const idx = messages.value.findIndex(m => m.id === messageId)
+    if (idx < 0) return
+    await updateMessage(messageId, newContent)
+    const nextMsg = messages.value[idx + 1]
+    if (nextMsg) await deleteMessagesFrom(nextMsg.id)
+    await sendMessage(newContent)
+  }
+
   return {
     sessions,
     currentSessionId,
@@ -303,6 +408,10 @@ export function useChat() {
     messagesLoading,
     sendingMessage,
     sessionUsage,
+    availableModels,
+    selectedModelId,
+    selectedModel,
+    fetchModels,
     fetchSessions,
     createSession,
     deleteSession,
@@ -310,5 +419,9 @@ export function useChat() {
     selectSession,
     sendMessage,
     cancelStream,
+    deleteMessagesFrom,
+    updateMessage,
+    retryFromMessage,
+    editAndResend,
   }
 }
