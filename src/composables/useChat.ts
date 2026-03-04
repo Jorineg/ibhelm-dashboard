@@ -45,11 +45,16 @@ export interface StreamingState {
 export interface ChatModel {
   id: string
   name: string
+  provider: string
   default?: boolean
+  hidden?: boolean
+  context_window?: number
+  supports_vision?: boolean
   input_price?: number
   output_price?: number
   cache_read_price?: number
   cache_write_price?: number
+  base_url?: string
 }
 
 // Module-level state
@@ -181,6 +186,7 @@ export function useChat() {
   }
 
   async function selectSession(id: string) {
+    if (streaming.value.isStreaming) cancelStream()
     currentSessionId.value = id
     messagesLoading.value = true
     try {
@@ -205,13 +211,15 @@ export function useChat() {
     sendingMessage.value = false
   }
 
-  async function sendMessage(content: string) {
-    if (!currentSessionId.value || sendingMessage.value) return
+  async function sendMessage(content: string, modelOverride?: string) {
+    if (!currentSessionId.value) return
+    cancelStream()
 
     const sessionId = currentSessionId.value
+    const model = modelOverride || selectedModelId.value
 
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: `pending_${crypto.randomUUID()}`,
       role: 'user',
       content,
       blocks: null,
@@ -230,7 +238,7 @@ export function useChat() {
       const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ content, model: selectedModelId.value }),
+        body: JSON.stringify({ content, model }),
         signal: abortController.signal
       })
 
@@ -259,7 +267,15 @@ export function useChat() {
           try {
             const event = JSON.parse(jsonStr)
 
+            if (currentSessionId.value !== sessionId) break
+
             switch (event.type) {
+              case 'user_message_id': {
+                const pending = messages.value.find(m => m.id === userMsg.id)
+                if (pending) pending.id = event.id
+                break
+              }
+
               case 'text': {
                 const blocks = streaming.value.blocks
                 const last = blocks[blocks.length - 1]
@@ -354,9 +370,13 @@ export function useChat() {
     if (!currentSessionId.value) return
     try {
       const headers = await getAuthHeaders()
-      await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/from/${messageId}`, {
+      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/from/${messageId}`, {
         method: 'DELETE', headers
       })
+      if (!res.ok) {
+        console.error(`[useChat] deleteMessagesFrom failed: ${res.status}`)
+        return
+      }
       const idx = messages.value.findIndex(m => m.id === messageId)
       if (idx >= 0) messages.value.splice(idx)
     } catch (e: any) {
@@ -368,9 +388,13 @@ export function useChat() {
     if (!currentSessionId.value) return
     try {
       const headers = await getAuthHeaders()
-      await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/${messageId}`, {
+      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/${messageId}`, {
         method: 'PATCH', headers, body: JSON.stringify({ content })
       })
+      if (!res.ok) {
+        console.error(`[useChat] updateMessage failed: ${res.status}`)
+        return
+      }
       const msg = messages.value.find(m => m.id === messageId)
       if (msg) msg.content = content
     } catch (e: any) {
@@ -378,7 +402,7 @@ export function useChat() {
     }
   }
 
-  async function retryFromMessage(index: number) {
+  async function retryFromMessage(index: number, modelId?: string) {
     const msg = messages.value[index]
     if (!msg) return
     const userIndex = msg.role === 'user' ? index : index - 1
@@ -386,7 +410,7 @@ export function useChat() {
     if (!userMsg?.content || userMsg.role !== 'user') return
     const content = userMsg.content
     await deleteMessagesFrom(userMsg.id)
-    await sendMessage(content)
+    await sendMessage(content, modelId)
   }
 
   async function editAndResend(messageId: string, newContent: string) {

@@ -146,46 +146,55 @@
                     <template v-if="msg.blocks?.length">
                       <template v-for="(group, gi) in groupBlocks(msg.blocks)" :key="gi">
                         <div v-if="group.type === 'text' && group.text" class="markdown-content" v-html="renderMarkdown(group.text)"></div>
-                        <div v-else-if="group.type === 'thinking'" class="thinking-block">
-                          <details class="thinking-details">
-                            <summary class="thinking-summary">
-                              <i class="pi pi-sparkles"></i>
-                              Thinking
-                            </summary>
-                            <div class="thinking-content">{{ group.text }}</div>
-                          </details>
-                        </div>
-                        <div v-else-if="group.type === 'tool_group'" class="tool-group">
-                          <details v-if="group.calls!.length > 1" class="tool-group-details">
+                        <div v-else-if="group.type === 'work_group'" class="tool-group">
+                          <details v-if="group.items!.length > 1" class="tool-group-details">
                             <summary class="tool-group-summary">
                               <i class="pi pi-code"></i>
-                              <span>Ran {{ group.calls!.length }} queries</span>
-                              <span v-if="group.calls!.some(c => c.error)" class="tool-error-badge">error</span>
+                              <span>{{ workGroupSummary(group.items!) }}</span>
+                              <span v-if="group.items!.some(c => c.error)" class="tool-error-badge">error</span>
                               <i class="pi pi-chevron-right tool-chevron"></i>
                             </summary>
                             <div class="tool-group-content">
-                              <details v-for="tc in group.calls" :key="tc.id" class="tool-call">
-                                <summary class="tool-summary">
-                                  <i class="pi pi-code"></i>
-                                  Python
-                                  <span v-if="tc.error" class="tool-error-badge">error</span>
-                                </summary>
-                                <pre class="tool-code">{{ tc.code }}</pre>
-                                <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
-                                <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
-                              </details>
+                              <template v-for="item in group.items" :key="item.id || item.text?.slice(0,20)">
+                                <details v-if="item.type === 'tool_call'" class="tool-call">
+                                  <summary class="tool-summary">
+                                    <i class="pi pi-code"></i>
+                                    Python
+                                    <span v-if="item.error" class="tool-error-badge">error</span>
+                                  </summary>
+                                  <pre class="tool-code">{{ item.code }}</pre>
+                                  <pre v-if="item.result" class="tool-result">{{ item.result }}</pre>
+                                  <pre v-if="item.error" class="tool-result tool-error">{{ item.error }}</pre>
+                                </details>
+                                <details v-else-if="item.type === 'thinking'" class="tool-call thinking-in-group">
+                                  <summary class="tool-summary thinking-summary-inline">
+                                    <i class="pi pi-sparkles"></i>
+                                    Thinking
+                                  </summary>
+                                  <div class="thinking-content">{{ item.text }}</div>
+                                </details>
+                              </template>
                             </div>
                           </details>
-                          <details v-else class="tool-call">
-                            <summary class="tool-summary">
-                              <i class="pi pi-code"></i>
-                              Python
-                              <span v-if="group.calls![0].error" class="tool-error-badge">error</span>
-                            </summary>
-                            <pre class="tool-code">{{ group.calls![0].code }}</pre>
-                            <pre v-if="group.calls![0].result" class="tool-result">{{ group.calls![0].result }}</pre>
-                            <pre v-if="group.calls![0].error" class="tool-result tool-error">{{ group.calls![0].error }}</pre>
-                          </details>
+                          <template v-else>
+                            <details v-if="group.items![0].type === 'tool_call'" class="tool-call">
+                              <summary class="tool-summary">
+                                <i class="pi pi-code"></i>
+                                Python
+                                <span v-if="group.items![0].error" class="tool-error-badge">error</span>
+                              </summary>
+                              <pre class="tool-code">{{ group.items![0].code }}</pre>
+                              <pre v-if="group.items![0].result" class="tool-result">{{ group.items![0].result }}</pre>
+                              <pre v-if="group.items![0].error" class="tool-result tool-error">{{ group.items![0].error }}</pre>
+                            </details>
+                            <details v-else class="thinking-details">
+                              <summary class="thinking-summary">
+                                <i class="pi pi-sparkles"></i>
+                                Thinking
+                              </summary>
+                              <div class="thinking-content">{{ group.items![0].text }}</div>
+                            </details>
+                          </template>
                         </div>
                       </template>
                     </template>
@@ -194,6 +203,7 @@
                   <!-- Message actions -->
                   <div v-if="editingMessageId !== msg.id" class="msg-actions">
                     <span class="msg-actions-time">{{ formatTime(msg.created_at) }}</span>
+                    <span v-if="msg.role === 'assistant' && msg.metadata?.model" class="msg-model-name">{{ getModelName(msg.metadata.model) }}</span>
                     <button class="msg-action-btn" title="Copy" @click="copyMessage(msg)">
                       <i class="pi pi-copy"></i>
                     </button>
@@ -203,6 +213,22 @@
                     <button class="msg-action-btn" title="Retry" @click="handleRetryMsg(mi)">
                       <i class="pi pi-refresh"></i>
                     </button>
+                    <div v-if="msg.role === 'assistant'" class="retry-model-wrap">
+                      <button class="msg-action-btn" title="Retry with different model" @click.stop="retryModelMenuIdx = retryModelMenuIdx === mi ? null : mi">
+                        <i class="pi pi-chevron-down" style="font-size: 0.6rem;"></i>
+                      </button>
+                      <div v-if="retryModelMenuIdx === mi" class="retry-model-menu">
+                        <button
+                          v-for="m in availableModels"
+                          :key="m.id"
+                          class="retry-model-item"
+                          :class="{ active: m.id === msg.metadata?.model }"
+                          @click="handleRetryWithModel(mi, m.id)"
+                        >
+                          {{ m.name }}
+                        </button>
+                      </div>
+                    </div>
                     <button class="msg-action-btn msg-action-delete" title="Delete from here" @click="handleDeleteMsg(mi)">
                       <i class="pi pi-trash"></i>
                     </button>
@@ -216,46 +242,36 @@
                 <div class="message-bubble assistant-bubble">
                   <template v-for="(group, gi) in streamingGroups" :key="gi">
                     <div v-if="group.type === 'text' && group.text" class="markdown-content" v-html="renderMarkdown(group.text)"></div>
-                    <div v-else-if="group.type === 'thinking'" class="thinking-block">
-                      <details class="thinking-details" open>
-                        <summary class="thinking-summary">
-                          <i class="pi pi-sparkles"></i>
-                          Thinking...
-                        </summary>
-                        <div class="thinking-content">{{ group.text }}</div>
-                      </details>
-                    </div>
-                    <div v-else-if="group.type === 'tool_group'" class="tool-group">
-                      <details v-if="group.calls!.length > 1" class="tool-group-details" open>
+                    <div v-else-if="group.type === 'work_group'" class="tool-group">
+                      <details class="tool-group-details">
                         <summary class="tool-group-summary">
                           <i class="pi pi-code"></i>
-                          <span>Running {{ group.calls!.length }} queries...</span>
+                          <span>{{ workGroupSummary(group.items!) }}...</span>
+                          <i v-if="streaming.isStreaming && gi === streamingGroups.length - 1" class="pi pi-spin pi-spinner tool-spinner"></i>
                           <i class="pi pi-chevron-right tool-chevron"></i>
                         </summary>
                         <div class="tool-group-content">
-                          <details v-for="tc in group.calls" :key="tc.id" class="tool-call" :open="tc.id === streaming.currentToolId">
-                            <summary class="tool-summary">
-                              <i class="pi pi-code"></i>
-                              Python
-                              <i v-if="tc.id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
-                              <span v-if="tc.error" class="tool-error-badge">error</span>
-                            </summary>
-                            <pre class="tool-code">{{ tc.code }}</pre>
-                            <pre v-if="tc.result" class="tool-result">{{ tc.result }}</pre>
-                            <pre v-if="tc.error" class="tool-result tool-error">{{ tc.error }}</pre>
-                          </details>
+                          <template v-for="item in group.items" :key="item.id || item.text?.slice(0,20)">
+                            <details v-if="item.type === 'tool_call'" class="tool-call" :open="item.id === streaming.currentToolId">
+                              <summary class="tool-summary">
+                                <i class="pi pi-code"></i>
+                                Python
+                                <i v-if="item.id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
+                                <span v-if="item.error" class="tool-error-badge">error</span>
+                              </summary>
+                              <pre class="tool-code">{{ item.code }}</pre>
+                              <pre v-if="item.result" class="tool-result">{{ item.result }}</pre>
+                              <pre v-if="item.error" class="tool-result tool-error">{{ item.error }}</pre>
+                            </details>
+                            <details v-else-if="item.type === 'thinking'" class="tool-call thinking-in-group">
+                              <summary class="tool-summary thinking-summary-inline">
+                                <i class="pi pi-sparkles"></i>
+                                Thinking...
+                              </summary>
+                              <div class="thinking-content">{{ item.text }}</div>
+                            </details>
+                          </template>
                         </div>
-                      </details>
-                      <details v-else class="tool-call" :open="group.calls![0].id === streaming.currentToolId">
-                        <summary class="tool-summary">
-                          <i class="pi pi-code"></i>
-                          Python
-                          <i v-if="group.calls![0].id === streaming.currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
-                          <span v-if="group.calls![0].error" class="tool-error-badge">error</span>
-                        </summary>
-                        <pre class="tool-code">{{ group.calls![0].code }}</pre>
-                        <pre v-if="group.calls![0].result" class="tool-result">{{ group.calls![0].result }}</pre>
-                        <pre v-if="group.calls![0].error" class="tool-result tool-error">{{ group.calls![0].error }}</pre>
                       </details>
                     </div>
                   </template>
@@ -402,9 +418,9 @@ const sessionCost = computed(() => {
 })
 
 interface GroupedBlock {
-  type: 'text' | 'tool_group' | 'thinking'
+  type: 'text' | 'work_group'
   text?: string
-  calls?: ContentBlock[]
+  items?: ContentBlock[]
 }
 
 function groupBlocks(blocks: ContentBlock[]): GroupedBlock[] {
@@ -412,18 +428,24 @@ function groupBlocks(blocks: ContentBlock[]): GroupedBlock[] {
   for (const b of blocks) {
     if (b.type === 'text') {
       groups.push({ type: 'text', text: b.text })
-    } else if (b.type === 'thinking') {
-      groups.push({ type: 'thinking', text: b.text })
-    } else if (b.type === 'tool_call') {
+    } else {
       const last = groups[groups.length - 1]
-      if (last?.type === 'tool_group') {
-        last.calls!.push(b)
+      if (last?.type === 'work_group') {
+        last.items!.push(b)
       } else {
-        groups.push({ type: 'tool_group', calls: [b] })
+        groups.push({ type: 'work_group', items: [b] })
       }
     }
   }
   return groups
+}
+
+function workGroupSummary(items: ContentBlock[]): string {
+  const toolCount = items.filter(b => b.type === 'tool_call').length
+  const thinkCount = items.filter(b => b.type === 'thinking').length
+  if (toolCount && thinkCount) return `Ran ${toolCount} ${toolCount === 1 ? 'query' : 'queries'}`
+  if (toolCount) return `Ran ${toolCount} ${toolCount === 1 ? 'query' : 'queries'}`
+  return `Thinking (${thinkCount} ${thinkCount === 1 ? 'step' : 'steps'})`
 }
 
 const streamingGroups = computed(() => groupBlocks(streaming.value.blocks))
@@ -466,6 +488,7 @@ function scrollToBottom() {
 }
 
 async function handleNewChat() {
+  cancelStream()
   const id = await createSession()
   if (id) {
     await selectSession(id)
@@ -526,6 +549,19 @@ async function confirmEdit(msgId: string) {
 }
 
 const showModelMenu = ref(false)
+const retryModelMenuIdx = ref<number | null>(null)
+
+function getModelName(modelId?: string): string | null {
+  if (!modelId) return null
+  return availableModels.value.find(m => m.id === modelId)?.name
+    ?? modelId.split('/').pop()?.replace(/-/g, ' ')
+    ?? modelId
+}
+
+async function handleRetryWithModel(mi: number, modelId: string) {
+  retryModelMenuIdx.value = null
+  await retryFromMessage(mi, modelId)
+}
 
 async function ensureSession(): Promise<boolean> {
   if (currentSessionId.value) return true
@@ -560,6 +596,7 @@ function handleGlobalClick(e: MouseEvent) {
   const t = e.target as HTMLElement
   if (showUsage.value && !t.closest('.usage-bar')) showUsage.value = false
   if (showModelMenu.value && !t.closest('.model-picker-wrap')) showModelMenu.value = false
+  if (retryModelMenuIdx.value !== null && !t.closest('.retry-model-wrap')) retryModelMenuIdx.value = null
 }
 
 onMounted(async () => {
@@ -1206,6 +1243,47 @@ details[open] > *:not(summary) {
 .msg-action-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .msg-action-delete:hover { color: var(--error-text); }
 
+.msg-model-name {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: 0.2rem;
+  white-space: nowrap;
+}
+
+.retry-model-wrap { position: relative; }
+
+.retry-model-menu {
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.25rem;
+  min-width: 160px;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  animation: detailsSlideDown 0.15s ease-out;
+}
+
+.retry-model-item {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.retry-model-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.retry-model-item.active { color: var(--accent-primary); }
+
 /* Inline message editing */
 .message-bubble.editing {
   padding: 0.6rem;
@@ -1325,6 +1403,12 @@ details[open] > *:not(summary) {
 .thinking-summary::-webkit-details-marker { display: none; }
 .thinking-summary:hover { color: var(--text-secondary); }
 .thinking-summary i { font-size: 0.8rem; }
+
+.thinking-summary-inline {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.thinking-summary-inline i { font-size: 0.75rem; }
 
 .thinking-content {
   padding: 0.7rem 0.85rem;
