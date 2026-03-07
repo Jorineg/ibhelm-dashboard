@@ -27,14 +27,25 @@ export interface TokenUsage {
   model?: string
 }
 
+export interface ChatFile {
+  id: string
+  filename: string
+  content_hash: string
+  bucket: string
+  origin: string
+  size_bytes: number
+  mime_type: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string | null
   blocks: ContentBlock[] | null
   metadata: TokenUsage | null
-  status?: 'complete' | 'generating' | 'error'
+  status?: 'complete' | 'generating' | 'error' | 'canceled'
   created_at: string
+  files?: ChatFile[]
 }
 
 export interface StreamingState {
@@ -292,17 +303,43 @@ export function useChat() {
     }
     streaming.value.isStreaming = false
     sendingMessage.value = false
+
+    if (currentSessionId.value) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.access_token) {
+          fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/cancel`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          }).catch(() => {})
+        }
+      })
+    }
   }
 
   let activeAssistantMsgId: string | null = null
+  let activeUserMsgId: string | null = null
+  let pendingAssistantFiles: ChatFile[] = []
 
   function processStreamEvent(event: any, sessionId: string, assistantMsgId?: string) {
     switch (event.type) {
       case 'user_message_id': {
+        activeUserMsgId = event.id
         const pending = messages.value.find(m => m.id?.startsWith('pending_'))
         if (pending) pending.id = event.id
         break
       }
+
+      case 'files_uploaded': {
+        const userMsg = activeUserMsgId
+          ? messages.value.find(m => m.id === activeUserMsgId)
+          : null
+        if (userMsg) userMsg.files = event.files
+        break
+      }
+
+      case 'files_created':
+        pendingAssistantFiles.push(...event.files)
+        break
 
       case 'assistant_message_id':
         activeAssistantMsgId = event.id
@@ -359,15 +396,20 @@ export function useChat() {
 
       case 'done': {
         const msgId = activeAssistantMsgId || assistantMsgId || crypto.randomUUID()
+        const status = event.status || 'complete'
+        const meta = { ...(event.metadata || {}) }
+        if (event.error) meta.error = event.error
         const assistantMsg: ChatMessage = {
           id: msgId,
           role: 'assistant',
           content: event.content || null,
           blocks: event.blocks || (streaming.value.blocks.length > 0 ? [...streaming.value.blocks] : null),
-          metadata: event.metadata || null,
-          status: 'complete',
-          created_at: new Date().toISOString()
+          metadata: meta,
+          status,
+          created_at: new Date().toISOString(),
+          files: pendingAssistantFiles.length > 0 ? [...pendingAssistantFiles] : undefined,
         }
+        pendingAssistantFiles = []
         streaming.value = { blocks: [], currentToolId: null, isStreaming: false }
         const existingIdx = messages.value.findIndex(m => m.id === msgId)
         if (existingIdx >= 0) {
@@ -375,22 +417,48 @@ export function useChat() {
         } else {
           messages.value.push(assistantMsg)
         }
-        // Sync model picker to the model that was used
         if (event.metadata?.model) {
           const modelExists = availableModels.value.some(m => m.id === event.metadata.model)
           if (modelExists) selectedModelId.value = event.metadata.model
         }
         activeAssistantMsgId = null
+        activeUserMsgId = null
         break
       }
-
-      case 'error':
-        console.error('[useChat] stream error:', event.message)
-        break
     }
   }
 
-  async function sendMessage(content: string, modelOverride?: string) {
+  async function uploadFiles(sessionId: string, messageId: string, files: File[]): Promise<ChatFile[]> {
+    const uploaded: ChatFile[] = []
+    const { data: { session: authSession } } = await supabase.auth.getSession()
+    if (!authSession?.access_token) throw new Error('Not authenticated')
+
+    for (const file of files) {
+      const arrayBuf = await file.arrayBuffer()
+      const hashBuf = await crypto.subtle.digest('SHA-256', arrayBuf)
+      const hashArr = Array.from(new Uint8Array(hashBuf))
+      const contentHash = hashArr.map(b => b.toString(16).padStart(2, '0')).join('')
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('message_id', messageId)
+      formData.append('content_hash', contentHash)
+
+      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/files`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authSession.access_token}` },
+        body: formData,
+      })
+      if (res.ok) {
+        uploaded.push(await res.json())
+      } else {
+        console.error(`[useChat] file upload failed: ${res.status}`, await res.text())
+      }
+    }
+    return uploaded
+  }
+
+  async function sendMessage(content: string, modelOverride?: string, files?: File[]) {
     if (!currentSessionId.value) return
     cancelStream()
 
@@ -403,7 +471,8 @@ export function useChat() {
       content,
       blocks: null,
       metadata: null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      files: [],
     }
     messages.value.push(userMsg)
 
@@ -413,11 +482,20 @@ export function useChat() {
     abortController = new AbortController()
 
     try {
-      const headers = await getAuthHeaders()
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession?.access_token) throw new Error('Not authenticated')
+
+      const formData = new FormData()
+      formData.append('content', content)
+      if (model) formData.append('model', model)
+      if (files?.length) {
+        for (const f of files) formData.append('files', f)
+      }
+
       const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ content, model }),
+        headers: { 'Authorization': `Bearer ${authSession.access_token}` },
+        body: formData,
         signal: abortController.signal
       })
 
@@ -426,30 +504,7 @@ export function useChat() {
         throw new Error(`${res.status}: ${text}`)
       }
 
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const jsonStr = line.slice(6)
-          if (!jsonStr) continue
-
-          try {
-            const event = JSON.parse(jsonStr)
-            if (currentSessionId.value !== sessionId) break
-            processStreamEvent(event, sessionId)
-          } catch { /* ignore malformed */ }
-        }
-      }
+      await _readSSEStream(res, sessionId)
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         console.error('[useChat] sendMessage error:', e)
@@ -504,27 +559,106 @@ export function useChat() {
     }
   }
 
+  async function _readSSEStream(res: Response, sessionId: string) {
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const jsonStr = line.slice(6)
+        if (!jsonStr) continue
+        try {
+          const event = JSON.parse(jsonStr)
+          if (currentSessionId.value !== sessionId) break
+          processStreamEvent(event, sessionId)
+        } catch { /* ignore malformed */ }
+      }
+    }
+  }
+
   async function retryFromMessage(index: number, modelId?: string) {
     const msg = messages.value[index]
-    if (!msg) return
+    if (!msg || !currentSessionId.value) return
     const userIndex = msg.role === 'user' ? index : index - 1
     const userMsg = messages.value[userIndex]
-    if (!userMsg?.content || userMsg.role !== 'user') return
-    // Use explicit modelId, or the original model from the assistant message, or current selection
+    if (!userMsg || userMsg.role !== 'user') return
+
     const assistantMsg = msg.role === 'assistant' ? msg : messages.value[index + 1]
     const resolvedModel = modelId || assistantMsg?.metadata?.model || undefined
-    const content = userMsg.content
-    await deleteMessagesFrom(userMsg.id)
-    await sendMessage(content, resolvedModel)
+
+    cancelStream()
+    const sessionId = currentSessionId.value
+
+    // Remove assistant messages after the user message locally
+    const spliceFrom = userIndex + 1
+    if (spliceFrom < messages.value.length) messages.value.splice(spliceFrom)
+
+    streaming.value = { blocks: [], currentToolId: null, isStreaming: true }
+    sendingMessage.value = true
+    abortController = new AbortController()
+
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/regenerate`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: userMsg.id, model: resolvedModel }),
+        signal: abortController.signal,
+      })
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      await _readSSEStream(res, sessionId)
+    } catch (e: any) {
+      if (e.name !== 'AbortError') console.error('[useChat] retryFromMessage error:', e)
+    } finally {
+      streaming.value.isStreaming = false
+      sendingMessage.value = false
+      abortController = null
+    }
   }
 
   async function editAndResend(messageId: string, newContent: string) {
+    if (!currentSessionId.value) return
     const idx = messages.value.findIndex(m => m.id === messageId)
     if (idx < 0) return
+
     await updateMessage(messageId, newContent)
-    const nextMsg = messages.value[idx + 1]
-    if (nextMsg) await deleteMessagesFrom(nextMsg.id)
-    await sendMessage(newContent)
+    // Update local content
+    const msg = messages.value[idx]
+    if (msg) msg.content = newContent
+
+    cancelStream()
+    const sessionId = currentSessionId.value
+
+    // Remove everything after the edited user message locally
+    if (idx + 1 < messages.value.length) messages.value.splice(idx + 1)
+
+    streaming.value = { blocks: [], currentToolId: null, isStreaming: true }
+    sendingMessage.value = true
+    abortController = new AbortController()
+
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/regenerate`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: messageId }),
+        signal: abortController.signal,
+      })
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      await _readSSEStream(res, sessionId)
+    } catch (e: any) {
+      if (e.name !== 'AbortError') console.error('[useChat] editAndResend error:', e)
+    } finally {
+      streaming.value.isStreaming = false
+      sendingMessage.value = false
+      abortController = null
+    }
   }
 
   return {

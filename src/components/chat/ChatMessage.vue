@@ -15,7 +15,16 @@
         </div>
       </div>
 
-      <div v-else-if="msg.role === 'user'" class="message-bubble user-bubble">{{ msg.content }}</div>
+      <div v-else-if="msg.role === 'user'" class="message-bubble user-bubble">
+        {{ msg.content }}
+        <div v-if="msg.files?.length" class="message-files">
+          <div v-for="f in msg.files" :key="f.id" class="message-file-chip">
+            <i class="pi pi-file"></i>
+            <span>{{ f.filename }}</span>
+            <span class="file-size">{{ formatFileSize(f.size_bytes) }}</span>
+          </div>
+        </div>
+      </div>
 
       <div v-else class="assistant-content">
         <template v-if="groups.length">
@@ -114,8 +123,23 @@
           <span></span><span></span><span></span>
         </span>
 
-        <div v-if="msg.status === 'error' && !msg.content && !msg.blocks?.length" class="generation-error">
-          <i class="pi pi-exclamation-triangle"></i> Generation failed
+        <div v-if="msg.files?.length" class="generated-files">
+          <a
+            v-for="f in msg.files"
+            :key="f.id"
+            class="generated-file"
+            :href="fileUrl(f)"
+            target="_blank"
+            rel="noopener"
+          >
+            <i class="pi pi-download"></i>
+            <span>{{ f.filename }}</span>
+            <span class="file-size">{{ formatFileSize(f.size_bytes) }}</span>
+          </a>
+        </div>
+
+        <div v-if="msg.status === 'error'" class="generation-error">
+          <i class="pi pi-exclamation-triangle"></i> {{ msg.metadata?.error || 'Generation failed' }}
         </div>
       </div>
 
@@ -125,7 +149,7 @@
         <button class="msg-action-btn" title="Copy" @click="$emit('copy')"><i class="pi pi-copy"></i></button>
         <button v-if="msg.role === 'user'" class="msg-action-btn" title="Edit" @click="$emit('start-edit')"><i class="pi pi-pencil"></i></button>
         <button class="msg-action-btn" title="Retry" @click="$emit('retry')"><i class="pi pi-refresh"></i></button>
-        <div v-if="msg.role === 'assistant'" class="retry-model-wrap">
+        <div class="retry-model-wrap">
           <button class="msg-action-btn" title="Retry with different model" @click.stop="$emit('toggle-retry-menu')">
             <i class="pi pi-chevron-down" style="font-size: 0.65rem;"></i>
           </button>
@@ -145,7 +169,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { ContentBlock, ChatMessage, ChatModel } from '@/composables/useChat'
+import type { ContentBlock, ChatMessage, ChatModel, ChatFile } from '@/composables/useChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import ToolCallContent from './ToolCallContent.vue'
 
@@ -157,6 +181,7 @@ interface MessageProp {
   status?: ChatMessage['status']
   metadata?: ChatMessage['metadata']
   created_at?: string
+  files?: ChatFile[]
 }
 
 interface GroupedBlock {
@@ -252,6 +277,21 @@ const modelName = computed(() => {
     ?? modelId
 })
 
+import { supabaseUrl } from '@/lib/supabase'
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function fileUrl(f: ChatFile): string {
+  if (f.bucket === 'chat-files') {
+    return `${supabaseUrl}/storage/v1/object/public/chat-files/${f.content_hash}`
+  }
+  return '#'
+}
 </script>
 
 <style scoped>
@@ -262,7 +302,7 @@ const modelName = computed(() => {
 
 .message-col { display: flex; flex-direction: column; min-width: 0; }
 .message.user .message-col { max-width: min(85%, 700px); align-items: flex-end; }
-.message.assistant .message-col { max-width: 100%; align-items: flex-start; }
+.message.assistant .message-col { max-width: 100%; align-items: flex-start; overflow: hidden; }
 
 /* ── User bubble ── */
 .message-bubble {
@@ -280,17 +320,63 @@ const modelName = computed(() => {
   white-space: pre-wrap;
 }
 
+.message-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.message-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+.message-file-chip .file-size { opacity: 0.6; font-size: 0.7rem; }
+
+.generated-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.generated-file {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.generated-file:hover { background: var(--bg-secondary); border-color: var(--accent-primary); }
+.generated-file .file-size { color: var(--text-muted); font-size: 0.75rem; }
+
 /* ── Assistant (no bubble) ── */
 .assistant-content {
   font-size: 1.15rem;
   line-height: 1.75;
   color: var(--text-primary);
-  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 0.25rem 0;
 }
 
 /* ── Markdown prose ── */
+.markdown-content { overflow-wrap: break-word; word-break: break-word; }
+.markdown-content :deep(a) { word-break: break-all; }
 .markdown-content :deep(p) { margin: 0.6rem 0; }
 .markdown-content :deep(p:first-child) { margin-top: 0; }
 .markdown-content :deep(p:last-child) { margin-bottom: 0; }

@@ -1,6 +1,21 @@
 <template>
-  <div class="chat-input-area">
-    <div class="chat-input-wrapper">
+  <div
+    class="chat-input-area"
+    @dragover.prevent="dragActive = true"
+    @dragleave.self="dragActive = false"
+    @drop.prevent="handleDrop"
+  >
+    <div v-if="attachedFiles.length" class="file-chips">
+      <div v-for="(f, i) in attachedFiles" :key="i" class="file-chip">
+        <i class="pi pi-file"></i>
+        <span class="file-chip-name">{{ f.name }}</span>
+        <span class="file-chip-size">{{ formatSize(f.size) }}</span>
+        <button class="file-chip-remove" @click="removeFile(i)">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+    </div>
+    <div class="chat-input-wrapper" :class="{ 'drag-active': dragActive }">
       <textarea
         ref="inputEl"
         :value="modelValue"
@@ -9,6 +24,7 @@
         rows="1"
         @input="handleInput"
         @keydown.enter.exact="handleSend"
+        @paste="handlePaste"
       ></textarea>
       <div class="input-bottom-row">
         <div class="model-picker-wrap">
@@ -34,6 +50,9 @@
             </button>
           </div>
         </div>
+        <button class="attach-btn" @click="openFilePicker" title="Attach files">
+          <i class="pi pi-paperclip"></i>
+        </button>
         <div class="input-bottom-spacer"></div>
         <button
           v-if="sending"
@@ -46,13 +65,20 @@
         <button
           v-else
           class="send-btn"
-          :disabled="!modelValue.trim()"
+          :disabled="!modelValue.trim() && !attachedFiles.length"
           @click="handleSend"
         >
           <i class="pi pi-send"></i>
         </button>
       </div>
     </div>
+    <input
+      ref="fileInputEl"
+      type="file"
+      multiple
+      style="display: none"
+      @change="handleFileSelect"
+    />
   </div>
 </template>
 
@@ -70,13 +96,16 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
-  'send': []
+  'send': [files: File[]]
   'stop': []
   'update:selectedModelId': [id: string]
 }>()
 
 const inputEl = ref<HTMLTextAreaElement>()
+const fileInputEl = ref<HTMLInputElement>()
 const showMenu = ref(false)
+const dragActive = ref(false)
+const attachedFiles = ref<File[]>([])
 
 function handleInput(e: Event) {
   const el = e.target as HTMLTextAreaElement
@@ -94,7 +123,54 @@ function autoResize() {
 function handleSend(e?: Event) {
   if (e && e instanceof KeyboardEvent && e.shiftKey) return
   e?.preventDefault()
-  emit('send')
+  emit('send', [...attachedFiles.value])
+  attachedFiles.value = []
+}
+
+function handlePaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  const files: File[] = []
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile()
+      if (file) files.push(file)
+    }
+  }
+  if (files.length) {
+    e.preventDefault()
+    attachedFiles.value.push(...files)
+  }
+}
+
+function handleDrop(e: DragEvent) {
+  dragActive.value = false
+  const files = e.dataTransfer?.files
+  if (files?.length) {
+    attachedFiles.value.push(...Array.from(files))
+  }
+}
+
+function openFilePicker() {
+  fileInputEl.value?.click()
+}
+
+function handleFileSelect(e: Event) {
+  const el = e.target as HTMLInputElement
+  if (el.files?.length) {
+    attachedFiles.value.push(...Array.from(el.files))
+  }
+  el.value = ''
+}
+
+function removeFile(index: number) {
+  attachedFiles.value.splice(index, 1)
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function resetHeight() {
@@ -119,6 +195,50 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
   flex-shrink: 0;
 }
 
+.file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-width: 800px;
+  margin: 0 auto 0.4rem;
+  padding: 0 0.2rem;
+}
+
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.file-chip i.pi-file { font-size: 0.8rem; color: var(--text-muted); }
+.file-chip-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-chip-size { color: var(--text-muted); font-size: 0.75rem; }
+.file-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  transition: all 0.1s;
+}
+.file-chip-remove:hover { background: var(--error-bg); color: var(--error-text); }
+
 .chat-input-wrapper {
   display: flex;
   flex-direction: column;
@@ -132,6 +252,7 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
   gap: 0.3rem;
 }
 .chat-input-wrapper:focus-within { border-color: var(--accent-primary); }
+.chat-input-wrapper.drag-active { border-color: var(--accent-primary); background: var(--bg-tertiary); }
 
 .chat-input {
   border: none;
@@ -160,6 +281,22 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
   gap: 0.4rem;
 }
 .input-bottom-spacer { flex: 1; }
+
+.attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 1rem;
+  transition: all 0.15s;
+}
+.attach-btn:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
 
 .model-picker-wrap { position: relative; }
 

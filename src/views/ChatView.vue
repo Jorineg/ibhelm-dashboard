@@ -229,14 +229,14 @@ async function handleDelete(id: string) {
   await deleteSession(id)
 }
 
-async function handleSend() {
+async function handleSend(files?: File[]) {
   const text = inputText.value.trim()
-  if (!text || sendingMessage.value) return
+  if ((!text && (!files || !files.length)) || sendingMessage.value) return
   inputText.value = ''
   chatInputRef.value?.resetHeight()
   if (!(await ensureSession())) return
   scrollToBottom()
-  await sendMessage(text)
+  await sendMessage(text || '(files attached)', undefined, files?.length ? files : undefined)
   scrollToBottom()
 }
 
