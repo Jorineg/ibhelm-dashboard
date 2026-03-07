@@ -45,6 +45,14 @@ const tabs = computed(() => [
     action: () => {
       if (route.path !== '/chat') router.push('/chat')
     }
+  },
+  {
+    id: 'activity',
+    label: 'Activity',
+    active: route.path === '/activity',
+    action: () => {
+      if (route.path !== '/activity') router.push('/activity')
+    }
   }
 ])
 </script>

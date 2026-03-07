@@ -11,6 +11,7 @@
 @import './cards.css';
 @import './components.css';
 @import './run-controls.css';
+@import './markdown.css';
 
 /* Base styles */
 :root {
