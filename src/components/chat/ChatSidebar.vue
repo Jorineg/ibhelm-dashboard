@@ -1,6 +1,6 @@
 <template>
   <aside class="chat-sidebar">
-    <button class="new-chat-btn" @click="$emit('new-chat')">
+    <button v-if="!hideNewChat" class="new-chat-btn" @click="$emit('new-chat')">
       <i class="pi pi-plus"></i>
       New Chat
     </button>
@@ -54,6 +54,7 @@ defineProps<{
   activeId: string | null
   loading: boolean
   search: string
+  hideNewChat?: boolean
 }>()
 
 defineEmits<{

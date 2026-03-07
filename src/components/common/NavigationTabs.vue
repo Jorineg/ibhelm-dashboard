@@ -16,11 +16,13 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFilterConfigs } from '@/composables/useFilterConfigs'
+import { useAuth } from '@/composables/useAuth'
 import type { ViewType } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const { currentViewType, setCurrentView } = useFilterConfigs()
+const { isAdmin } = useAuth()
 
 const viewTypes: { id: ViewType; label: string }[] = [
   { id: 'items', label: 'Items' },
@@ -53,7 +55,15 @@ const tabs = computed(() => [
     action: () => {
       if (route.path !== '/activity') router.push('/activity')
     }
-  }
+  },
+  ...(isAdmin.value ? [{
+    id: 'agents',
+    label: 'Agents',
+    active: route.path === '/agents',
+    action: () => {
+      if (route.path !== '/agents') router.push('/agents')
+    }
+  }] : []),
 ])
 </script>
 

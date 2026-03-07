@@ -69,7 +69,10 @@ export interface ChatModel {
   base_url?: string
 }
 
+export type ChatMode = 'user' | 'agent'
+
 // Module-level state
+const mode = ref<ChatMode>('user')
 const sessions = ref<ChatSession[]>([])
 const currentSessionId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
@@ -85,6 +88,12 @@ const availableModels = ref<ChatModel[]>([])
 const selectedModelId = ref<string | null>(null)
 
 let abortController: AbortController | null = null
+
+function sessionsUrl() {
+  return mode.value === 'agent'
+    ? `${CHAT_SERVICE_URL}/agent-sessions`
+    : `${CHAT_SERVICE_URL}/sessions`
+}
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -117,6 +126,15 @@ export function useChat() {
     return totals
   })
 
+  function switchMode(m: ChatMode) {
+    if (mode.value === m) return
+    mode.value = m
+    sessions.value = []
+    currentSessionId.value = null
+    messages.value = []
+    streaming.value = { blocks: [], currentToolId: null, isStreaming: false }
+  }
+
   async function fetchModels() {
     try {
       const headers = await getAuthHeaders()
@@ -137,9 +155,8 @@ export function useChat() {
     sessionsLoading.value = true
     try {
       const headers = await getAuthHeaders()
-      const url = query
-        ? `${CHAT_SERVICE_URL}/sessions?q=${encodeURIComponent(query)}`
-        : `${CHAT_SERVICE_URL}/sessions`
+      const base = sessionsUrl()
+      const url = query ? `${base}?q=${encodeURIComponent(query)}` : base
       const res = await fetch(url, { headers })
       if (!res.ok) throw new Error(`${res.status}`)
       sessions.value = await res.json()
@@ -153,7 +170,7 @@ export function useChat() {
   async function createSession(): Promise<string | null> {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions`, {
+      const res = await fetch(sessionsUrl(), {
         method: 'POST',
         headers,
         body: JSON.stringify({})
@@ -171,7 +188,7 @@ export function useChat() {
   async function deleteSession(id: string) {
     try {
       const headers = await getAuthHeaders()
-      await fetch(`${CHAT_SERVICE_URL}/sessions/${id}`, { method: 'DELETE', headers })
+      await fetch(`${sessionsUrl()}/${id}`, { method: 'DELETE', headers })
       sessions.value = sessions.value.filter(s => s.id !== id)
       if (currentSessionId.value === id) {
         currentSessionId.value = null
@@ -185,7 +202,7 @@ export function useChat() {
   async function renameSession(id: string, title: string) {
     try {
       const headers = await getAuthHeaders()
-      await fetch(`${CHAT_SERVICE_URL}/sessions/${id}`, {
+      await fetch(`${sessionsUrl()}/${id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ title })
@@ -203,7 +220,7 @@ export function useChat() {
     messagesLoading.value = true
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${id}/messages`, { headers })
+      const res = await fetch(`${sessionsUrl()}/${id}/messages`, { headers })
       if (!res.ok) throw new Error(`${res.status}`)
       messages.value = await res.json()
 
@@ -234,20 +251,19 @@ export function useChat() {
 
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/stream`, {
+      const base = sessionsUrl()
+      const res = await fetch(`${base}/${sessionId}/stream`, {
         headers, signal: abortController.signal
       })
       if (!res.ok) {
-        // No active stream — refresh messages to get final state
-        const msgRes = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, { headers })
+        const msgRes = await fetch(`${base}/${sessionId}/messages`, { headers })
         if (msgRes.ok) messages.value = await msgRes.json()
         return
       }
 
       const contentType = res.headers.get('content-type') || ''
       if (!contentType.includes('text/event-stream')) {
-        // Server returned JSON (no active generation) — refresh messages
-        const msgRes = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, { headers })
+        const msgRes = await fetch(`${base}/${sessionId}/messages`, { headers })
         if (msgRes.ok) messages.value = await msgRes.json()
         return
       }
@@ -288,7 +304,7 @@ export function useChat() {
       // Refresh messages from DB to get final state
       try {
         const headers = await getAuthHeaders()
-        const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, { headers })
+        const res = await fetch(`${sessionsUrl()}/${sessionId}/messages`, { headers })
         if (res.ok && currentSessionId.value === sessionId) {
           messages.value = await res.json()
         }
@@ -307,7 +323,7 @@ export function useChat() {
     if (currentSessionId.value) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.access_token) {
-          fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/cancel`, {
+          fetch(`${sessionsUrl()}/${currentSessionId.value}/cancel`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${session.access_token}` },
           }).catch(() => {})
@@ -444,7 +460,7 @@ export function useChat() {
       formData.append('message_id', messageId)
       formData.append('content_hash', contentHash)
 
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/files`, {
+      const res = await fetch(`${sessionsUrl()}/${sessionId}/files`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authSession.access_token}` },
         body: formData,
@@ -492,7 +508,7 @@ export function useChat() {
         for (const f of files) formData.append('files', f)
       }
 
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/messages`, {
+      const res = await fetch(`${sessionsUrl()}/${sessionId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authSession.access_token}` },
         body: formData,
@@ -527,7 +543,7 @@ export function useChat() {
     if (!currentSessionId.value) return
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/from/${messageId}`, {
+      const res = await fetch(`${sessionsUrl()}/${currentSessionId.value}/messages/from/${messageId}`, {
         method: 'DELETE', headers
       })
       if (!res.ok) {
@@ -545,7 +561,7 @@ export function useChat() {
     if (!currentSessionId.value) return
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${currentSessionId.value}/messages/${messageId}`, {
+      const res = await fetch(`${sessionsUrl()}/${currentSessionId.value}/messages/${messageId}`, {
         method: 'PATCH', headers, body: JSON.stringify({ content })
       })
       if (!res.ok) {
@@ -605,7 +621,7 @@ export function useChat() {
 
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/regenerate`, {
+      const res = await fetch(`${sessionsUrl()}/${sessionId}/regenerate`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_id: userMsg.id, model: resolvedModel }),
@@ -644,7 +660,7 @@ export function useChat() {
 
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${CHAT_SERVICE_URL}/sessions/${sessionId}/regenerate`, {
+      const res = await fetch(`${sessionsUrl()}/${sessionId}/regenerate`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_id: messageId }),
@@ -662,6 +678,7 @@ export function useChat() {
   }
 
   return {
+    mode,
     sessions,
     currentSessionId,
     currentSession,
@@ -674,6 +691,7 @@ export function useChat() {
     availableModels,
     selectedModelId,
     selectedModel,
+    switchMode,
     fetchModels,
     fetchSessions,
     createSession,

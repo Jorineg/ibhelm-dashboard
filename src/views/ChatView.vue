@@ -29,6 +29,7 @@
         :active-id="currentSessionId"
         :loading="sessionsLoading"
         :search="sessionSearch"
+        :hide-new-chat="isAgentMode"
         @new-chat="handleNewChat"
         @select="selectSession"
         @delete="handleDelete"
@@ -56,25 +57,30 @@
           </div>
           <template v-else>
             <div v-if="!messages.length && !streaming.isStreaming" class="chat-empty session-empty">
-              <p>What can I help you with?</p>
-              <div class="example-queries">
-                <button class="example-query" @click="handleSendText('Welche Aufgaben sind diese Woche überfällig?')">
-                  <i class="pi pi-clock"></i>
-                  Überfällige Aufgaben
-                </button>
-                <button class="example-query" @click="handleSendText('Zeige mir die neuesten E-Mails')">
-                  <i class="pi pi-envelope"></i>
-                  Neueste E-Mails
-                </button>
-                <button class="example-query" @click="handleSendText('Gib mir einen Überblick über die aktiven Projekte')">
-                  <i class="pi pi-briefcase"></i>
-                  Aktive Projekte
-                </button>
-                <button class="example-query" @click="handleSendText('Erkläre was du alles machen kannst. Was für Arten von Fragen kannst du beantworten?')">
-                  <i class="pi pi-question-circle"></i>
-                  Was kannst du?
-                </button>
-              </div>
+              <template v-if="isAgentMode">
+                <p>Select an agent session to view its activity</p>
+              </template>
+              <template v-else>
+                <p>What can I help you with?</p>
+                <div class="example-queries">
+                  <button class="example-query" @click="handleSendText('Welche Aufgaben sind diese Woche überfällig?')">
+                    <i class="pi pi-clock"></i>
+                    Überfällige Aufgaben
+                  </button>
+                  <button class="example-query" @click="handleSendText('Zeige mir die neuesten E-Mails')">
+                    <i class="pi pi-envelope"></i>
+                    Neueste E-Mails
+                  </button>
+                  <button class="example-query" @click="handleSendText('Gib mir einen Überblick über die aktiven Projekte')">
+                    <i class="pi pi-briefcase"></i>
+                    Aktive Projekte
+                  </button>
+                  <button class="example-query" @click="handleSendText('Erkläre was du alles machen kannst. Was für Arten von Fragen kannst du beantworten?')">
+                    <i class="pi pi-question-circle"></i>
+                    Was kannst du?
+                  </button>
+                </div>
+              </template>
             </div>
 
             <ChatMessage
@@ -125,22 +131,25 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
 import { ChatSidebar, ChatInput, ChatMessage } from '@/components/chat'
 import { useAuth } from '@/composables/useAuth'
 import { useChat } from '@/composables/useChat'
 
 const router = useRouter()
+const route = useRoute()
 const { user, signOut, isAdmin } = useAuth()
 const {
-  sessions, currentSessionId, messages, streaming,
+  mode, sessions, currentSessionId, messages, streaming,
   sessionsLoading, messagesLoading, sendingMessage,
   sessionUsage, availableModels, selectedModelId, selectedModel,
-  fetchModels, fetchSessions, createSession, deleteSession, selectSession,
+  switchMode, fetchModels, fetchSessions, createSession, deleteSession, selectSession,
   sendMessage, cancelStream,
   deleteMessagesFrom, retryFromMessage, editAndResend,
 } = useChat()
+
+const isAgentMode = computed(() => mode.value === 'agent')
 
 const editingMessageId = ref<string | null>(null)
 const editText = ref('')
@@ -311,12 +320,20 @@ function handleGlobalClick(e: MouseEvent) {
   if (retryModelMenuIdx.value !== null && !t.closest('.retry-model-wrap')) retryModelMenuIdx.value = null
 }
 
-onMounted(async () => {
-  document.addEventListener('click', handleGlobalClick)
+async function initForMode() {
+  const routeMode = (route.meta.chatMode as string) || 'user'
+  switchMode(routeMode as 'user' | 'agent')
   await Promise.all([fetchSessions(), fetchModels()])
   if (sessions.value.length > 0 && !currentSessionId.value) {
     await selectSession(sessions.value[0].id)
   }
+}
+
+watch(() => route.meta.chatMode, () => initForMode())
+
+onMounted(async () => {
+  document.addEventListener('click', handleGlobalClick)
+  await initForMode()
 })
 
 onUnmounted(() => {

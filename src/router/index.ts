@@ -26,7 +26,13 @@ const router = createRouter({
       path: '/chat',
       name: 'chat',
       component: () => import('@/views/ChatView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, chatMode: 'user' }
+    },
+    {
+      path: '/agents',
+      name: 'agents',
+      component: () => import('@/views/ChatView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true, chatMode: 'agent' }
     },
     {
       path: '/activity',
