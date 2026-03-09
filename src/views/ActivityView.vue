@@ -647,7 +647,7 @@ onMounted(async () => {
 .cat-milestone    { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 .cat-risk         { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
 .cat-scope_change { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.cat-communication { background: rgba(107, 114, 128, 0.15); color: #9ca3af; }
+.cat-communication { background: rgba(107, 114, 128, 0.15); color: var(--text-tertiary); }
 
 /* Shared entry list (Tier 4) */
 .entry-list {
@@ -677,7 +677,7 @@ onMounted(async () => {
 .src-email { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 .src-craft { background: rgba(34, 197, 94, 0.15);  color: #4ade80; }
 .src-file  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.src-other { background: rgba(107, 114, 128, 0.15); color: #9ca3af; }
+.src-other { background: rgba(107, 114, 128, 0.15); color: var(--text-tertiary); }
 
 .evt-created { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
 .evt-changed { background: rgba(74, 158, 255, 0.12); color: #6bb3ff; }

@@ -2534,15 +2534,19 @@ defineExpose({ focusSearch, scrollToSelectedCell, getGalleryColumns, scrollToSel
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .footer-project i {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
 }
 </style>

@@ -146,6 +146,17 @@
       <div v-if="!editing && !isStreaming && msg.id" class="msg-actions">
         <span class="msg-actions-time">{{ formatTime(msg.created_at) }}</span>
         <span v-if="msg.role === 'assistant' && modelName" class="msg-model-name">{{ modelName }}</span>
+        <div v-if="msg.role === 'assistant' && hasStats" class="msg-stats-wrap">
+          <button class="msg-action-btn" title="Usage stats" @click.stop="showStats = !showStats"><i class="pi pi-info-circle"></i></button>
+          <div v-if="showStats" class="msg-stats-popover">
+            <div class="usage-row"><span>Input</span><span>{{ formatTokens(totalInputTokens) }}</span></div>
+            <div class="usage-row"><span>Output</span><span>{{ formatTokens(outputTokens) }}</span></div>
+            <div v-if="cacheReadTokens" class="usage-row"><span>Cache read</span><span>{{ formatTokens(cacheReadTokens) }}</span></div>
+            <div v-if="cacheWriteTokens" class="usage-row"><span>Cache write</span><span>{{ formatTokens(cacheWriteTokens) }}</span></div>
+            <div v-if="toolCost > 0" class="usage-row"><span>Tool cost</span><span>{{ formatUsd(toolCost) }}</span></div>
+            <div class="usage-row usage-row-total"><span>Total cost</span><span>{{ formatUsd(totalCost) }}</span></div>
+          </div>
+        </div>
         <button class="msg-action-btn" title="Copy" @click="$emit('copy')"><i class="pi pi-copy"></i></button>
         <button v-if="msg.role === 'user'" class="msg-action-btn" title="Edit" @click="$emit('start-edit')"><i class="pi pi-pencil"></i></button>
         <button class="msg-action-btn" title="Retry" @click="$emit('retry')"><i class="pi pi-refresh"></i></button>
@@ -168,8 +179,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { ContentBlock, ChatMessage, ChatModel, ChatFile } from '@/composables/useChat'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import {
+  calcMessageLlmCost,
+  calcMessageTotalCost,
+  getMessageToolCost,
+  getTotalInputTokens,
+  type ContentBlock,
+  type ChatMessage,
+  type ChatModel,
+  type ChatFile,
+} from '@/composables/useChat'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import ToolCallContent from './ToolCallContent.vue'
 
@@ -213,6 +233,7 @@ defineEmits<{
 }>()
 
 const openSections = ref(new Set<string>())
+const showStats = ref(false)
 
 function toggle(key: string) {
   const s = new Set(openSections.value)
@@ -277,6 +298,17 @@ const modelName = computed(() => {
     ?? modelId
 })
 
+const totalInputTokens = computed(() => getTotalInputTokens(props.msg.metadata))
+const outputTokens = computed(() => props.msg.metadata?.output_tokens || 0)
+const cacheReadTokens = computed(() => props.msg.metadata?.cache_read_input_tokens || 0)
+const cacheWriteTokens = computed(() => props.msg.metadata?.cache_creation_input_tokens || 0)
+const llmCost = computed(() => calcMessageLlmCost(props.msg.metadata, props.availableModels || []))
+const toolCost = computed(() => getMessageToolCost(props.msg.metadata))
+const totalCost = computed(() => calcMessageTotalCost(props.msg.metadata, props.availableModels || []))
+const hasStats = computed(() =>
+  totalInputTokens.value > 0 || outputTokens.value > 0 || toolCost.value > 0 || llmCost.value > 0
+)
+
 import { supabaseUrl } from '@/lib/supabase'
 
 function formatFileSize(bytes: number): string {
@@ -292,6 +324,25 @@ function fileUrl(f: ChatFile): string {
   }
   return '#'
 }
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k'
+  return String(n)
+}
+
+function formatUsd(value: number): string {
+  if (value < 0.005) return '<$0.01'
+  return '$' + value.toFixed(2)
+}
+
+function handleClickOutside(e: MouseEvent) {
+  const t = e.target as HTMLElement
+  if (showStats.value && !t.closest('.msg-stats-wrap')) showStats.value = false
+}
+
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 </script>
 
 <style scoped>
@@ -510,6 +561,22 @@ function fileUrl(f: ChatFile): string {
 .msg-action-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .msg-action-delete:hover { color: var(--error-text); }
 
+.msg-stats-wrap { position: relative; }
+.msg-stats-popover {
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.85rem;
+  min-width: 210px;
+  z-index: 20;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  animation: fadeIn 0.15s ease-out;
+}
+
 .retry-model-wrap { position: relative; }
 .retry-model-menu {
   position: absolute; bottom: calc(100% + 0.3rem); left: 50%; transform: translateX(-50%);
@@ -526,6 +593,25 @@ function fileUrl(f: ChatFile): string {
 }
 .retry-model-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .retry-model-item.active { color: var(--accent-primary); }
+
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  padding: 0.2rem 0;
+}
+.usage-row span:last-child {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  color: var(--text-primary);
+}
+.usage-row-total {
+  border-top: 1px solid var(--border-primary);
+  margin-top: 0.2rem;
+  padding-top: 0.35rem;
+  font-weight: 600;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateX(-50%) translateY(4px); }

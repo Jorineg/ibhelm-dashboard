@@ -42,7 +42,7 @@
 .markdown-content th,
 .markdown-content td { border: 1px solid var(--border-primary); padding: 0.5rem 0.75rem; text-align: left; }
 .markdown-content th { background: var(--bg-tertiary); font-weight: 600; }
-.markdown-content strong { color: #fff; font-weight: 600; }
+.markdown-content strong { color: var(--text-primary); font-weight: 600; }
 .markdown-content a { color: var(--accent-primary); text-decoration: none; }
 .markdown-content a:hover { text-decoration: underline; }
 

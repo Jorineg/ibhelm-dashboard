@@ -101,7 +101,7 @@ function handleCopy(text: string | null | undefined, key: string) {
   line-height: 1.55;
   tab-size: 4;
   -webkit-font-smoothing: antialiased;
-  color: #abb2bf;
+  color: var(--text-secondary);
 }
 .code-body code {
   font-family: inherit;

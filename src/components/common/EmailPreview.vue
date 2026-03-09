@@ -660,7 +660,7 @@ onUnmounted(() => {
 
 .dot.email-dot .pi {
   font-size: 1rem;
-  color: rgba(100, 100, 110, 0.6);
+  color: var(--text-muted);
   transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1),
               color 0.1s ease;
   line-height: 1;

@@ -37,17 +37,19 @@
       />
 
       <main class="chat-main">
-        <div v-if="currentSessionId && sessionUsage.input_tokens > 0" class="usage-bar">
+        <div v-if="currentSessionId && sessionHasUsage" class="usage-bar">
           <button class="usage-toggle" @click="showUsage = !showUsage" title="Token usage">
             <i class="pi pi-chart-bar"></i>
-            <span class="usage-summary">{{ sessionCost }}</span>
+            <span class="usage-summary">{{ sessionCost }}<span v-if="sessionContextSummary"> · {{ sessionContextSummary }}</span></span>
           </button>
           <div v-if="showUsage" class="usage-detail">
+            <div v-if="sessionContextSummary" class="usage-row"><span>Last turn approx</span><span>{{ sessionContextSummary }}</span></div>
             <div class="usage-row"><span>Input</span><span>{{ formatTokens(sessionUsage.input_tokens) }}</span></div>
             <div class="usage-row"><span>Output</span><span>{{ formatTokens(sessionUsage.output_tokens) }}</span></div>
             <div v-if="sessionUsage.cache_read_input_tokens" class="usage-row"><span>Cache read</span><span>{{ formatTokens(sessionUsage.cache_read_input_tokens) }}</span></div>
             <div v-if="sessionUsage.cache_creation_input_tokens" class="usage-row"><span>Cache write</span><span>{{ formatTokens(sessionUsage.cache_creation_input_tokens) }}</span></div>
-            <div class="usage-row usage-row-total"><span>Cost</span><span>{{ sessionCost }}</span></div>
+            <div v-if="sessionToolCost > 0" class="usage-row"><span>Tool cost</span><span>{{ formatUsd(sessionToolCost) }}</span></div>
+            <div class="usage-row usage-row-total"><span>Total cost</span><span>{{ sessionCost }}</span></div>
           </div>
         </div>
 
@@ -135,7 +137,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
 import { ChatSidebar, ChatInput, ChatMessage } from '@/components/chat'
 import { useAuth } from '@/composables/useAuth'
-import { useChat } from '@/composables/useChat'
+import { calcMessageTotalCost, getLastLlmTurn, getMessageToolCost, useChat } from '@/composables/useChat'
 
 const router = useRouter()
 const route = useRoute()
@@ -174,38 +176,48 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
-function getModelPricing(modelId?: string) {
-  if (modelId) {
-    const m = availableModels.value.find(m => m.id === modelId)
-    if (m) return m
-  }
-  return selectedModel.value
-}
-
-function calcMessageCost(meta: any): number {
-  const m = getModelPricing(meta?.model)
-  if (!m || !meta) return 0
-  const input = meta.input_tokens || 0
-  const output = meta.output_tokens || 0
-  const cacheRead = meta.cache_read_input_tokens || 0
-  const cacheWrite = meta.cache_creation_input_tokens || 0
-  const baseInput = input - cacheRead - cacheWrite
-  return (
-    baseInput * (m.input_price || 0) +
-    output * (m.output_price || 0) +
-    cacheRead * (m.cache_read_price || 0) +
-    cacheWrite * (m.cache_write_price || 0)
-  ) / 1_000_000
+function formatUsd(value: number): string {
+  if (value < 0.005) return '<$0.01'
+  return '$' + value.toFixed(2)
 }
 
 const sessionCost = computed(() => {
   let total = 0
   for (const msg of messages.value) {
-    if (msg.metadata) total += calcMessageCost(msg.metadata)
+    if (msg.metadata) total += calcMessageTotalCost(msg.metadata, availableModels.value, selectedModel.value)
   }
-  if (total < 0.005) return '<$0.01'
-  return '$' + total.toFixed(2)
+  return formatUsd(total)
 })
+
+const sessionToolCost = computed(() => {
+  let total = 0
+  for (const msg of messages.value) {
+    if (msg.metadata) total += getMessageToolCost(msg.metadata)
+  }
+  return total
+})
+
+const sessionContextSummary = computed(() => {
+  const lastAssistant = [...messages.value].reverse().find(m => m.role === 'assistant' && m.metadata)
+  const lastTurn = getLastLlmTurn(lastAssistant?.metadata)
+  const maxContext = selectedModel.value?.context_window
+  if (!lastTurn || !maxContext) return ''
+  const footprint =
+    (lastTurn.input_tokens || 0) +
+    (lastTurn.cache_read_input_tokens || 0) +
+    (lastTurn.cache_creation_input_tokens || 0) +
+    (lastTurn.output_tokens || 0)
+  return `${formatTokens(footprint)} / ${formatTokens(maxContext)}`
+})
+
+const sessionHasUsage = computed(() =>
+  sessionUsage.value.input_tokens > 0 ||
+  sessionUsage.value.output_tokens > 0 ||
+  sessionUsage.value.cache_read_input_tokens > 0 ||
+  sessionUsage.value.cache_creation_input_tokens > 0 ||
+  sessionToolCost.value > 0 ||
+  !!sessionContextSummary.value
+)
 
 const streamingMsg = computed(() => ({
   role: 'assistant' as const,

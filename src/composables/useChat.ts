@@ -25,7 +25,28 @@ export interface TokenUsage {
   cache_read_input_tokens: number
   cache_creation_input_tokens: number
   model?: string
+  subcalls?: ChatSubcall[]
+  error?: string
 }
+
+export interface LlmTurnSubcall {
+  kind: 'llm_turn'
+  index: number
+  stop_reason?: string
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+}
+
+export interface ToolCostSubcall {
+  kind: 'tool'
+  index: number
+  tool_name: string
+  cost_usd: number
+}
+
+export type ChatSubcall = LlmTurnSubcall | ToolCostSubcall
 
 export interface ChatFile {
   id: string
@@ -70,6 +91,72 @@ export interface ChatModel {
 }
 
 export type ChatMode = 'user' | 'agent'
+
+export function getTotalInputTokens(meta: TokenUsage | null | undefined): number {
+  if (!meta) return 0
+  return (meta.input_tokens || 0) + (meta.cache_read_input_tokens || 0) + (meta.cache_creation_input_tokens || 0)
+}
+
+export function getMessageToolCost(meta: TokenUsage | null | undefined): number {
+  if (!meta?.subcalls?.length) return 0
+  return meta.subcalls.reduce((sum, sc) => sum + (sc.kind === 'tool' ? (sc.cost_usd || 0) : 0), 0)
+}
+
+export function getLastLlmTurn(meta: TokenUsage | null | undefined): LlmTurnSubcall | null {
+  if (!meta) return null
+  if (meta.subcalls?.length) {
+    const llmTurns = meta.subcalls.filter((sc): sc is LlmTurnSubcall => sc.kind === 'llm_turn')
+    if (llmTurns.length) return llmTurns[llmTurns.length - 1]
+  }
+  if (
+    meta.input_tokens ||
+    meta.output_tokens ||
+    meta.cache_read_input_tokens ||
+    meta.cache_creation_input_tokens
+  ) {
+    return {
+      kind: 'llm_turn',
+      index: 1,
+      stop_reason: undefined,
+      input_tokens: meta.input_tokens || 0,
+      output_tokens: meta.output_tokens || 0,
+      cache_read_input_tokens: meta.cache_read_input_tokens || 0,
+      cache_creation_input_tokens: meta.cache_creation_input_tokens || 0,
+    }
+  }
+  return null
+}
+
+function getModelPricing(modelId: string | undefined, models: ChatModel[], fallbackModel: ChatModel | null = null) {
+  if (modelId) {
+    const m = models.find(m => m.id === modelId)
+    if (m) return m
+  }
+  return fallbackModel
+}
+
+export function calcMessageLlmCost(
+  meta: TokenUsage | null | undefined,
+  models: ChatModel[],
+  fallbackModel: ChatModel | null = null
+): number {
+  const m = getModelPricing(meta?.model, models, fallbackModel)
+  if (!m || !meta) return 0
+  return (
+    (meta.input_tokens || 0) * (m.input_price || 0) +
+    (meta.output_tokens || 0) * (m.output_price || 0) +
+    (meta.cache_read_input_tokens || 0) * (m.cache_read_price || 0) +
+    (meta.cache_creation_input_tokens || 0) * (m.cache_write_price || 0)
+  ) / 1_000_000
+}
+
+export function calcMessageTotalCost(
+  meta: TokenUsage | null | undefined,
+  models: ChatModel[],
+  fallbackModel: ChatModel | null = null
+): number {
+  return calcMessageLlmCost(meta, models, fallbackModel) + getMessageToolCost(meta)
+}
 
 // Module-level state
 const mode = ref<ChatMode>('user')

@@ -24,7 +24,7 @@ const buildTime = computed(() => {
   bottom: 8px;
   left: 12px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-disabled);
   font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   pointer-events: none;
   z-index: 9999;

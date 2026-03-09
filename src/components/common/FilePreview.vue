@@ -560,7 +560,7 @@ defineExpose({ isDisplayable, goToNextPage, goToPrevPage })
   backdrop-filter: blur(8px);
   border-radius: 10px;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   z-index: 10;
   animation: fadeIn 0.3s ease;
 }
