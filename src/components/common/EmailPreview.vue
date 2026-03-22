@@ -5,7 +5,6 @@
     @mousemove="onMouseMove"
     @mouseleave="onMouseLeave"
   >
-    <!-- Email content (full width, shown when hovering left half) -->
     <div class="email-section" :class="{ hidden: showingAttachment }">
       <iframe
         v-if="htmlBody"
@@ -15,7 +14,6 @@
         class="email-iframe"
         @load="onIframeLoad"
       />
-      <!-- Overlay for X-axis tracking while allowing scroll through (detail mode only) -->
       <div
         v-if="htmlBody && fullResAttachments"
         class="email-overlay"
@@ -29,18 +27,27 @@
       </div>
     </div>
     
-    <!-- Attachment preview (shown when hovering right half) -->
     <div v-if="hasAttachments" class="attachment-section" :class="{ hidden: !showingAttachment }">
-      <!-- Full-res mode (detail view) -->
       <template v-if="fullResAttachments">
-        <!-- Image preview -->
-        <img
-          v-if="currentAttachmentIsImage && currentFullUrl"
-          :src="currentFullUrl"
-          class="attachment-full-image"
-          @error="handleFullImageError"
-        />
-        <!-- PDF preview with canvas pages in scrollable container -->
+        <!-- Image: preloaded blob URLs for instant switching -->
+        <template v-if="currentAttachmentIsImage">
+          <img
+            v-if="currentImageBlobUrl"
+            :key="currentAttachment?.file_id"
+            :src="currentImageBlobUrl"
+            class="attachment-full-image"
+          />
+          <div v-else-if="imageErrors.has(currentAttachment?.file_id ?? '')" class="attachment-error">
+            <i class="pi pi-exclamation-triangle" />
+            <span>Failed to load image</span>
+            <button class="retry-btn" @click="retryImage(currentAttachment!)">Retry</button>
+          </div>
+          <div v-else class="attachment-loading">
+            <i class="pi pi-spin pi-spinner" />
+          </div>
+        </template>
+        
+        <!-- PDF: rendered to canvas with generation-based cancellation -->
         <div
           v-else-if="currentAttachmentIsPdf"
           ref="pdfContainerRef"
@@ -49,6 +56,11 @@
           <div v-if="pdfLoading" class="pdf-loading">
             <i class="pi pi-spin pi-spinner" />
           </div>
+          <div v-else-if="pdfError" class="attachment-error pdf-error">
+            <i class="pi pi-exclamation-triangle" />
+            <span>{{ pdfError }}</span>
+            <button class="retry-btn" @click="retryPdf">Retry</button>
+          </div>
           <canvas
             v-for="pageNum in pdfPageCount"
             :key="`${currentAttachment?.file_id}-${pageNum}`"
@@ -56,10 +68,10 @@
             class="pdf-page-canvas"
           />
         </div>
-        <!-- Fallback for other types -->
+        
         <FilePlaceholder v-else :filename="currentAttachmentName" />
       </template>
-      <!-- Thumbnail mode (gallery view) - fast loading -->
+      
       <template v-else>
         <img
           v-if="currentThumbnailUrl && !failedThumbs.has(currentAttachment?.file_id || '')"
@@ -71,7 +83,6 @@
       </template>
     </div>
     
-    <!-- Indicator dots (always visible when attachments exist) -->
     <div v-if="hasAttachments" class="indicator-dots">
       <span class="dot email-dot" :class="{ active: !showingAttachment }" title="Email">
         <i class="pi pi-envelope" />
@@ -94,7 +105,6 @@ import FilePlaceholder from './FilePlaceholder.vue'
 import { supabase, supabaseUrl } from '@/lib/supabase'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 
-// PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 interface AttachmentFile {
@@ -108,7 +118,7 @@ interface Props {
   htmlBody: string | null
   loading?: boolean
   attachments?: AttachmentFile[]
-  fullResAttachments?: boolean // true = fetch full images/PDFs (detail view), false = use thumbnails (gallery)
+  fullResAttachments?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -124,40 +134,37 @@ const containerHeight = ref(0)
 const currentAttachmentIndex = ref(0)
 const showingAttachment = ref(false)
 
-// Signed URL cache for full images/PDFs (full-res mode)
+// Signed URL cache (intermediate for images, direct for PDFs)
 const signedUrls = ref<Map<string, string>>(new Map())
-const failedFullImages = ref(new Set<string>())
 
-// Thumbnail mode tracking
+// Image preload: fetch as blob for instant display, no stale-image issues
+const imageBlobUrls = ref<Map<string, string>>(new Map())
+const imageErrors = ref(new Set<string>())
+const imageLoading = ref(new Set<string>())
+
+// Thumbnail mode
 const failedThumbs = ref(new Set<string>())
 
-// PDF rendering state
+// PDF state
 const pdfContainerRef = ref<HTMLElement | null>(null)
 const pdfCanvasRefs = new Map<number, HTMLCanvasElement>()
 const pdfPageCount = ref(0)
 const pdfLoading = ref(false)
+const pdfError = ref<string | null>(null)
 let currentPdfDoc: pdfjsLib.PDFDocumentProxy | null = null
 let currentPdfFileId: string | null = null
+let pdfGeneration = 0
+let destroyed = false
 
 const setPdfCanvasRef = (pageNum: number, el: HTMLCanvasElement | null) => {
-  if (el) {
-    pdfCanvasRefs.set(pageNum, el)
-  } else {
-    pdfCanvasRefs.delete(pageNum)
-  }
+  if (el) pdfCanvasRefs.set(pageNum, el)
+  else pdfCanvasRefs.delete(pageNum)
 }
 
 const hasAttachments = computed(() => props.attachments.length > 0)
+const currentAttachment = computed(() => props.attachments[currentAttachmentIndex.value] ?? null)
+const currentAttachmentName = computed(() => currentAttachment.value?.filename ?? '')
 
-const currentAttachment = computed(() => 
-  props.attachments[currentAttachmentIndex.value] ?? null
-)
-
-const currentAttachmentName = computed(() => 
-  currentAttachment.value?.filename ?? ''
-)
-
-// File type detection
 const getExtension = (filename: string) => {
   const parts = filename.toLowerCase().split('.')
   return parts.length > 1 ? parts.pop() || '' : ''
@@ -176,19 +183,12 @@ const currentAttachmentIsPdf = computed(() => {
   return getExtension(currentAttachment.value.filename) === pdfExtension
 })
 
-const currentFullUrl = computed(() => {
+const currentImageBlobUrl = computed(() => {
   const att = currentAttachment.value
   if (!att) return null
-  if (failedFullImages.value.has(att.file_id)) return null
-  return signedUrls.value.get(att.file_id) ?? null
+  return imageBlobUrls.value.get(att.file_id) ?? null
 })
 
-const handleFullImageError = () => {
-  const att = currentAttachment.value
-  if (att) failedFullImages.value.add(att.file_id)
-}
-
-// Thumbnail URL (for gallery mode)
 const currentThumbnailUrl = computed(() => {
   const att = currentAttachment.value
   if (!att?.thumbnail_path) return null
@@ -200,107 +200,201 @@ const handleThumbnailError = () => {
   if (att) failedThumbs.value.add(att.file_id)
 }
 
-// Fetch signed URL for an attachment
+// --- Signed URL fetching ---
+
 const fetchSignedUrl = async (attachment: AttachmentFile) => {
   if (signedUrls.value.has(attachment.file_id)) return
   if (!attachment.storage_path) return
-  
+
   const { data, error } = await supabase.storage
     .from(filesBucket.value)
     .createSignedUrl(attachment.storage_path, 3600)
-  
+
   if (!error && data?.signedUrl) {
     signedUrls.value.set(attachment.file_id, data.signedUrl)
   }
 }
 
-// Load and render all PDF pages
+// --- Image preloading via blob URLs ---
+
+const preloadImage = async (att: AttachmentFile) => {
+  const fileId = att.file_id
+  if (imageBlobUrls.value.has(fileId) || imageLoading.value.has(fileId)) return
+
+  let url = signedUrls.value.get(fileId)
+  if (!url) {
+    await fetchSignedUrl(att)
+    if (destroyed) return
+    url = signedUrls.value.get(fileId)
+  }
+  if (!url) {
+    imageErrors.value.add(fileId)
+    return
+  }
+
+  imageLoading.value.add(fileId)
+  try {
+    const resp = await fetch(url)
+    if (destroyed) return
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    const blob = await resp.blob()
+    if (destroyed) return
+    imageBlobUrls.value.set(fileId, URL.createObjectURL(blob))
+  } catch {
+    if (!destroyed) imageErrors.value.add(fileId)
+  } finally {
+    imageLoading.value.delete(fileId)
+  }
+}
+
+const retryImage = (att: AttachmentFile) => {
+  imageErrors.value.delete(att.file_id)
+  signedUrls.value.delete(att.file_id)
+  preloadImage(att)
+}
+
+// --- PDF rendering ---
+
+const renderPdfPages = async (doc: pdfjsLib.PDFDocumentProxy, gen: number) => {
+  await nextTick()
+  if (gen !== pdfGeneration || destroyed) return
+  await new Promise<void>(r => requestAnimationFrame(() => r()))
+  if (gen !== pdfGeneration || destroyed) return
+
+  let containerWidth = pdfContainerRef.value?.clientWidth ?? 0
+  if (containerWidth < 100) {
+    await new Promise(r => setTimeout(r, 60))
+    if (gen !== pdfGeneration || destroyed) return
+    containerWidth = pdfContainerRef.value?.clientWidth || 800
+  }
+
+  const pixelRatio = window.devicePixelRatio || 1
+
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    if (gen !== pdfGeneration || destroyed) return
+
+    const canvas = pdfCanvasRefs.get(pageNum)
+    if (!canvas) continue
+
+    const page = await doc.getPage(pageNum)
+    if (gen !== pdfGeneration || destroyed) return
+
+    const viewport = page.getViewport({ scale: 1 })
+    const scale = (containerWidth - 40) / viewport.width
+    const scaledViewport = page.getViewport({ scale })
+
+    canvas.width = scaledViewport.width * pixelRatio
+    canvas.height = scaledViewport.height * pixelRatio
+    canvas.style.width = `${scaledViewport.width}px`
+    canvas.style.height = `${scaledViewport.height}px`
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) continue
+    ctx.scale(pixelRatio, pixelRatio)
+
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise
+  }
+}
+
 const loadAndRenderPdf = async (attachment: AttachmentFile) => {
   if (!props.fullResAttachments) return
-  if (currentPdfFileId === attachment.file_id && currentPdfDoc) return
-  
-  // Cleanup previous PDF
+
+  // Same PDF already loaded — re-render to (possibly recreated) canvases
+  if (currentPdfFileId === attachment.file_id && currentPdfDoc) {
+    const gen = ++pdfGeneration
+    try { await renderPdfPages(currentPdfDoc, gen) } catch { /* stale */ }
+    return
+  }
+
+  const gen = ++pdfGeneration
+
   if (currentPdfDoc) {
     currentPdfDoc.destroy()
     currentPdfDoc = null
   }
   currentPdfFileId = attachment.file_id
   pdfPageCount.value = 0
+  pdfError.value = null
   pdfLoading.value = true
-  
-  // Get signed URL
+
   let url = signedUrls.value.get(attachment.file_id)
   if (!url) {
     await fetchSignedUrl(attachment)
+    if (gen !== pdfGeneration || destroyed) return
     url = signedUrls.value.get(attachment.file_id)
   }
-  
+
   if (!url) {
     pdfLoading.value = false
+    pdfError.value = 'Could not load PDF — signed URL unavailable'
     return
   }
-  
+
   try {
     const loadingTask = pdfjsLib.getDocument(url)
-    currentPdfDoc = await loadingTask.promise
-    pdfPageCount.value = currentPdfDoc.numPages
+    const doc = await loadingTask.promise
+    if (gen !== pdfGeneration || destroyed) { doc.destroy(); return }
+
+    currentPdfDoc = doc
+    pdfPageCount.value = doc.numPages
     pdfLoading.value = false
-    
-    // Wait for canvases to be created
-    await nextTick()
-    
-    // Render all pages
-    const containerWidth = pdfContainerRef.value?.clientWidth || 800
-    const pixelRatio = window.devicePixelRatio || 1
-    
-    for (let pageNum = 1; pageNum <= currentPdfDoc.numPages; pageNum++) {
-      const canvas = pdfCanvasRefs.get(pageNum)
-      if (!canvas) continue
-      
-      const page = await currentPdfDoc.getPage(pageNum)
-      const viewport = page.getViewport({ scale: 1 })
-      
-      // Scale to fit container width with some padding
-      const scale = (containerWidth - 40) / viewport.width
-      const scaledViewport = page.getViewport({ scale })
-      
-      canvas.width = scaledViewport.width * pixelRatio
-      canvas.height = scaledViewport.height * pixelRatio
-      canvas.style.width = `${scaledViewport.width}px`
-      canvas.style.height = `${scaledViewport.height}px`
-      
-      const ctx = canvas.getContext('2d')
-      if (!ctx) continue
-      
-      ctx.scale(pixelRatio, pixelRatio)
-      
-      await page.render({
-        canvasContext: ctx,
-        viewport: scaledViewport
-      }).promise
-    }
+
+    await renderPdfPages(doc, gen)
   } catch (e) {
-    console.error('Error loading PDF:', e)
+    if (gen !== pdfGeneration || destroyed) return
+    console.error('PDF render error:', e)
     pdfLoading.value = false
+    pdfError.value = 'Failed to render PDF'
   }
 }
 
-// Prefetch viewable attachments (only in full-res mode)
-const prefetchAttachments = async () => {
-  if (!props.fullResAttachments) return // Skip in thumbnail mode
-  
+const retryPdf = () => {
+  const att = currentAttachment.value
+  if (!att) return
+  pdfError.value = null
+  currentPdfFileId = null
+  signedUrls.value.delete(att.file_id)
+  loadAndRenderPdf(att)
+}
+
+// --- Prefetch ---
+
+const prefetchAttachments = () => {
+  if (!props.fullResAttachments) return
   for (const att of props.attachments) {
     const ext = getExtension(att.filename)
-    if (imageExtensions.includes(ext) || ext === pdfExtension) {
-      fetchSignedUrl(att)
-    }
+    if (imageExtensions.includes(ext)) preloadImage(att)
+    else if (ext === pdfExtension) fetchSignedUrl(att)
   }
 }
 
-// Sanitize HTML
+// --- Cleanup ---
+
+const cleanupImageBlobs = () => {
+  for (const blobUrl of imageBlobUrls.value.values()) {
+    URL.revokeObjectURL(blobUrl)
+  }
+  imageBlobUrls.value.clear()
+  imageErrors.value.clear()
+  imageLoading.value.clear()
+}
+
+const cleanupPdf = () => {
+  pdfGeneration++
+  if (currentPdfDoc) {
+    currentPdfDoc.destroy()
+    currentPdfDoc = null
+  }
+  currentPdfFileId = null
+  pdfPageCount.value = 0
+  pdfCanvasRefs.clear()
+  pdfError.value = null
+}
+
+// --- HTML ---
+
 const sanitizedHtml = computed(() => {
   if (!props.htmlBody) return ''
-  
   return `
 <!DOCTYPE html>
 <html>
@@ -341,6 +435,8 @@ const sanitizedHtml = computed(() => {
 </html>`
 })
 
+// --- Iframe height ---
+
 let heightCheckInterval: ReturnType<typeof setInterval> | null = null
 
 const measureHeight = () => {
@@ -354,33 +450,23 @@ const measureHeight = () => {
       containerHeight.value = iframeRef.value.clientHeight
       return changed
     }
-  } catch {
-    // Cross-origin errors silently ignored
-  }
+  } catch { /* cross-origin */ }
   return false
 }
 
 const onIframeLoad = () => {
   measureHeight()
-  
-  // Keep checking height as images load
   if (heightCheckInterval) clearInterval(heightCheckInterval)
-  
+
   let stableCount = 0
   let checkCount = 0
-  const maxChecks = 25
-  
+
   heightCheckInterval = setInterval(() => {
     checkCount++
-    const changed = measureHeight()
-    
-    if (changed) {
-      stableCount = 0
-    } else {
-      stableCount++
-    }
-    
-    if (stableCount >= 5 || checkCount >= maxChecks) {
+    if (measureHeight()) stableCount = 0
+    else stableCount++
+
+    if (stableCount >= 5 || checkCount >= 25) {
       if (heightCheckInterval) {
         clearInterval(heightCheckInterval)
         heightCheckInterval = null
@@ -389,53 +475,45 @@ const onIframeLoad = () => {
   }, 200)
 }
 
+// --- Mouse interaction ---
+
 const onMouseMove = (e: MouseEvent) => {
   const target = e.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const xRatio = (e.clientX - rect.left) / rect.width
   const yRatio = (e.clientY - rect.top) / rect.height
-  
-  // X-axis: switch between email (left half) and attachments (right half)
+
   if (hasAttachments.value) {
     if (xRatio > 0.5) {
-      // Right half: show attachments
+      const wasShowing = showingAttachment.value
       showingAttachment.value = true
       const attachmentRatio = (xRatio - 0.5) * 2
       const newIndex = Math.min(
         Math.floor(attachmentRatio * props.attachments.length),
         props.attachments.length - 1
       )
-      
-      if (newIndex !== currentAttachmentIndex.value) {
-        currentAttachmentIndex.value = newIndex
-        
-        // Load and render PDF if needed (full-res mode)
-        if (props.fullResAttachments) {
-          const att = props.attachments[newIndex]
-          if (att && getExtension(att.filename) === pdfExtension) {
-            loadAndRenderPdf(att)
-          }
+
+      const indexChanged = newIndex !== currentAttachmentIndex.value
+      if (indexChanged) currentAttachmentIndex.value = newIndex
+
+      if (props.fullResAttachments && (indexChanged || !wasShowing)) {
+        const att = props.attachments[newIndex]
+        if (att && getExtension(att.filename) === pdfExtension) {
+          loadAndRenderPdf(att)
         }
       }
     } else {
       showingAttachment.value = false
     }
   }
-  
-  // Y-axis: scroll email content (only in gallery mode, not detail mode)
+
   if (!props.fullResAttachments && !showingAttachment.value && iframeRef.value) {
     measureHeight()
-    
     if (contentHeight.value > containerHeight.value) {
       const maxScroll = contentHeight.value - containerHeight.value
       try {
-        iframeRef.value.contentWindow?.scrollTo({
-          top: yRatio * maxScroll,
-          behavior: 'auto'
-        })
-      } catch {
-        // Cross-origin errors silently ignored
-      }
+        iframeRef.value.contentWindow?.scrollTo({ top: yRatio * maxScroll, behavior: 'auto' })
+      } catch { /* cross-origin */ }
     }
   }
 }
@@ -443,66 +521,45 @@ const onMouseMove = (e: MouseEvent) => {
 const onMouseLeave = () => {
   showingAttachment.value = false
   currentAttachmentIndex.value = 0
-  // Only scroll back to top in gallery mode (parallax)
   if (!props.fullResAttachments && iframeRef.value) {
     try {
       iframeRef.value.contentWindow?.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch {
-      // Cross-origin errors silently ignored  
-    }
+    } catch { /* cross-origin */ }
   }
 }
 
-// Forward wheel events to iframe for scrolling (detail mode)
 const onEmailWheel = (e: WheelEvent) => {
   if (!iframeRef.value) return
   try {
-    iframeRef.value.contentWindow?.scrollBy({
-      top: e.deltaY,
-      behavior: 'auto'
-    })
-  } catch {
-    // Cross-origin errors silently ignored
-  }
+    iframeRef.value.contentWindow?.scrollBy({ top: e.deltaY, behavior: 'auto' })
+  } catch { /* cross-origin */ }
 }
 
-// Keyboard scroll methods for external control
 const scrollByAmount = (amount: number) => {
   if (!iframeRef.value) return
   try {
     iframeRef.value.contentWindow?.scrollBy({ top: amount, behavior: 'smooth' })
-  } catch {
-    // Cross-origin errors silently ignored
-  }
+  } catch { /* cross-origin */ }
 }
 
 const scrollByPage = (pages: number) => {
   if (!iframeRef.value) return
-  const pageHeight = containerHeight.value || iframeRef.value.clientHeight || 400
-  scrollByAmount(pages * pageHeight * 0.8)
+  scrollByAmount(pages * (containerHeight.value || iframeRef.value.clientHeight || 400) * 0.8)
 }
 
 defineExpose({ scrollByAmount, scrollByPage })
 
-// Prefetch on mount and when attachments change
-onMounted(() => {
-  prefetchAttachments()
-})
+// --- Lifecycle ---
+
+onMounted(() => prefetchAttachments())
 
 watch(() => props.attachments, () => {
   currentAttachmentIndex.value = 0
   showingAttachment.value = false
-  failedFullImages.value.clear()
   failedThumbs.value.clear()
   signedUrls.value.clear()
-  // Cleanup PDF
-  if (currentPdfDoc) {
-    currentPdfDoc.destroy()
-    currentPdfDoc = null
-  }
-  currentPdfFileId = null
-  pdfPageCount.value = 0
-  pdfCanvasRefs.clear()
+  cleanupImageBlobs()
+  cleanupPdf()
   prefetchAttachments()
 })
 
@@ -516,15 +573,13 @@ watch(() => props.htmlBody, () => {
 })
 
 onUnmounted(() => {
+  destroyed = true
   if (heightCheckInterval) {
     clearInterval(heightCheckInterval)
     heightCheckInterval = null
   }
-  // Cleanup PDF
-  if (currentPdfDoc) {
-    currentPdfDoc.destroy()
-    currentPdfDoc = null
-  }
+  cleanupPdf()
+  cleanupImageBlobs()
 })
 </script>
 
@@ -595,14 +650,59 @@ onUnmounted(() => {
   background: #fff;
 }
 
-.pdf-loading {
+.pdf-loading,
+.attachment-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: #fff;
+  color: var(--text-muted);
   font-size: 2rem;
+}
+
+.pdf-loading {
+  color: #fff;
+}
+
+.attachment-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.attachment-error .pi-exclamation-triangle {
+  font-size: 2rem;
+  color: var(--color-warning, #e6a817);
+}
+
+.attachment-error.pdf-error {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.attachment-error.pdf-error .pi-exclamation-triangle {
+  color: #ffc107;
+}
+
+.retry-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-primary, #555);
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.retry-btn:hover {
+  background: rgba(128, 128, 128, 0.2);
 }
 
 .attachment-thumbnail {

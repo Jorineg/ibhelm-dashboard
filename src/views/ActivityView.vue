@@ -119,30 +119,51 @@
 
               <!-- Tier 4: Change Log -->
               <template v-else-if="selectedTier === 'changelog'">
-                <div v-if="eventEntries.length" class="entry-list">
-                  <div v-for="entry in eventEntries" :key="entry.id" class="event-entry">
-                    <div class="entry-header">
-                      <span :class="['source-badge', `src-${sourceKey(entry.source_table)}`]">{{ sourceLabels[entry.source_table] || entry.source_table }}</span>
-                      <span :class="['event-type-badge', `evt-${entry.event_type}`]">{{ entry.event_type }}</span>
-                      <span class="entry-date">{{ formatDate(entry.occurred_at) }}</span>
+                <div v-if="eventEntries.length" class="timeline">
+                  <div v-for="week in groupedEventsByWeek" :key="week.key" class="timeline-week">
+                    <div class="week-label-col">
+                      <div class="week-label">
+                        <span class="week-number">{{ week.label }}</span>
+                        <span class="week-range">{{ week.range }}</span>
+                      </div>
                     </div>
-                    <div class="event-details">
-                      <span class="event-name">{{ eventTitle(entry) }}</span>
-                      <template v-if="entry.event_type === 'changed' && entry.details?.changes">
-                        <div v-for="change in entry.details.changes" :key="change.field" class="change-row">
-                          <span class="change-field">{{ change.field }}</span>
-                          <template v-if="change.diff">
-                            <span class="change-diff-label">diff</span>
-                          </template>
-                          <template v-else>
-                            <span class="change-old">{{ change.old ?? '—' }}</span>
-                            <i class="pi pi-arrow-right change-arrow"></i>
-                            <span class="change-new">{{ change.new ?? '—' }}</span>
-                          </template>
+                    <div class="week-entries">
+                      <div v-for="entry in week.entries" :key="entry.id" class="timeline-entry">
+                        <div class="timeline-dot" :style="{ background: getSourceBadgeStyle(entry).color }"></div>
+                        <div class="event-entry">
+                          <div class="entry-header">
+                            <a
+                              v-if="getEventUrl(entry)"
+                              :href="getEventUrl(entry)!"
+                              :target="getEventLinkTarget(entry)"
+                              rel="noopener noreferrer"
+                              class="source-badge clickable"
+                              :style="getSourceBadgeStyle(entry)"
+                            >{{ sourceLabels[entry.source_table] || entry.source_table }}</a>
+                            <span v-else class="source-badge" :style="getSourceBadgeStyle(entry)">{{ sourceLabels[entry.source_table] || entry.source_table }}</span>
+                            <span :class="['event-type-badge', `evt-${entry.event_type}`]">{{ entry.event_type }}</span>
+                            <span class="entry-date">{{ formatDate(entry.occurred_at) }}</span>
+                          </div>
+                          <div class="event-details">
+                            <span class="event-name">{{ eventTitle(entry) }}</span>
+                            <template v-if="entry.event_type === 'changed' && entry.details?.changes">
+                              <div v-for="change in entry.details.changes" :key="change.field" class="change-row">
+                                <span class="change-field">{{ change.field }}</span>
+                                <template v-if="change.diff">
+                                  <span class="change-diff-label">diff</span>
+                                </template>
+                                <template v-else>
+                                  <span class="change-old">{{ change.old ?? '—' }}</span>
+                                  <i class="pi pi-arrow-right change-arrow"></i>
+                                  <span class="change-new">{{ change.new ?? '—' }}</span>
+                                </template>
+                              </div>
+                            </template>
+                          </div>
+                          <div v-if="entry.content_diff" class="diff-block" v-html="renderDiffBlock(entry.content_diff)"></div>
                         </div>
-                      </template>
+                      </div>
                     </div>
-                    <pre v-if="entry.content_diff" class="diff-block">{{ entry.content_diff }}</pre>
                   </div>
                   <button v-if="eventHasMore" class="load-more-btn" @click="loadMoreEvents">
                     Load more
@@ -165,12 +186,14 @@ import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
 import { useActivity, type ActivityTier, type ActivityEntry, type EventEntry } from '@/composables/useActivity'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
+import { useLinkTransform } from '@/composables/useLinkTransform'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { supabase } from '@/lib/supabase'
 
 const router = useRouter()
 const { user, signOut, isAdmin } = useAuth()
-const { excludedCompanyIds, excludedProjectIds } = useAppearanceSettings()
+const { excludedCompanyIds, excludedProjectIds, emailColor, craftColor, fileColor, teamworkBaseUrl } = useAppearanceSettings()
+const { transformCraftUrl, transformMissiveUrl, openCraftInBrowser, openMissiveInBrowser } = useLinkTransform()
 const {
   projects, selectedProjectId, selectedTier,
   projectsLoading, contentLoading,
@@ -201,6 +224,8 @@ const categoryLabels: Record<string, string> = {
 
 const sourceLabels: Record<string, string> = {
   'teamwork.tasks': 'Task',
+  'teamwork.task_assignees': 'Task',
+  'teamwork.task_tags': 'Task',
   'project_conversations': 'Email',
   'project_craft_documents': 'Craft',
   'craft_documents': 'Craft',
@@ -215,16 +240,41 @@ const sourceKey = (table: string) => {
   return 'other'
 }
 
-const displayName = (name: string) => name.replaceAll('-', ' ')
+const TASK_COLOR = '#4ade80'
 
-// Week grouping for activity timeline
-interface WeekGroup {
-  key: string
-  label: string
-  range: string
-  entries: ActivityEntry[]
+const getSourceBadgeStyle = (entry: EventEntry) => {
+  const key = sourceKey(entry.source_table)
+  const color = key === 'email' ? emailColor.value
+    : key === 'craft' ? craftColor.value
+    : key === 'file' ? fileColor.value
+    : TASK_COLOR
+  return { background: `${color}20`, color, borderColor: `${color}40` }
 }
 
+const getEventUrl = (entry: EventEntry): string | null => {
+  const key = sourceKey(entry.source_table)
+  if (key === 'task' && teamworkBaseUrl.value) {
+    return `${teamworkBaseUrl.value.replace(/\/$/, '')}/app/tasks/${entry.source_id}`
+  }
+  if (key === 'email') {
+    return transformMissiveUrl(`missive://mail.missiveapp.com/#/conversations/${entry.source_id}`)
+  }
+  if (key === 'craft') {
+    return transformCraftUrl(`craftdocs://open?blockId=${entry.source_id}`)
+  }
+  return null
+}
+
+const getEventLinkTarget = (entry: EventEntry): string => {
+  const key = sourceKey(entry.source_table)
+  if (key === 'email') return openMissiveInBrowser.value ? '_blank' : '_self'
+  if (key === 'craft') return openCraftInBrowser.value ? '_blank' : '_self'
+  return '_blank'
+}
+
+const displayName = (name: string) => name.replaceAll('-', ' ')
+
+// Week grouping helpers
 const getISOWeek = (d: Date): { week: number; year: number } => {
   const date = new Date(d.getTime())
   date.setHours(0, 0, 0, 0)
@@ -256,26 +306,24 @@ const formatWeekRange = (d: Date): string => {
   return `${mon.getDate()}. ${shortMonth(mon)} – ${sun.getDate()}. ${shortMonth(sun)}`
 }
 
-const groupedByWeek = computed((): WeekGroup[] => {
-  const groups: WeekGroup[] = []
+const groupByWeek = <T>(entries: T[], dateKey: keyof T) => {
+  const groups: { key: string; label: string; range: string; entries: T[] }[] = []
   let currentKey = ''
-  for (const entry of activityEntries.value) {
-    const d = new Date(entry.logged_at)
+  for (const entry of entries) {
+    const d = new Date(entry[dateKey] as string)
     const { week, year } = getISOWeek(d)
     const key = `${year}-W${week}`
     if (key !== currentKey) {
       currentKey = key
-      groups.push({
-        key,
-        label: `KW ${week}`,
-        range: formatWeekRange(d),
-        entries: []
-      })
+      groups.push({ key, label: `KW ${week}`, range: formatWeekRange(d), entries: [] })
     }
     groups[groups.length - 1].entries.push(entry)
   }
   return groups
-})
+}
+
+const groupedByWeek = computed(() => groupByWeek(activityEntries.value, 'logged_at'))
+const groupedEventsByWeek = computed(() => groupByWeek(eventEntries.value, 'occurred_at'))
 
 const generatedAt = computed(() => {
   if (selectedTier.value === 'overview') return profileGeneratedAt.value
@@ -303,6 +351,94 @@ const formatRelativeTime = (iso: string) => {
 const eventTitle = (entry: EventEntry): string => {
   const d = entry.details
   return d?.name || d?.title || d?.subject || d?.filename || `${entry.source_table}#${entry.source_id}`
+}
+
+// Inline diff renderer
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const diffTokenize = (s: string): string[] => s.match(/\S+|\s+/g) || []
+
+const wordDiffHtml = (oldStr: string, newStr: string): string => {
+  const a = diffTokenize(oldStr), b = diffTokenize(newStr)
+  if (!a.length && !b.length) return ''
+  if (!a.length) return `<span class="diff-ins">${esc(newStr)}</span>`
+  if (!b.length) return `<span class="diff-del">${esc(oldStr)}</span>`
+
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1])
+
+  const stack: { t: 'same' | 'del' | 'ins'; s: string }[] = []
+  let i = m, j = n
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      stack.push({ t: 'same', s: a[--i] }); j--
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      stack.push({ t: 'ins', s: b[--j] })
+    } else {
+      stack.push({ t: 'del', s: a[--i] })
+    }
+  }
+
+  const segs: { t: string; s: string }[] = []
+  while (stack.length) {
+    const seg = stack.pop()!
+    if (segs.length && segs[segs.length - 1].t === seg.t) segs[segs.length - 1].s += seg.s
+    else segs.push({ ...seg })
+  }
+
+  return segs.map(s =>
+    s.t === 'del' ? `<span class="diff-del">${esc(s.s)}</span>`
+    : s.t === 'ins' ? `<span class="diff-ins">${esc(s.s)}</span>`
+    : esc(s.s)
+  ).join('')
+}
+
+const renderDiffBlock = (raw: string): string => {
+  if (!raw || raw === '(no changes)' || raw === '(diff error)') return ''
+  const lines = raw.split('\n')
+  const html: string[] = []
+  let hasOutput = false
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('\\')) { i++; continue }
+    if (line.startsWith('@@')) {
+      if (hasOutput) html.push('<div class="diff-sep">···</div>')
+      i++; continue
+    }
+    if (line.startsWith(' ') || line === '') { i++; continue }
+
+    if (line.startsWith('-')) {
+      const removed: string[] = []
+      while (i < lines.length && lines[i].startsWith('-')) removed.push(lines[i++].substring(1))
+      const added: string[] = []
+      while (i < lines.length && lines[i].startsWith('+')) added.push(lines[i++].substring(1))
+
+      const pairs = Math.max(removed.length, added.length)
+      for (let j = 0; j < pairs; j++) {
+        if (j < removed.length && j < added.length) {
+          html.push(`<div class="diff-line">${wordDiffHtml(removed[j], added[j])}</div>`)
+        } else if (j < removed.length) {
+          html.push(`<div class="diff-line"><span class="diff-del">${esc(removed[j])}</span></div>`)
+        } else {
+          html.push(`<div class="diff-line"><span class="diff-ins">${esc(added[j])}</span></div>`)
+        }
+      }
+      hasOutput = true
+      continue
+    }
+
+    if (line.startsWith('+')) {
+      html.push(`<div class="diff-line"><span class="diff-ins">${esc(line.substring(1))}</span></div>`)
+      i++; hasOutput = true; continue
+    }
+    i++
+  }
+  return html.join('')
 }
 
 const handleSignOut = async () => {
@@ -587,6 +723,7 @@ onMounted(async () => {
 .dot-scope_change { background: #c084fc; }
 .dot-communication { background: #9ca3af; }
 
+
 .activity-entry {
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
@@ -649,13 +786,6 @@ onMounted(async () => {
 .cat-scope_change { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 .cat-communication { background: rgba(107, 114, 128, 0.15); color: var(--text-tertiary); }
 
-/* Shared entry list (Tier 4) */
-.entry-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
 /* Event entries (Tier 4) */
 .event-entry {
   background: var(--bg-secondary);
@@ -664,7 +794,34 @@ onMounted(async () => {
   border: 1px solid var(--border-primary);
 }
 
-.source-badge, .event-type-badge {
+.source-badge {
+  display: inline-block;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  width: 58px;
+  text-align: center;
+  text-transform: uppercase;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.source-badge.clickable {
+  cursor: pointer;
+}
+
+.source-badge.clickable:hover {
+  transform: scale(1.08);
+  filter: brightness(1.15);
+}
+
+.event-type-badge {
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.15rem 0.5rem;
@@ -672,12 +829,6 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
-
-.src-task  { background: rgba(74, 158, 255, 0.15); color: #6bb3ff; }
-.src-email { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.src-craft { background: rgba(34, 197, 94, 0.15);  color: #4ade80; }
-.src-file  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.src-other { background: rgba(107, 114, 128, 0.15); color: var(--text-tertiary); }
 
 .evt-created { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
 .evt-changed { background: rgba(74, 158, 255, 0.12); color: #6bb3ff; }
@@ -732,14 +883,42 @@ onMounted(async () => {
   padding: 0.75rem;
   background: #1a1a2e;
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-family: 'Fira Code', 'Consolas', monospace;
   color: var(--text-secondary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
   max-height: 20rem;
   overflow-y: auto;
+  overflow-x: auto;
+}
+
+.diff-block :deep(.diff-line) {
+  padding: 0.1rem 0.25rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.diff-block :deep(.diff-sep) {
+  padding: 0.2rem 0;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+
+.diff-block :deep(.diff-del) {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0.05rem 0.15rem;
+}
+
+.diff-block :deep(.diff-ins) {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border-radius: 2px;
+  padding: 0.05rem 0.15rem;
 }
 
 /* Load more */

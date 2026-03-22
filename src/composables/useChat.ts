@@ -163,6 +163,7 @@ const mode = ref<ChatMode>('user')
 const sessions = ref<ChatSession[]>([])
 const currentSessionId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
+const systemPrompt = ref<string | null>(null)
 const streaming = ref<StreamingState>({
   blocks: [],
   currentToolId: null,
@@ -219,6 +220,7 @@ export function useChat() {
     sessions.value = []
     currentSessionId.value = null
     messages.value = []
+    systemPrompt.value = null
     streaming.value = { blocks: [], currentToolId: null, isStreaming: false }
   }
 
@@ -280,6 +282,7 @@ export function useChat() {
       if (currentSessionId.value === id) {
         currentSessionId.value = null
         messages.value = []
+        systemPrompt.value = null
       }
     } catch (e: any) {
       console.error('[useChat] deleteSession error:', e)
@@ -304,21 +307,29 @@ export function useChat() {
   async function selectSession(id: string) {
     if (streaming.value.isStreaming) cancelStream()
     currentSessionId.value = id
+    systemPrompt.value = null
     messagesLoading.value = true
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${sessionsUrl()}/${id}/messages`, { headers })
-      if (!res.ok) throw new Error(`${res.status}`)
-      messages.value = await res.json()
+      const base = sessionsUrl()
+      const [messagesRes, promptRes] = await Promise.all([
+        fetch(`${base}/${id}/messages`, { headers }),
+        fetch(`${base}/${id}/system-prompt`, { headers }),
+      ])
+      if (!messagesRes.ok) throw new Error(`${messagesRes.status}`)
+      messages.value = await messagesRes.json()
 
-      // Set model picker to the last model used in this session
+      if (promptRes.ok) {
+        const data = await promptRes.json()
+        systemPrompt.value = data.system_prompt ?? null
+      }
+
       const lastAssistant = [...messages.value].reverse().find(m => m.role === 'assistant' && m.metadata?.model)
       if (lastAssistant?.metadata?.model) {
         const modelExists = availableModels.value.some(m => m.id === lastAssistant.metadata!.model)
         if (modelExists) selectedModelId.value = lastAssistant.metadata!.model
       }
 
-      // Reconnect to active generation if any message is still generating
       const generating = messages.value.find(m => m.status === 'generating')
       if (generating) {
         reconnectToStream(id, generating.id)
@@ -770,6 +781,7 @@ export function useChat() {
     currentSessionId,
     currentSession,
     messages,
+    systemPrompt,
     streaming,
     sessionsLoading,
     messagesLoading,

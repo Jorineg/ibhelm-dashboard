@@ -58,6 +58,19 @@
             <i class="pi pi-spin pi-spinner"></i>
           </div>
           <template v-else>
+            <div v-if="systemPrompt" class="system-prompt-section" :class="{ 'is-open': showSystemPrompt }">
+              <button class="system-prompt-trigger" @click="showSystemPrompt = !showSystemPrompt">
+                <i class="pi pi-cog"></i>
+                <span>System prompt</span>
+                <i class="pi pi-chevron-right system-prompt-chevron"></i>
+              </button>
+              <div class="system-prompt-body">
+                <div class="system-prompt-inner">
+                  <pre class="system-prompt-text thin-scrollbar">{{ systemPrompt }}</pre>
+                </div>
+              </div>
+            </div>
+
             <div v-if="!messages.length && !streaming.isStreaming" class="chat-empty session-empty">
               <template v-if="isAgentMode">
                 <p>Select an agent session to view its activity</p>
@@ -143,7 +156,7 @@ const router = useRouter()
 const route = useRoute()
 const { user, signOut, isAdmin } = useAuth()
 const {
-  mode, sessions, currentSessionId, messages, streaming,
+  mode, sessions, currentSessionId, messages, systemPrompt, streaming,
   sessionsLoading, messagesLoading, sendingMessage,
   sessionUsage, availableModels, selectedModelId, selectedModel,
   switchMode, fetchModels, fetchSessions, createSession, deleteSession, selectSession,
@@ -161,6 +174,7 @@ const inputText = ref('')
 const messagesContainer = ref<HTMLElement>()
 const chatInputRef = ref<InstanceType<typeof ChatInput>>()
 const retryModelMenuIdx = ref<number | null>(null)
+const showSystemPrompt = ref(false)
 
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
 
@@ -342,6 +356,7 @@ async function initForMode() {
 }
 
 watch(() => route.meta.chatMode, () => initForMode())
+watch(currentSessionId, () => { showSystemPrompt.value = false })
 
 onMounted(async () => {
   document.addEventListener('click', handleGlobalClick)
@@ -459,6 +474,72 @@ onUnmounted(() => {
 }
 .example-query i { font-size: 1.1rem; color: var(--text-muted); flex-shrink: 0; }
 .example-query:hover i { color: var(--accent-primary); }
+
+/* System prompt collapsible */
+.system-prompt-section {
+  width: 100%;
+  max-width: 800px;
+}
+
+.system-prompt-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  transition: color 0.15s, background-color 0.15s;
+  font-family: inherit;
+}
+.system-prompt-trigger:hover { color: var(--text-secondary); background: var(--bg-secondary); }
+.system-prompt-trigger i:first-child { font-size: 0.8rem; opacity: 0.6; }
+
+.system-prompt-chevron {
+  font-size: 0.65rem;
+  margin-left: 0.15rem;
+  transition: transform 0.3s ease;
+}
+.system-prompt-section.is-open .system-prompt-chevron { transform: rotate(90deg); }
+
+.system-prompt-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-out;
+}
+.system-prompt-section.is-open .system-prompt-body {
+  grid-template-rows: 1fr;
+}
+.system-prompt-inner {
+  overflow: hidden;
+}
+.system-prompt-inner > * {
+  opacity: 0;
+  transition: opacity 0.2s ease-out 0.08s;
+}
+.system-prompt-section.is-open .system-prompt-inner > * {
+  opacity: 1;
+}
+
+.system-prompt-text {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
 
 /* Usage bar */
 .usage-bar {

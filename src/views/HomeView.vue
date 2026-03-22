@@ -36,6 +36,11 @@
       </template>
       
       <template #actions>
+        <Tooltip v-if="isAdmin" text="Prompts" position="bottom">
+          <button class="services-btn" @click="goToPrompts">
+            <i class="pi pi-file-edit"></i>
+          </button>
+        </Tooltip>
         <Tooltip v-if="isAdmin" text="Services" position="bottom">
           <button class="services-btn" @click="goToServices">
             <i class="pi pi-server"></i>
@@ -434,6 +439,7 @@ const handleSignOut = async () => {
 
 const goToSettings = () => router.push('/settings')
 const goToServices = () => router.push('/services')
+const goToPrompts = () => router.push('/prompts')
 
 // Event handlers
 const handleRowClick = (item: ViewDataItem) => {

@@ -613,20 +613,20 @@ const fetchItemContent = async (clearFirst = false) => {
   }
 }
 
-// Reset state and fetch related data when dialog opens
-watch(isVisible, async (visible) => {
-  if (visible) {
-    showEmptyFields.value = false
-    await fetchItemContent(true) // Clear old content on initial open
-  }
-})
+// Single watcher for both dialog open and item navigation (prevents double-fetch)
+watch(
+  [isVisible, () => props.item?.id],
+  async ([visible, newId], [wasVisible, oldId]) => {
+    if (!visible || !newId) return
 
-// Fetch new content when item changes while dialog is open
-watch(() => props.item?.id, async (newId, oldId) => {
-  if (isVisible.value && newId && newId !== oldId) {
-    await fetchItemContent(false) // Keep old content visible until new is ready
+    if (!wasVisible) {
+      showEmptyFields.value = false
+      await fetchItemContent(true)
+    } else if (newId !== oldId) {
+      await fetchItemContent(false)
+    }
   }
-})
+)
 </script>
 
 <style scoped>

@@ -1454,7 +1454,12 @@ const getGalleryTitle = (item: ViewDataItem): string => {
 
 const getGalleryDescription = (item: ViewDataItem): string => {
   if (props.viewType === 'people') return item.notes || item.primary_email || ''
-  return item.description || ''
+  const desc = item.description || ''
+  if (item.type === 'file' && item.project && desc) {
+    const i = desc.indexOf('/', desc.indexOf('/') + 1)
+    if (i > 0) return desc.substring(i + 1)
+  }
+  return desc
 }
 
 const truncateText = (text: string, maxLength: number): string => {
