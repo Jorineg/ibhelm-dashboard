@@ -245,6 +245,8 @@ export function useAppearanceSettings() {
     // Email visibility
     publicEmailAddresses,
     updatePublicEmailAddresses,
+    // Generic
+    updateSetting,
     // Init
     initialize,
     fetchSettings
