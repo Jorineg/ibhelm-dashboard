@@ -10,16 +10,7 @@
         <NavigationTabs />
       </template>
       <template #actions>
-        <Tooltip v-if="isAdmin" text="Services" position="bottom">
-          <button class="icon-btn" @click="router.push('/services')">
-            <i class="pi pi-server"></i>
-          </button>
-        </Tooltip>
-        <Tooltip text="Settings" position="bottom">
-          <button class="icon-btn" @click="router.push('/settings')">
-            <i class="pi pi-cog"></i>
-          </button>
-        </Tooltip>
+        <DashboardHeaderActions />
       </template>
     </PageHeader>
 
@@ -182,7 +173,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
+import { PageHeader, NavigationTabs, DashboardHeaderActions } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
 import { useActivity, type ActivityTier, type ActivityEntry, type EventEntry } from '@/composables/useActivity'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
@@ -191,7 +182,7 @@ import { renderMarkdown } from '@/composables/useMarkdown'
 import { supabase } from '@/lib/supabase'
 
 const router = useRouter()
-const { user, signOut, isAdmin } = useAuth()
+const { user, signOut } = useAuth()
 const { excludedCompanyIds, excludedProjectIds, emailColor, craftColor, fileColor, teamworkBaseUrl } = useAppearanceSettings()
 const { transformCraftUrl, transformMissiveUrl, openCraftInBrowser, openMissiveInBrowser } = useLinkTransform()
 const {
@@ -467,20 +458,6 @@ onMounted(async () => {
   overflow: hidden;
   box-sizing: border-box;
 }
-
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.icon-btn i { font-size: 1.4rem; }
-.icon-btn:hover { color: var(--accent-primary); }
 
 /* Layout */
 .activity-layout {

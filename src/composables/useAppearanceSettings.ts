@@ -6,6 +6,22 @@ import type { FileIgnorePattern } from '@/types'
 // ===== ADMIN SETTINGS (app_settings table) =====
 // These settings affect all users and can only be changed by admins
 
+export interface ChatModelConfig {
+  id: string
+  provider: 'anthropic' | 'openai_compat'
+  name: string
+  base_url?: string
+  context_window?: number
+  supports_vision?: boolean
+  input_price?: number
+  output_price?: number
+  cache_read_price?: number
+  cache_write_price?: number
+  hidden?: boolean
+  system_prompt_addition?: string
+  auto_execute_code_blocks?: boolean
+}
+
 export interface AdminSettings {
   // Colors (shared across all users)
   email_color: string
@@ -27,6 +43,12 @@ export interface AdminSettings {
   excluded_tw_project_ids: number[]
   // Email visibility (RLS)
   public_email_addresses: string[]
+  // AI Models
+  chat_models: ChatModelConfig[]
+  default_chat_model_id: string
+  agent_model_id: string
+  vision_fallback_model_id: string
+  title_model_id: string
 }
 
 // Built-in file ignore patterns (can be disabled but not deleted)
@@ -58,7 +80,12 @@ const defaults: AdminSettings = {
   file_ignore_patterns: BUILTIN_FILE_IGNORE_PATTERNS,
   excluded_tw_company_ids: [],
   excluded_tw_project_ids: [],
-  public_email_addresses: []
+  public_email_addresses: [],
+  chat_models: [],
+  default_chat_model_id: '',
+  agent_model_id: '',
+  vision_fallback_model_id: '',
+  title_model_id: '',
 }
 
 const cached = getCached<AdminSettings>('app_settings')

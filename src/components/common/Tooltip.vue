@@ -96,12 +96,17 @@ const tooltipStyle = computed(() => {
         top: `${r.bottom + gap}px`,
         transform: 'translateX(-50%)'
       }
-    case 'left':
+    case 'left': {
+      // Anchor right edge to the left of the trigger so the panel grows leftward
+      // (avoids overflow past the viewport when the trigger sits on the right edge).
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 0
       return {
-        left: `${r.left - gap}px`,
+        right: `${vw - r.left + gap}px`,
         top: `${r.top + r.height / 2}px`,
-        transform: 'translate(-100%, -50%)'
+        transform: 'translateY(-50%)',
+        left: 'auto',
       }
+    }
     case 'right':
       return {
         left: `${r.right + gap}px`,

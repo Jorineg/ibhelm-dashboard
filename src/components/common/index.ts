@@ -1,5 +1,7 @@
 // Common reusable components
 export { default as PageHeader } from './PageHeader.vue'
+export { default as SubpageHeader } from './SubpageHeader.vue'
+export { default as DashboardHeaderActions } from './DashboardHeaderActions.vue'
 export { default as NavigationTabs } from './NavigationTabs.vue'
 export { default as InfoBox } from './InfoBox.vue'
 export { default as InfoTooltip } from './InfoTooltip.vue'

@@ -10,16 +10,7 @@
         <NavigationTabs />
       </template>
       <template #actions>
-        <Tooltip v-if="isAdmin" text="Services" position="bottom">
-          <button class="icon-btn" @click="router.push('/services')">
-            <i class="pi pi-server"></i>
-          </button>
-        </Tooltip>
-        <Tooltip text="Settings" position="bottom">
-          <button class="icon-btn" @click="router.push('/settings')">
-            <i class="pi pi-cog"></i>
-          </button>
-        </Tooltip>
+        <DashboardHeaderActions />
       </template>
     </PageHeader>
 
@@ -147,14 +138,14 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
+import { PageHeader, NavigationTabs, DashboardHeaderActions } from '@/components/common'
 import { ChatSidebar, ChatInput, ChatMessage } from '@/components/chat'
 import { useAuth } from '@/composables/useAuth'
 import { calcMessageTotalCost, getLastLlmTurn, getMessageToolCost, useChat } from '@/composables/useChat'
 
 const router = useRouter()
 const route = useRoute()
-const { user, signOut, isAdmin } = useAuth()
+const { user, signOut } = useAuth()
 const {
   mode, sessions, currentSessionId, messages, systemPrompt, streaming,
   sessionsLoading, messagesLoading, sendingMessage,
@@ -380,20 +371,6 @@ onUnmounted(() => {
   box-sizing: border-box;
   z-index: 1;
 }
-
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.icon-btn i { font-size: 1.4rem; }
-.icon-btn:hover { color: var(--accent-primary); }
 
 .chat-layout {
   display: flex;

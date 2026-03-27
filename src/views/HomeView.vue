@@ -36,21 +36,7 @@
       </template>
       
       <template #actions>
-        <Tooltip v-if="isAdmin" text="Prompts" position="bottom">
-          <button class="services-btn" @click="goToPrompts">
-            <i class="pi pi-file-edit"></i>
-          </button>
-        </Tooltip>
-        <Tooltip v-if="isAdmin" text="Services" position="bottom">
-          <button class="services-btn" @click="goToServices">
-            <i class="pi pi-server"></i>
-          </button>
-        </Tooltip>
-        <Tooltip text="Settings" position="bottom">
-          <button class="settings-btn" @click="goToSettings">
-            <i class="pi pi-cog"></i>
-          </button>
-        </Tooltip>
+        <DashboardHeaderActions />
       </template>
     </PageHeader>
 
@@ -135,7 +121,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import ExcelJS from 'exceljs'
 import { useRouter } from 'vue-router'
-import { PageHeader, Tooltip, NavigationTabs } from '@/components/common'
+import { PageHeader, NavigationTabs, DashboardHeaderActions } from '@/components/common'
 import ConfigurationPanel from '@/components/ConfigurationPanel.vue'
 import FilterBar from '@/components/FilterBar.vue'
 import DataTable from '@/components/DataTable.vue'
@@ -155,7 +141,7 @@ import { supabase } from '@/lib/supabase'
 import type { ViewDataItem, Column, SortConfig, GroupConfig, ViewType } from '@/types'
 
 const router = useRouter()
-const { user, signOut, isAdmin } = useAuth()
+const { user, signOut } = useAuth()
 const { activeConfig, configurations, updateConfiguration, currentViewType, createConfiguration, deleteConfiguration, setActiveConfiguration, updateSearchQuery, updateGroupConfig, saveActiveConfiguration, hasUnsavedChanges } = useFilterConfigs()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 const { taskTypes, initialize: initTaskTypes } = useTaskTypes()
@@ -437,9 +423,6 @@ const handleSignOut = async () => {
   router.push('/login')
 }
 
-const goToSettings = () => router.push('/settings')
-const goToServices = () => router.push('/services')
-const goToPrompts = () => router.push('/prompts')
 
 // Event handlers
 const handleRowClick = (item: ViewDataItem) => {
@@ -1162,49 +1145,6 @@ onUnmounted(() => {
   transform: translateX(-50%);
   margin-top: 0.5rem;
   z-index: 9999;
-}
-
-/* Services button (admin only) */
-.services-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.services-btn i {
-  font-size: 1.4rem;
-}
-
-.services-btn:hover {
-  color: var(--accent-primary);
-}
-
-/* Settings button */
-.settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.settings-btn i {
-  font-size: 1.5rem;
-}
-
-.settings-btn:hover {
-  color: var(--text-primary);
-  transform: rotate(45deg);
 }
 
 /* Main Content */

@@ -1,14 +1,6 @@
 <template>
   <div class="settings-view" @click="syncPopupVisible = false">
-    <!-- Header -->
-    <PageHeader
-      title="Settings"
-      :show-back="true"
-      :user-email="user?.email"
-      :show-sign-out="true"
-      @back="goBack"
-      @sign-out="handleSignOut"
-    >
+    <SubpageHeader title="Settings">
       <template #center>
         <div class="sync-status-wrapper" @click.stop>
           <SyncStatusIndicator 
@@ -30,15 +22,7 @@
           </div>
         </div>
       </template>
-      
-      <template #actions>
-        <Tooltip text="Home" position="bottom">
-          <button class="home-btn" @click="goBack">
-            <i class="pi pi-home"></i>
-          </button>
-        </Tooltip>
-      </template>
-    </PageHeader>
+    </SubpageHeader>
 
     <!-- Scrollable Content -->
     <div class="settings-inner">
@@ -85,6 +69,7 @@
         <template v-if="isAdmin">
           <AppearanceSection v-if="activeSection === 'appearance'" />
           <GeneralSection v-else-if="activeSection === 'integration'" />
+          <ModelsSection v-else-if="activeSection === 'models'" />
           <TaskTypesSection
             v-else-if="activeSection === 'task-types'"
             :extraction-run="extractionRun"
@@ -131,12 +116,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { PageHeader, Tooltip } from '@/components/common'
+import { SubpageHeader } from '@/components/common'
 import { 
   TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
   CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 
-  DisplaySection, KeyBindingsSection, SyncFiltersSection, LinkHandlingSection 
+  DisplaySection, KeyBindingsSection, SyncFiltersSection, LinkHandlingSection,
+  ModelsSection
 } from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
@@ -150,8 +135,7 @@ import { useCostGroups } from '@/composables/useCostGroups'
 import { useLocations } from '@/composables/useLocations'
 import { useSyncStatus } from '@/composables/useSyncStatus'
 
-const router = useRouter()
-const { user, isAdmin, signOut } = useAuth()
+const { user, isAdmin } = useAuth()
 const { initialize: initUserSettings } = useUserSettings()
 const { syncStatus, overallStatus, isSourceOutdated, isFilesOutdated, isThumbnailsOutdated, isAttachmentsOutdated, headerTooltip, getQueueOkTooltip, getQueuePendingTooltip, getFailedTooltip } = useSyncStatus()
 
@@ -211,6 +195,7 @@ const userSections = [
 const adminSections = [
   { id: 'appearance', label: 'Appearance', icon: 'pi pi-palette' },
   { id: 'integration', label: 'Integration', icon: 'pi pi-cog' },
+  { id: 'models', label: 'Models', icon: 'pi pi-server' },
   { id: 'sync-filters', label: 'Sync Filters', icon: 'pi pi-filter-slash' },
   { id: 'task-types', label: 'Task Types', icon: 'pi pi-tags' },
   { id: 'people', label: 'People', icon: 'pi pi-users' },
@@ -222,16 +207,6 @@ const adminSections = [
 
 const activeSection = ref('display')
 const isExtracting = ref(false)
-
-// Navigation
-const goBack = () => {
-  router.push('/')
-}
-
-const handleSignOut = async () => {
-  await signOut()
-  router.push('/login')
-}
 
 // Extraction
 const handleRerunExtraction = async () => {
@@ -421,26 +396,6 @@ onMounted(async () => {
   transform: translateX(-50%);
   margin-top: 0.5rem;
   z-index: 9999;
-}
-
-.home-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.home-btn i {
-  font-size: 1.5rem;
-}
-
-.home-btn:hover {
-  color: var(--text-primary);
 }
 
 @media (max-width: 900px) {

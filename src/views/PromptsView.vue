@@ -1,14 +1,6 @@
 <template>
   <div class="prompts-view">
-    <PageHeader title="Prompts" :show-back="true" @back="router.push('/')">
-      <template #actions>
-        <Tooltip text="Home" position="bottom">
-          <button class="home-btn" @click="router.push('/')">
-            <i class="pi pi-home"></i>
-          </button>
-        </Tooltip>
-      </template>
-    </PageHeader>
+    <SubpageHeader title="Prompts" />
 
     <div class="prompts-layout">
       <!-- Sidebar -->
@@ -27,16 +19,21 @@
         </div>
 
         <div class="template-list">
-          <div
+          <Tooltip
             v-for="t in filteredTemplates"
             :key="t.id"
-            class="template-item"
-            :class="{ active: selected?.id === t.id }"
-            @click="selectTemplate(t)"
+            :text="(t.description || '').trim()"
+            position="right"
+            block
           >
-            <span class="template-id">{{ t.id }}</span>
-            <span class="template-title">{{ t.title }}</span>
-          </div>
+            <div
+              class="template-item"
+              :class="{ active: selected?.id === t.id }"
+              @click="selectTemplate(t)"
+            >
+              <span class="template-title">{{ t.title }}</span>
+            </div>
+          </Tooltip>
           <div v-if="!filteredTemplates.length && !loading" class="empty-list">
             No templates in this category
           </div>
@@ -109,14 +106,17 @@
           <div v-if="showInsertMenu" class="insert-dropdown">
             <div class="insert-section" v-for="cat in insertCategories" :key="cat.id">
               <div class="insert-section-header">{{ cat.label }}</div>
-              <div
+              <Tooltip
                 v-for="t in cat.items"
                 :key="t.id"
-                class="insert-item"
-                @click="insertReference(t.id)"
+                :text="insertItemTooltip(t)"
+                position="left"
+                block
               >
-                {{ t.id }}
-              </div>
+                <div class="insert-item" @click="insertReference(t.id)">
+                  {{ t.title }}
+                </div>
+              </Tooltip>
             </div>
           </div>
 
@@ -154,20 +154,18 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick, shallowRef } from 'vue'
-import { useRouter } from 'vue-router'
-import { PageHeader, Tooltip } from '@/components/common'
+import { SubpageHeader, Tooltip } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
 import { usePromptTemplates, type PromptTemplate } from '@/composables/usePromptTemplates'
 import { renderMarkdown } from '@/composables/useMarkdown'
 
-import { EditorView, keymap, placeholder as cmPlaceholder } from '@codemirror/view'
+import { EditorView, keymap, placeholder as cmPlaceholder, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { sql } from '@codemirror/lang-sql'
 import { oneDark } from '@codemirror/theme-one-dark'
 
-const router = useRouter()
 const { isAdmin } = useAuth()
 const {
   templates, prompts, components, docs,
@@ -217,7 +215,7 @@ const canEdit = computed(() => {
 
 const hasChanges = computed(() => {
   if (!selected.value) return false
-  const currentContent = editorView.value?.state.doc.toString() ?? editContent.value
+  const currentContent = editContent.value
   return (
     editTitle.value !== selected.value.title ||
     editDescription.value !== (selected.value.description || '') ||
@@ -227,13 +225,31 @@ const hasChanges = computed(() => {
 })
 
 const insertCategories = computed(() => [
+  { id: 'prompt', label: 'Prompts', items: prompts.value },
   { id: 'component', label: 'Components', items: components.value },
   { id: 'doc', label: 'Docs', items: docs.value },
 ])
 
+function insertItemTooltip(t: PromptTemplate): string {
+  const d = (t.description || '').trim()
+  return d ? `${t.id}\n${d}` : t.id
+}
+
+function highlightDirectives(html: string): string {
+  html = html.replace(/\{\{(include|sql):([\s\S]*?)\}\}/g, (_, kw, val) => {
+    if (kw === 'sql') {
+      return `<div class="prompt-dir prompt-sql"><span class="prompt-dir-bk">{{</span><span class="prompt-dir-kw">sql:</span><span class="prompt-dir-val">${val}</span><span class="prompt-dir-bk">}}</span></div>`
+    }
+    return `<span class="prompt-dir prompt-include"><span class="prompt-dir-bk">{{</span><span class="prompt-dir-kw">include:</span><span class="prompt-dir-val">${val}</span><span class="prompt-dir-bk">}}</span></span>`
+  })
+  return html.replace(/\$\{(\w+)\}/g, (_, name) =>
+    `<span class="prompt-dir prompt-ph"><span class="prompt-dir-bk">\${</span><span class="prompt-dir-val">${name}</span><span class="prompt-dir-bk">}</span></span>`
+  )
+}
+
 const renderedPreview = computed(() => {
   if (!selected.value) return ''
-  return renderMarkdown(selected.value.content || '*No content*')
+  return highlightDirectives(renderMarkdown(selected.value.content || '*No content*'))
 })
 
 function selectTemplate(t: PromptTemplate) {
@@ -275,11 +291,7 @@ function startCreate() {
 
 function toggleEdit() {
   if (editing.value) {
-    // Switching to preview — update selected content from editor
-    if (editorView.value) {
-      const content = editorView.value.state.doc.toString()
-      if (selected.value) selected.value = { ...selected.value, content }
-    }
+    if (selected.value) selected.value = { ...selected.value, content: editContent.value }
   }
   editing.value = !editing.value
   showInsertMenu.value = false
@@ -289,7 +301,7 @@ async function handleSave() {
   if (!selected.value) return
   saving.value = true
   try {
-    const content = editorView.value?.state.doc.toString() ?? editContent.value
+    const content = editContent.value
     await save({
       id: isCreating.value ? editId.value : selected.value.id,
       title: editTitle.value,
@@ -332,6 +344,54 @@ function jumpTo(templateId: string) {
   }
 }
 
+const bracketMark = Decoration.mark({ class: 'cm-prompt-bracket' })
+const placeholderMark = Decoration.mark({ class: 'cm-prompt-placeholder' })
+const includeKwMark = Decoration.mark({ class: 'cm-prompt-kw-include' })
+const sqlKwMark = Decoration.mark({ class: 'cm-prompt-kw-sql' })
+const includeValMark = Decoration.mark({ class: 'cm-prompt-val-include' })
+const sqlValMark = Decoration.mark({ class: 'cm-prompt-val-sql' })
+
+function buildPromptDecos(view: EditorView) {
+  const text = view.state.doc.toString()
+  const ranges: { from: number; to: number; deco: Decoration }[] = []
+  let m: RegExpExecArray | null
+
+  const dirRe = /\{\{(include|sql):([\s\S]*?)\}\}/g
+  while ((m = dirRe.exec(text))) {
+    const s = m.index, e = s + m[0].length, kwEnd = s + 2 + m[1].length + 1
+    ranges.push(
+      { from: s, to: s + 2, deco: bracketMark },
+      { from: s + 2, to: kwEnd, deco: m[1] === 'include' ? includeKwMark : sqlKwMark },
+      { from: kwEnd, to: e - 2, deco: m[1] === 'include' ? includeValMark : sqlValMark },
+      { from: e - 2, to: e, deco: bracketMark },
+    )
+  }
+
+  const phRe = /\$\{(\w+)\}/g
+  while ((m = phRe.exec(text))) {
+    const s = m.index, e = s + m[0].length
+    ranges.push(
+      { from: s, to: s + 2, deco: bracketMark },
+      { from: s + 2, to: e - 1, deco: placeholderMark },
+      { from: e - 1, to: e, deco: bracketMark },
+    )
+  }
+
+  ranges.sort((a, b) => a.from - b.from)
+  return Decoration.set(ranges.map(r => r.deco.range(r.from, r.to)))
+}
+
+const promptHighlightPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+    constructor(view: EditorView) { this.decorations = buildPromptDecos(view) }
+    update(update: ViewUpdate) {
+      if (update.docChanged) this.decorations = buildPromptDecos(update.view)
+    }
+  },
+  { decorations: v => v.decorations }
+)
+
 function initEditor() {
   if (!editorContainer.value) return
   editorView.value?.destroy()
@@ -344,12 +404,22 @@ function initEditor() {
       markdown(),
       sql(),
       oneDark,
+      promptHighlightPlugin,
+      EditorView.updateListener.of(update => {
+        if (update.docChanged) editContent.value = update.state.doc.toString()
+      }),
       EditorView.lineWrapping,
       cmPlaceholder('Start typing your template content...'),
       EditorView.theme({
         '&': { height: '100%', fontSize: '14px' },
         '.cm-scroller': { overflow: 'auto' },
         '.cm-content': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace" },
+        '.cm-prompt-bracket': { color: '#e5c07b', fontWeight: 'bold' },
+        '.cm-prompt-placeholder': { color: '#e06c75' },
+        '.cm-prompt-kw-include': { color: '#56b6c2', fontWeight: '600' },
+        '.cm-prompt-kw-sql': { color: '#c678dd', fontWeight: '600' },
+        '.cm-prompt-val-include': { color: '#61afef' },
+        '.cm-prompt-val-sql': { color: '#98c379' },
       }),
     ],
   })
@@ -388,20 +458,6 @@ onMounted(() => {
   padding: 2rem 2rem 0;
   overflow: hidden;
 }
-
-.home-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s ease;
-  font-size: 1.3rem;
-}
-.home-btn:hover { color: var(--text-primary); }
 
 .prompts-layout {
   display: flex;
@@ -453,33 +509,37 @@ onMounted(() => {
 .template-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 0.5rem 0;
 }
 
 .template-item {
-  padding: 0.6rem 0.75rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.1s ease;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  margin: 0 0.5rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
-.template-item:hover { background: var(--bg-tertiary); }
+.template-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
 .template-item.active {
-  background: var(--accent-primary-transparent, rgba(99, 102, 241, 0.12));
-  border-left: 3px solid var(--accent-primary);
+  background: var(--accent-primary-dark);
+  color: var(--text-primary);
+  border-left-color: var(--accent-primary);
+  font-weight: 500;
 }
 
-.template-id {
-  font-size: 0.8rem;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  color: var(--text-secondary);
-}
 .template-title {
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty-list {
@@ -644,9 +704,11 @@ onMounted(() => {
 .insert-item {
   padding: 0.4rem 0.75rem;
   font-size: 0.8rem;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
   color: var(--text-secondary);
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .insert-item:hover {
   background: var(--bg-tertiary);
@@ -689,6 +751,53 @@ onMounted(() => {
 .preview-pane :deep(ul), .preview-pane :deep(ol) {
   padding-left: 1.5rem;
 }
+
+/* Prompt directive highlighting in preview */
+.preview-pane :deep(.prompt-dir) {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  border-radius: 4px;
+}
+.preview-pane :deep(.prompt-dir-bk) {
+  opacity: 0.45;
+  font-weight: bold;
+}
+.preview-pane :deep(.prompt-dir-kw) {
+  font-weight: 600;
+}
+
+/* Inline: placeholders and includes */
+.preview-pane :deep(.prompt-ph),
+.preview-pane :deep(.prompt-include) {
+  display: inline;
+  padding: 0.1rem 0.4rem;
+}
+.preview-pane :deep(.prompt-ph) {
+  background: rgba(224, 108, 117, 0.12);
+  border: 1px solid rgba(224, 108, 117, 0.25);
+  color: #e06c75;
+}
+.preview-pane :deep(.prompt-include) {
+  background: rgba(86, 182, 194, 0.1);
+  border: 1px solid rgba(86, 182, 194, 0.25);
+}
+.preview-pane :deep(.prompt-include .prompt-dir-kw) { color: #56b6c2; }
+.preview-pane :deep(.prompt-include .prompt-dir-val) { color: #61afef; }
+
+/* Block: SQL directives */
+.preview-pane :deep(.prompt-sql) {
+  display: block;
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.85rem;
+  background: rgba(198, 120, 221, 0.08);
+  border: 1px solid rgba(198, 120, 221, 0.2);
+  border-left: 3px solid rgba(198, 120, 221, 0.5);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+.preview-pane :deep(.prompt-sql .prompt-dir-kw) { color: #c678dd; }
+.preview-pane :deep(.prompt-sql .prompt-dir-val) { color: #98c379; }
 
 .editor-pane {
   display: flex;
