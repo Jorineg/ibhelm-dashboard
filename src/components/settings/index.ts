@@ -14,4 +14,5 @@ export { default as LinkHandlingSection } from './LinkHandlingSection.vue'
 export { default as ModelsSection } from './ModelsSection.vue'
 export { default as PlaceholderSection } from './PlaceholderSection.vue'
 export { default as SyncFiltersSection } from './SyncFiltersSection.vue'
+export { default as ProjectNasFoldersSection } from './ProjectNasFoldersSection.vue'
 

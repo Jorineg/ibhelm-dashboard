@@ -3,6 +3,16 @@ import { supabase } from '@/lib/supabase'
 
 export type ActivityTier = 'overview' | 'status' | 'activity' | 'changelog'
 
+export type SourceFilterKey = 'task' | 'email' | 'craft' | 'file' | 'profile'
+
+export const SOURCE_FILTER_TABLES: Record<SourceFilterKey, string[]> = {
+  task: ['teamwork.tasks', 'teamwork.task_assignees', 'teamwork.task_tags'],
+  email: ['project_conversations'],
+  craft: ['project_craft_documents', 'craft_documents'],
+  file: ['files'],
+  profile: ['project_extensions'],
+}
+
 export interface ActiveProject {
   id: number
   name: string
@@ -48,9 +58,16 @@ export function useActivity() {
 
   const activityEntries = ref<ActivityEntry[]>([])
   const activityHasMore = ref(false)
+  const activityLoading = ref(false)
 
   const eventEntries = ref<EventEntry[]>([])
   const eventHasMore = ref(false)
+  const eventLoading = ref(false)
+
+  const activeSourceFilters = ref<Set<SourceFilterKey>>(new Set())
+  const activeCategoryFilters = ref<Set<string>>(new Set())
+  const activitySearch = ref('')
+  const eventSearch = ref('')
 
   const fetchProjects = async (excludeProjectIds: number[] = [], excludeCompanyNames: string[] = []) => {
     projectsLoading.value = true
@@ -90,38 +107,65 @@ export function useActivity() {
     statusGeneratedAt.value = data?.status_generated_at ?? null
   }
 
-  const fetchActivityLog = async (projectId: number, offset = 0) => {
-    const { data, error } = await supabase
-      .from('project_activity_log')
-      .select('*')
-      .eq('tw_project_id', projectId)
-      .order('logged_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
-    if (error) throw error
-    const entries = data || []
-    if (offset === 0) {
-      activityEntries.value = entries
-    } else {
-      activityEntries.value = [...activityEntries.value, ...entries]
+  const getFilteredSourceTables = (): string[] | null => {
+    if (activeSourceFilters.value.size === 0) return null
+    const tables: string[] = []
+    for (const key of activeSourceFilters.value) {
+      tables.push(...SOURCE_FILTER_TABLES[key])
     }
-    activityHasMore.value = entries.length === PAGE_SIZE
+    return tables
+  }
+
+  const fetchActivityLog = async (projectId: number, offset = 0) => {
+    activityLoading.value = true
+    try {
+      const categories = activeCategoryFilters.value.size > 0 ? [...activeCategoryFilters.value] : null
+      const search = activitySearch.value.trim() || null
+
+      const { data, error } = await supabase.rpc('search_activity_log', {
+        p_project_id: projectId,
+        p_search: search,
+        p_categories: categories,
+        p_limit: PAGE_SIZE,
+        p_offset: offset,
+      })
+      if (error) throw error
+      const entries = data || []
+      if (offset === 0) {
+        activityEntries.value = entries
+      } else {
+        activityEntries.value = [...activityEntries.value, ...entries]
+      }
+      activityHasMore.value = entries.length === PAGE_SIZE
+    } finally {
+      activityLoading.value = false
+    }
   }
 
   const fetchEventLog = async (projectId: number, offset = 0) => {
-    const { data, error } = await supabase
-      .from('project_event_log')
-      .select('id, tw_project_id, occurred_at, source_table, source_id, event_type, details, content_diff, db_created_at')
-      .eq('tw_project_id', projectId)
-      .order('occurred_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
-    if (error) throw error
-    const entries = data || []
-    if (offset === 0) {
-      eventEntries.value = entries
-    } else {
-      eventEntries.value = [...eventEntries.value, ...entries]
+    eventLoading.value = true
+    try {
+      const tables = getFilteredSourceTables()
+      const search = eventSearch.value.trim() || null
+
+      const { data, error } = await supabase.rpc('search_event_log', {
+        p_project_id: projectId,
+        p_search: search,
+        p_source_tables: tables,
+        p_limit: PAGE_SIZE,
+        p_offset: offset,
+      })
+      if (error) throw error
+      const entries = data || []
+      if (offset === 0) {
+        eventEntries.value = entries
+      } else {
+        eventEntries.value = [...eventEntries.value, ...entries]
+      }
+      eventHasMore.value = entries.length === PAGE_SIZE
+    } finally {
+      eventLoading.value = false
     }
-    eventHasMore.value = entries.length === PAGE_SIZE
   }
 
   const loadProjectData = async (projectId: number) => {
@@ -149,13 +193,23 @@ export function useActivity() {
   }
 
   const loadMoreActivity = () => {
-    if (!selectedProjectId.value || !activityHasMore.value) return
+    if (!selectedProjectId.value || !activityHasMore.value || activityLoading.value) return
     return fetchActivityLog(selectedProjectId.value, activityEntries.value.length)
   }
 
   const loadMoreEvents = () => {
-    if (!selectedProjectId.value || !eventHasMore.value) return
+    if (!selectedProjectId.value || !eventHasMore.value || eventLoading.value) return
     return fetchEventLog(selectedProjectId.value, eventEntries.value.length)
+  }
+
+  const reloadEvents = () => {
+    if (!selectedProjectId.value) return
+    return fetchEventLog(selectedProjectId.value, 0)
+  }
+
+  const reloadActivity = () => {
+    if (!selectedProjectId.value) return
+    return fetchActivityLog(selectedProjectId.value, 0)
   }
 
   watch(selectedProjectId, (newId) => {
@@ -165,6 +219,11 @@ export function useActivity() {
       clearData()
     }
   })
+
+  watch(activeSourceFilters, () => reloadEvents(), { deep: true })
+  watch(activeCategoryFilters, () => reloadActivity(), { deep: true })
+  watch(activitySearch, () => reloadActivity())
+  watch(eventSearch, () => reloadEvents())
 
   return {
     projects,
@@ -178,8 +237,14 @@ export function useActivity() {
     statusGeneratedAt,
     activityEntries,
     activityHasMore,
+    activityLoading,
     eventEntries,
     eventHasMore,
+    eventLoading,
+    activeSourceFilters,
+    activeCategoryFilters,
+    activitySearch,
+    eventSearch,
     fetchProjects,
     loadMoreActivity,
     loadMoreEvents,

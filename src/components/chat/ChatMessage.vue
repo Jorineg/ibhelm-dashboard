@@ -15,8 +15,8 @@
         </div>
       </div>
 
-      <div v-else-if="msg.role === 'user'" class="message-bubble user-bubble">
-        {{ msg.content }}
+      <div v-else-if="msg.role === 'user'" class="message-bubble user-bubble" @copy="handleBubbleCopy">
+        <span v-html="renderUserContent(msg.content)"></span>
         <div v-if="msg.files?.length" class="message-files">
           <div v-for="f in msg.files" :key="f.id" class="message-file-chip">
             <i class="pi pi-file"></i>
@@ -141,6 +141,10 @@
         <div v-if="msg.status === 'error'" class="generation-error">
           <i class="pi pi-exclamation-triangle"></i> {{ msg.metadata?.error || 'Generation failed' }}
         </div>
+
+        <div v-if="statusMessage" class="rate-limit-notice">
+          <i class="pi pi-clock"></i> {{ statusMessage }}
+        </div>
       </div>
 
       <div v-if="!editing && !isStreaming && msg.id" class="msg-actions">
@@ -216,6 +220,7 @@ const props = defineProps<{
   editText?: string
   isStreaming?: boolean
   currentToolId?: string | null
+  statusMessage?: string | null
   availableModels?: ChatModel[]
   showRetryMenu?: boolean
 }>()
@@ -271,6 +276,42 @@ function workGroupSummary(items: ContentBlock[], running = false): string {
   }
   const thinkCount = items.filter(b => b.type === 'thinking').length
   return `Thinking (${thinkCount} ${thinkCount === 1 ? 'step' : 'steps'})`
+}
+
+function renderUserContent(content: string | null | undefined): string {
+  if (!content) return ''
+  const escaped = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+  return escaped.replace(
+    /@\[([^\]]+)\]\((\d+)\)/g,
+    (_, label, id) => `<span class="mention-badge" data-id="${id}">@${label}</span>`
+  )
+}
+
+function handleBubbleCopy(event: ClipboardEvent) {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) return
+  const range = selection.getRangeAt(0)
+
+  const htmlFrag = range.cloneContents()
+  const htmlWrap = document.createElement('div')
+  htmlWrap.appendChild(htmlFrag)
+
+  const textFrag = range.cloneContents()
+  const textWrap = document.createElement('div')
+  textWrap.appendChild(textFrag)
+  for (const badge of textWrap.querySelectorAll('.mention-badge[data-id]')) {
+    const id = badge.getAttribute('data-id')
+    const label = badge.textContent?.replace(/^@/, '') || ''
+    badge.replaceWith(`@[${label}](${id})`)
+  }
+
+  event.clipboardData?.setData('text/html', htmlWrap.innerHTML)
+  event.clipboardData?.setData('text/plain', textWrap.textContent || '')
+  event.preventDefault()
 }
 
 function formatTime(iso?: string): string {
@@ -369,6 +410,16 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   color: var(--text-primary);
   border-bottom-right-radius: 4px;
   white-space: pre-wrap;
+}
+.user-bubble :deep(.mention-badge) {
+  background: rgba(0, 0, 0, 0.5);
+  color: #c7d2fe;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92em;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .message-files {
@@ -540,6 +591,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   color: var(--error-text); font-size: 0.95rem; padding: 0.4rem 0;
 }
 .generation-error i { font-size: 0.9rem; }
+
+.rate-limit-notice {
+  display: flex; align-items: center; gap: 0.4rem;
+  color: var(--text-color-secondary); font-size: 0.85rem; padding: 0.4rem 0;
+  font-style: italic;
+}
+.rate-limit-notice i { font-size: 0.85rem; }
 
 /* ── Message actions ── */
 .msg-actions {

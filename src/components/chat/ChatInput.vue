@@ -16,16 +16,7 @@
       </div>
     </div>
     <div class="chat-input-wrapper" :class="{ 'drag-active': dragActive }">
-      <textarea
-        ref="inputEl"
-        :value="modelValue"
-        class="chat-input"
-        placeholder="Message..."
-        rows="1"
-        @input="handleInput"
-        @keydown.enter.exact="handleSend"
-        @paste="handlePaste"
-      ></textarea>
+      <EditorContent :editor="editor" class="chat-input-editor" />
       <div class="input-bottom-row">
         <div class="model-picker-wrap">
           <button
@@ -50,6 +41,9 @@
             </button>
           </div>
         </div>
+        <button class="mention-btn" @click="triggerMention" title="Mention a project (@)">
+          <i class="pi pi-at"></i>
+        </button>
         <button class="attach-btn" @click="openFilePicker" title="Attach files">
           <i class="pi pi-paperclip"></i>
         </button>
@@ -65,7 +59,7 @@
         <button
           v-else
           class="send-btn"
-          :disabled="!modelValue.trim() && !attachedFiles.length"
+          :disabled="isEmpty && !attachedFiles.length"
           @click="handleSend"
         >
           <i class="pi pi-send"></i>
@@ -83,11 +77,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useEditor, EditorContent } from '@tiptap/vue-3'
+import Document from '@tiptap/extension-document'
+import Paragraph from '@tiptap/extension-paragraph'
+import Text from '@tiptap/extension-text'
+import HardBreak from '@tiptap/extension-hard-break'
+import History from '@tiptap/extension-history'
+import Placeholder from '@tiptap/extension-placeholder'
+import Mention from '@tiptap/extension-mention'
+import { Extension } from '@tiptap/core'
+import { createSuggestion } from './mentionSuggestion'
 import type { ChatModel } from '@/composables/useChat'
 
+const MENTION_NAMES = ['projectMention', 'slashProjectMention']
+const MENTION_TEXT_RE = /@\[([^\]]+)\]\((\d+)\)/g
+
+function mentionTextSerializer(node: any): string {
+  if (MENTION_NAMES.includes(node.type.name)) {
+    return `@[${node.attrs.label}](${node.attrs.id})`
+  }
+  return ''
+}
+
 defineProps<{
-  modelValue: string
   models: ChatModel[]
   selectedModelId: string | null
   selectedModel: ChatModel | null
@@ -95,52 +108,125 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'send': [files: File[]]
+  'send': [text: string, files: File[]]
   'stop': []
   'update:selectedModelId': [id: string]
 }>()
 
-const inputEl = ref<HTMLTextAreaElement>()
 const fileInputEl = ref<HTMLInputElement>()
 const showMenu = ref(false)
 const dragActive = ref(false)
 const attachedFiles = ref<File[]>([])
 
-function handleInput(e: Event) {
-  const el = e.target as HTMLTextAreaElement
-  emit('update:modelValue', el.value)
-  autoResize()
-}
+const suggestion = createSuggestion()
 
-function autoResize() {
-  const el = inputEl.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 280) + 'px'
-}
-
-function handleSend(e?: Event) {
-  if (e && e instanceof KeyboardEvent && e.shiftKey) return
-  e?.preventDefault()
-  emit('send', [...attachedFiles.value])
-  attachedFiles.value = []
-}
-
-function handlePaste(e: ClipboardEvent) {
-  const items = e.clipboardData?.items
-  if (!items) return
-  const files: File[] = []
-  for (const item of items) {
-    if (item.kind === 'file') {
-      const file = item.getAsFile()
-      if (file) files.push(file)
+const SendOnEnter = Extension.create({
+  name: 'sendOnEnter',
+  addKeyboardShortcuts() {
+    return {
+      'Enter': () => { handleSend(); return true },
     }
-  }
-  if (files.length) {
-    e.preventDefault()
-    attachedFiles.value.push(...files)
-  }
+  },
+})
+
+const ProjectMention = Mention.extend({
+  name: 'projectMention',
+  parseHTML() {
+    return [
+      { tag: `span[data-type="${this.name}"]` },
+      {
+        tag: 'span.mention-badge[data-id]',
+        getAttrs: (el: HTMLElement) => ({
+          id: el.getAttribute('data-id'),
+          label: el.textContent?.replace(/^@/, '') || '',
+        }),
+      },
+    ]
+  },
+}).configure({
+  HTMLAttributes: { class: 'mention-badge' },
+  renderLabel: ({ node }: any) => `@${node.attrs.label}`,
+  suggestion: { ...suggestion, char: '@' },
+})
+
+const SlashMention = Mention.extend({
+  name: 'slashProjectMention',
+}).configure({
+  HTMLAttributes: { class: 'mention-badge' },
+  renderLabel: ({ node }: any) => `@${node.attrs.label}`,
+  suggestion: { ...suggestion, char: '/' },
+})
+
+const editor = useEditor({
+  extensions: [
+    Document, Paragraph, Text, HardBreak, History,
+    Placeholder.configure({
+      placeholder: 'Message… type @ to mention a project',
+    }),
+    ProjectMention,
+    SlashMention,
+    SendOnEnter,
+  ],
+  editorProps: {
+    attributes: { class: 'chat-input' },
+    clipboardTextSerializer: (slice: any) => {
+      return slice.content.textBetween(0, slice.content.size, '\n', mentionTextSerializer)
+    },
+    handlePaste: (_view, event) => {
+      const items = event.clipboardData?.items
+      if (items) {
+        const files: File[] = []
+        for (const item of items) {
+          if (item.kind === 'file') {
+            const f = item.getAsFile()
+            if (f) files.push(f)
+          }
+        }
+        if (files.length) {
+          event.preventDefault()
+          attachedFiles.value.push(...files)
+          return true
+        }
+      }
+
+      const html = event.clipboardData?.getData('text/html')
+      if (html && html.includes('mention-badge')) return false
+
+      const text = event.clipboardData?.getData('text/plain') || ''
+      if (!MENTION_TEXT_RE.test(text)) return false
+      MENTION_TEXT_RE.lastIndex = 0
+
+      const converted = text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(MENTION_TEXT_RE, (_, label, id) =>
+          `<span data-type="projectMention" data-id="${id}" data-label="${label}" class="mention-badge">@${label}</span>`)
+        .replace(/\n/g, '</p><p>')
+      editor.value?.commands.insertContent(`<p>${converted}</p>`)
+      event.preventDefault()
+      return true
+    },
+  },
+})
+
+function getTextContent(): string {
+  if (!editor.value) return ''
+  const doc = editor.value.state.doc
+  return doc.textBetween(0, doc.content.size, '\n', mentionTextSerializer).trim()
+}
+
+const isEmpty = computed(() => !editor.value || editor.value.isEmpty)
+
+function handleSend() {
+  const text = getTextContent()
+  if (!text && !attachedFiles.value.length) return
+  emit('send', text, [...attachedFiles.value])
+  attachedFiles.value = []
+  editor.value?.commands.clearContent()
+}
+
+function triggerMention() {
+  editor.value?.commands.focus()
+  editor.value?.commands.insertContent('@')
 }
 
 function handleDrop(e: DragEvent) {
@@ -173,10 +259,6 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function resetHeight() {
-  if (inputEl.value) inputEl.value.style.height = 'auto'
-}
-
 function handleClickOutside(e: MouseEvent) {
   const t = e.target as HTMLElement
   if (showMenu.value && !t.closest('.model-picker-wrap')) showMenu.value = false
@@ -185,7 +267,10 @@ function handleClickOutside(e: MouseEvent) {
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
-defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
+defineExpose({
+  focus: () => editor.value?.commands.focus(),
+  resetHeight: () => {},
+})
 </script>
 
 <style scoped>
@@ -254,14 +339,13 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
 .chat-input-wrapper:focus-within { border-color: var(--accent-primary); }
 .chat-input-wrapper.drag-active { border-color: var(--accent-primary); background: var(--bg-tertiary); }
 
-.chat-input {
+.chat-input-editor :deep(.chat-input) {
   border: none;
   background: transparent;
   color: var(--text-primary);
   font-size: 1.1rem;
   font-family: inherit;
   line-height: 1.5;
-  resize: none;
   outline: none;
   max-height: 280px;
   overflow-y: auto;
@@ -269,11 +353,32 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
   scrollbar-width: thin;
   scrollbar-color: var(--border-primary) transparent;
 }
-.chat-input::-webkit-scrollbar { width: 4px; }
-.chat-input::-webkit-scrollbar-track { background: transparent; }
-.chat-input::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 2px; }
-.chat-input::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-.chat-input::placeholder { color: var(--text-muted); }
+.chat-input-editor :deep(.chat-input)::-webkit-scrollbar { width: 4px; }
+.chat-input-editor :deep(.chat-input)::-webkit-scrollbar-track { background: transparent; }
+.chat-input-editor :deep(.chat-input)::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 2px; }
+
+.chat-input-editor :deep(.chat-input p) { margin: 0; }
+
+.chat-input-editor :deep(.chat-input p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.chat-input-editor :deep(.mention-badge) {
+  background: rgba(0, 0, 0, 0.45);
+  color: #d4dafe;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
 
 .input-bottom-row {
   display: flex;
@@ -282,6 +387,7 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
 }
 .input-bottom-spacer { flex: 1; }
 
+.mention-btn,
 .attach-btn {
   display: flex;
   align-items: center;
@@ -296,6 +402,7 @@ defineExpose({ focus: () => inputEl.value?.focus(), resetHeight })
   font-size: 1rem;
   transition: all 0.15s;
 }
+.mention-btn:hover,
 .attach-btn:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
 
 .model-picker-wrap { position: relative; }

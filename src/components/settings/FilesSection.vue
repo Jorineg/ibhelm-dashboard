@@ -8,7 +8,7 @@
         When a file is added or updated, the system automatically extracts metadata from the file path:
         <ul class="extraction-list">
           <li><strong>Email Attachment:</strong> Links to email if filename matches a downloaded attachment</li>
-          <li><strong>Project:</strong> Assigns to projects whose names appear in the file path</li>
+          <li><strong>Project:</strong> Uses <code>project_extensions.nas_folder_path</code> (NAS folder name) when set, otherwise Teamwork project name, if that string appears in the file path</li>
           <li><strong>Cost Group:</strong> Extracts cost group codes (e.g., KGR 430) from path segments</li>
           <li><strong>Document Type:</strong> Assigns document type if name appears in the path</li>
         </ul>

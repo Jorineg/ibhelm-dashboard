@@ -94,6 +94,7 @@
             :is-linking="isFileLinking"
             @rerun-linking="handleRerunFileLinking"
           />
+          <ProjectNasFoldersSection v-else-if="activeSection === 'project-nas'" />
           <CostGroupsSection
             v-else-if="activeSection === 'cost-groups'"
             :cost-group-linking-run="costGroupLinkingRun"
@@ -121,7 +122,7 @@ import {
   TaskTypesSection, PeopleSection, EmailsSection, FilesSection, 
   CostGroupsSection, LocationsSection, AppearanceSection, GeneralSection, 
   DisplaySection, KeyBindingsSection, SyncFiltersSection, LinkHandlingSection,
-  ModelsSection
+  ModelsSection, ProjectNasFoldersSection
 } from '@/components/settings'
 import SyncStatusIndicator from '@/components/SyncStatusIndicator.vue'
 import SyncStatusPanel from '@/components/SyncStatusPanel.vue'
@@ -201,6 +202,7 @@ const adminSections = [
   { id: 'people', label: 'People', icon: 'pi pi-users' },
   { id: 'emails', label: 'Emails', icon: 'pi pi-envelope' },
   { id: 'files', label: 'Files', icon: 'pi pi-file' },
+  { id: 'project-nas', label: 'Project NAS', icon: 'pi pi-folder-open' },
   { id: 'cost-groups', label: 'Cost Groups', icon: 'pi pi-dollar' },
   { id: 'locations', label: 'Locations', icon: 'pi pi-map-marker' }
 ]

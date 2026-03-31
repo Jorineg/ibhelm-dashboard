@@ -50,6 +50,48 @@
                 {{ t.label }}
               </button>
             </div>
+            <template v-if="selectedTier === 'activity'">
+              <div class="source-filters">
+                <button
+                  v-for="f in categoryFilterDefs"
+                  :key="f.key"
+                  class="source-filter-btn"
+                  :style="{
+                    '--sf-color': f.color,
+                    opacity: noCategoryFilters || activeCategoryFilters.has(f.key) ? 1 : 0.3,
+                  }"
+                  @click="toggleCategoryFilter(f.key)"
+                >{{ f.label }}</button>
+                <button v-if="!noCategoryFilters" class="source-filter-clear" @click="clearCategoryFilters">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="tier-search">
+                <i class="pi pi-search tier-search-icon"></i>
+                <input v-model="activitySearch" type="text" class="tier-search-input" placeholder="Search activity...">
+              </div>
+            </template>
+            <template v-if="selectedTier === 'changelog'">
+              <div class="source-filters">
+                <button
+                  v-for="f in sourceFilterDefs"
+                  :key="f.key"
+                  class="source-filter-btn"
+                  :style="{
+                    '--sf-color': f.color(),
+                    opacity: noFilters || isFilterActive(f.key) ? 1 : 0.3,
+                  }"
+                  @click="toggleSourceFilter(f.key)"
+                >{{ f.label }}</button>
+                <button v-if="!noFilters" class="source-filter-clear" @click="clearSourceFilters">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="tier-search">
+                <i class="pi pi-search tier-search-icon"></i>
+                <input v-model="eventSearch" type="text" class="tier-search-input" placeholder="Search events...">
+              </div>
+            </template>
             <span v-if="generatedAt" class="generated-at">
               Updated {{ formatRelativeTime(generatedAt) }}
             </span>
@@ -101,9 +143,8 @@
                       </div>
                     </div>
                   </div>
-                  <button v-if="activityHasMore" class="load-more-btn" @click="loadMoreActivity">
-                    Load more
-                  </button>
+                  <div v-if="activityLoading" class="scroll-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                  <div v-if="activityHasMore" ref="activitySentinel" class="scroll-sentinel"></div>
                 </div>
                 <div v-else class="empty-tier">No activity entries yet.</div>
               </template>
@@ -136,12 +177,16 @@
                             <span class="entry-date">{{ formatDate(entry.occurred_at) }}</span>
                           </div>
                           <div class="event-details">
-                            <span class="event-name">{{ eventTitle(entry) }}</span>
+                            <span v-if="nameChange(entry)" class="event-name change-inline-diff" v-html="inlineDiffHtml(String(nameChange(entry)!.old), String(nameChange(entry)!.new))"></span>
+                            <span v-else class="event-name">{{ eventTitle(entry) }}</span>
                             <template v-if="entry.event_type === 'changed' && entry.details?.changes">
-                              <div v-for="change in entry.details.changes" :key="change.field" class="change-row">
+                              <div v-for="change in entry.details.changes.filter((c: any) => c.field !== 'name')" :key="change.field" class="change-row">
                                 <span class="change-field">{{ change.field }}</span>
                                 <template v-if="change.diff">
                                   <span class="change-diff-label">diff</span>
+                                </template>
+                                <template v-else-if="change.field === 'description' && change.old && change.new">
+                                  <span class="change-inline-diff" v-html="inlineDiffHtml(String(change.old), String(change.new))"></span>
                                 </template>
                                 <template v-else>
                                   <span class="change-old">{{ change.old ?? '—' }}</span>
@@ -156,9 +201,8 @@
                       </div>
                     </div>
                   </div>
-                  <button v-if="eventHasMore" class="load-more-btn" @click="loadMoreEvents">
-                    Load more
-                  </button>
+                  <div v-if="eventLoading" class="scroll-loading"><i class="pi pi-spin pi-spinner"></i></div>
+                  <div v-if="eventHasMore" ref="eventSentinel" class="scroll-sentinel"></div>
                 </div>
                 <div v-else class="empty-tier">No events logged yet.</div>
               </template>
@@ -171,11 +215,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { PageHeader, NavigationTabs, DashboardHeaderActions } from '@/components/common'
 import { useAuth } from '@/composables/useAuth'
-import { useActivity, type ActivityTier, type ActivityEntry, type EventEntry } from '@/composables/useActivity'
+import { useActivity, type ActivityTier, type EventEntry, type SourceFilterKey } from '@/composables/useActivity'
 import { useAppearanceSettings } from '@/composables/useAppearanceSettings'
 import { useLinkTransform } from '@/composables/useLinkTransform'
 import { renderMarkdown } from '@/composables/useMarkdown'
@@ -190,10 +234,108 @@ const {
   projectsLoading, contentLoading,
   profileMarkdown, profileGeneratedAt,
   statusMarkdown, statusGeneratedAt,
-  activityEntries, activityHasMore,
-  eventEntries, eventHasMore,
+  activityEntries, activityHasMore, activityLoading,
+  eventEntries, eventHasMore, eventLoading,
+  activeSourceFilters, activeCategoryFilters,
+  activitySearch, eventSearch,
   fetchProjects, loadMoreActivity, loadMoreEvents,
 } = useActivity()
+
+// Infinite scroll
+const activitySentinel = ref<HTMLElement | null>(null)
+const eventSentinel = ref<HTMLElement | null>(null)
+let activityObserver: IntersectionObserver | null = null
+let eventObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  activityObserver = new IntersectionObserver(entries => {
+    if (entries[0]?.isIntersecting && activityHasMore.value && !activityLoading.value) loadMoreActivity()
+  }, { rootMargin: '200px' })
+  eventObserver = new IntersectionObserver(entries => {
+    if (entries[0]?.isIntersecting && eventHasMore.value && !eventLoading.value) loadMoreEvents()
+  }, { rootMargin: '200px' })
+
+  watch(activitySentinel, (el, _, onCleanup) => {
+    if (!el) return
+    activityObserver!.observe(el)
+    onCleanup(() => activityObserver!.unobserve(el))
+  }, { immediate: true })
+
+  watch(eventSentinel, (el, _, onCleanup) => {
+    if (!el) return
+    eventObserver!.observe(el)
+    onCleanup(() => eventObserver!.unobserve(el))
+  }, { immediate: true })
+})
+
+onUnmounted(() => {
+  activityObserver?.disconnect()
+  eventObserver?.disconnect()
+})
+
+// Source type filter
+const PROFILE_COLOR = '#a78bfa'
+
+const sourceFilterDefs: { key: SourceFilterKey; label: string; color: () => string }[] = [
+  { key: 'task', label: 'Task', color: () => TASK_COLOR },
+  { key: 'email', label: 'Email', color: () => emailColor.value },
+  { key: 'craft', label: 'Craft', color: () => craftColor.value },
+  { key: 'file', label: 'File', color: () => fileColor.value },
+  { key: 'profile', label: 'Profile', color: () => PROFILE_COLOR },
+]
+
+const isFilterActive = (key: SourceFilterKey) => activeSourceFilters.value.has(key)
+const noFilters = computed(() => activeSourceFilters.value.size === 0)
+
+const toggleSourceFilter = (key: SourceFilterKey) => {
+  const s = activeSourceFilters.value
+  if (s.has(key)) {
+    s.delete(key)
+  } else {
+    s.add(key)
+  }
+  activeSourceFilters.value = new Set(s)
+}
+
+const clearSourceFilters = () => {
+  activeSourceFilters.value = new Set()
+}
+
+// Category filter (Tier 3)
+const CATEGORY_COLORS: Record<string, string> = {
+  decision: '#6bb3ff',
+  blocker: '#f87171',
+  resolution: '#4ade80',
+  progress: '#22d3ee',
+  milestone: '#fbbf24',
+  risk: '#fb923c',
+  scope_change: '#c084fc',
+  communication: '#9ca3af',
+}
+
+const categoryFilterDefs = computed(() =>
+  Object.entries(categoryLabels).map(([key, label]) => ({
+    key,
+    label,
+    color: CATEGORY_COLORS[key] ?? '#9ca3af',
+  }))
+)
+
+const noCategoryFilters = computed(() => activeCategoryFilters.value.size === 0)
+
+const toggleCategoryFilter = (key: string) => {
+  const s = activeCategoryFilters.value
+  if (s.has(key)) {
+    s.delete(key)
+  } else {
+    s.add(key)
+  }
+  activeCategoryFilters.value = new Set(s)
+}
+
+const clearCategoryFilters = () => {
+  activeCategoryFilters.value = new Set()
+}
 
 const tiers: { id: ActivityTier; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -221,24 +363,29 @@ const sourceLabels: Record<string, string> = {
   'project_craft_documents': 'Craft',
   'craft_documents': 'Craft',
   'files': 'File',
+  'project_extensions': 'Profile',
 }
 
-const sourceKey = (table: string) => {
+const sourceKey = (table: string): string => {
   if (table.includes('task')) return 'task'
   if (table.includes('conversation') || table.includes('message')) return 'email'
   if (table.includes('craft')) return 'craft'
   if (table.includes('file')) return 'file'
+  if (table === 'project_extensions') return 'profile'
   return 'other'
 }
 
 const TASK_COLOR = '#4ade80'
 
+const sourceColor = (key: string): string =>
+  key === 'email' ? emailColor.value
+  : key === 'craft' ? craftColor.value
+  : key === 'file' ? fileColor.value
+  : key === 'profile' ? PROFILE_COLOR
+  : TASK_COLOR
+
 const getSourceBadgeStyle = (entry: EventEntry) => {
-  const key = sourceKey(entry.source_table)
-  const color = key === 'email' ? emailColor.value
-    : key === 'craft' ? craftColor.value
-    : key === 'file' ? fileColor.value
-    : TASK_COLOR
+  const color = sourceColor(sourceKey(entry.source_table))
   return { background: `${color}20`, color, borderColor: `${color}40` }
 }
 
@@ -341,27 +488,28 @@ const formatRelativeTime = (iso: string) => {
 
 const eventTitle = (entry: EventEntry): string => {
   const d = entry.details
-  return d?.name || d?.title || d?.subject || d?.filename || `${entry.source_table}#${entry.source_id}`
+  const name = d?.name || d?.title || d?.subject || d?.filename || `${entry.source_table}#${entry.source_id}`
+  return d?.parent_name ? `${name} (${d.parent_name})` : name
 }
+
+const nameChange = (entry: EventEntry) =>
+  entry.event_type === 'changed' && entry.details?.changes?.find((c: any) => c.field === 'name' && c.old && c.new) || null
 
 // Inline diff renderer
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-const diffTokenize = (s: string): string[] => s.match(/\S+|\s+/g) || []
+type DiffSeg = { t: 'same' | 'del' | 'ins'; s: string }
 
-const wordDiffHtml = (oldStr: string, newStr: string): string => {
-  const a = diffTokenize(oldStr), b = diffTokenize(newStr)
-  if (!a.length && !b.length) return ''
-  if (!a.length) return `<span class="diff-ins">${esc(newStr)}</span>`
-  if (!b.length) return `<span class="diff-del">${esc(oldStr)}</span>`
+const tokenize = (s: string): string[] => s.match(/[\p{L}\p{N}]+|[^\p{L}\p{N}]/gu) || []
 
+const lcs = (a: string[], b: string[]): DiffSeg[] => {
   const m = a.length, n = b.length
-  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1))
+  const dp = Array.from({ length: m + 1 }, () => new Uint32Array(n + 1))
   for (let i = 1; i <= m; i++)
     for (let j = 1; j <= n; j++)
       dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1])
 
-  const stack: { t: 'same' | 'del' | 'ins'; s: string }[] = []
+  const stack: DiffSeg[] = []
   let i = m, j = n
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
@@ -373,18 +521,36 @@ const wordDiffHtml = (oldStr: string, newStr: string): string => {
     }
   }
 
-  const segs: { t: string; s: string }[] = []
+  const segs: DiffSeg[] = []
   while (stack.length) {
     const seg = stack.pop()!
     if (segs.length && segs[segs.length - 1].t === seg.t) segs[segs.length - 1].s += seg.s
     else segs.push({ ...seg })
   }
+  return segs
+}
 
-  return segs.map(s =>
-    s.t === 'del' ? `<span class="diff-del">${esc(s.s)}</span>`
-    : s.t === 'ins' ? `<span class="diff-ins">${esc(s.s)}</span>`
-    : esc(s.s)
-  ).join('')
+const segHtml = (segs: DiffSeg[]): string => segs.map(s =>
+  s.t === 'del' ? `<span class="diff-del">${esc(s.s)}</span>`
+  : s.t === 'ins' ? `<span class="diff-ins">${esc(s.s)}</span>`
+  : esc(s.s)
+).join('')
+
+const inlineDiffHtml = (oldStr: string, newStr: string): string => {
+  if (oldStr === newStr) return esc(oldStr)
+  if (!oldStr) return `<span class="diff-ins">${esc(newStr)}</span>`
+  if (!newStr) return `<span class="diff-del">${esc(oldStr)}</span>`
+  const a = tokenize(oldStr), b = tokenize(newStr)
+  let pre = 0
+  while (pre < a.length && pre < b.length && a[pre] === b[pre]) pre++
+  let suf = 0
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] === b[b.length - 1 - suf]) suf++
+  const midSegs = lcs(a.slice(pre, a.length - suf), b.slice(pre, b.length - suf))
+  const segs: DiffSeg[] = []
+  if (pre) segs.push({ t: 'same', s: a.slice(0, pre).join('') })
+  segs.push(...midSegs)
+  if (suf) segs.push({ t: 'same', s: a.slice(a.length - suf).join('') })
+  return segHtml(segs)
 }
 
 const renderDiffBlock = (raw: string): string => {
@@ -412,7 +578,7 @@ const renderDiffBlock = (raw: string): string => {
       const pairs = Math.max(removed.length, added.length)
       for (let j = 0; j < pairs; j++) {
         if (j < removed.length && j < added.length) {
-          html.push(`<div class="diff-line">${wordDiffHtml(removed[j], added[j])}</div>`)
+          html.push(`<div class="diff-line">${inlineDiffHtml(removed[j], added[j])}</div>`)
         } else if (j < removed.length) {
           html.push(`<div class="diff-line"><span class="diff-del">${esc(removed[j])}</span></div>`)
         } else {
@@ -855,6 +1021,26 @@ onMounted(async () => {
   font-style: italic;
 }
 
+.change-inline-diff {
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.change-inline-diff :deep(.diff-del) {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0.05rem 0.15rem;
+}
+
+.change-inline-diff :deep(.diff-ins) {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border-radius: 2px;
+  padding: 0.05rem 0.15rem;
+}
+
 .diff-block {
   margin-top: 0.5rem;
   padding: 0.75rem;
@@ -898,23 +1084,93 @@ onMounted(async () => {
   padding: 0.05rem 0.15rem;
 }
 
-/* Load more */
-.load-more-btn {
-  align-self: center;
-  margin-top: 0.5rem;
-  padding: 0.5rem 1.5rem;
-  background: transparent;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+/* Source filter buttons */
+.source-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0.5rem;
+}
+
+.source-filter-btn {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--sf-color);
+  background: color-mix(in srgb, var(--sf-color) 15%, transparent);
+  color: var(--sf-color);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.source-filter-btn:hover {
+  filter: brightness(1.2);
+}
+
+.source-filter-clear {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--border-secondary);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
   transition: all 0.15s ease;
 }
 
-.load-more-btn:hover {
-  background: var(--bg-tertiary);
+.source-filter-clear:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+/* Search bar */
+.tier-search {
+  position: relative;
+  margin-left: auto;
+}
+
+.tier-search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.tier-search-input {
+  padding: 0.3rem 0.5rem 0.3rem 1.7rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  width: 180px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.tier-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.tier-search-input:focus {
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+}
+
+/* Infinite scroll */
+.scroll-sentinel {
+  height: 1px;
+}
+
+.scroll-loading {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  color: var(--text-muted);
 }
 </style>

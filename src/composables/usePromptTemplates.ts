@@ -5,9 +5,15 @@ export interface PromptTemplate {
   id: string
   owner_id: string | null
   title: string
-  category: 'prompt' | 'component' | 'doc'
+  category: 'prompt' | 'skill' | 'doc'
   content: string
   description: string | null
+  summary: string | null
+  hidden: boolean
+  tags: string[]
+  prompt_role: 'system' | 'user' | null
+  db_functions: string[]
+  py_functions: string[]
   is_system: boolean
   db_created_at: string
   db_updated_at: string
@@ -19,7 +25,7 @@ const error = ref<string | null>(null)
 
 export function usePromptTemplates() {
   const prompts = computed(() => templates.value.filter(t => t.category === 'prompt'))
-  const components = computed(() => templates.value.filter(t => t.category === 'component'))
+  const skills = computed(() => templates.value.filter(t => t.category === 'skill'))
   const docs = computed(() => templates.value.filter(t => t.category === 'doc'))
 
   async function fetchAll() {
@@ -84,7 +90,7 @@ export function usePromptTemplates() {
   return {
     templates,
     prompts,
-    components,
+    skills,
     docs,
     loading,
     error,

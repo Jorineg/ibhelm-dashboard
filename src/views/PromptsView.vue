@@ -53,6 +53,8 @@
               <h2>{{ selected.title }}</h2>
               <span class="template-badge">{{ selected.id }}</span>
               <span v-if="selected.is_system" class="system-badge">system</span>
+              <span v-if="selected.prompt_role" class="role-badge">{{ selected.prompt_role }}</span>
+              <span v-if="selected.hidden" class="hidden-badge">hidden</span>
             </div>
             <div class="toolbar-right">
               <div v-if="deps.length" class="deps-info">
@@ -120,6 +122,14 @@
             </div>
           </div>
 
+          <!-- Metadata bar -->
+          <div v-if="selected.summary || (selected.tags && selected.tags.length) || (selected.db_functions && selected.db_functions.length) || (selected.py_functions && selected.py_functions.length)" class="meta-bar">
+            <span v-if="selected.summary" class="meta-bar-summary">{{ selected.summary }}</span>
+            <span v-for="tag in (selected.tags || [])" :key="tag" class="meta-tag">{{ tag }}</span>
+            <span v-for="fn in (selected.db_functions || [])" :key="'db:'+fn" class="meta-fn db-fn">{{ fn }}</span>
+            <span v-for="fn in (selected.py_functions || [])" :key="'py:'+fn" class="meta-fn py-fn">{{ fn }}</span>
+          </div>
+
           <!-- Edit / Preview pane -->
           <div class="content-pane">
             <div v-if="editing" class="editor-pane">
@@ -137,6 +147,40 @@
                   <span>Description</span>
                   <input v-model="editDescription" class="meta-input" />
                 </label>
+                <label>
+                  <span>Summary</span>
+                  <input v-model="editSummary" class="meta-input" placeholder="Short summary for index listings" />
+                </label>
+                <div class="meta-row">
+                  <label>
+                    <span>Tags</span>
+                    <input v-model="editTags" class="meta-input" placeholder="comma-separated" />
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="editHidden" />
+                    <span>Hidden</span>
+                  </label>
+                  <label v-if="activeCategory === 'prompt'">
+                    <span>Role</span>
+                    <select v-model="editPromptRole" class="meta-input">
+                      <option :value="null">–</option>
+                      <option value="system">system</option>
+                      <option value="user">user</option>
+                    </select>
+                  </label>
+                </div>
+                <template v-if="activeCategory === 'skill'">
+                  <div class="meta-row">
+                    <label>
+                      <span>DB Functions</span>
+                      <input v-model="editDbFunctions" class="meta-input" placeholder="comma-separated" />
+                    </label>
+                    <label>
+                      <span>PY Functions</span>
+                      <input v-model="editPyFunctions" class="meta-input" placeholder="comma-separated" />
+                    </label>
+                  </div>
+                </template>
               </div>
               <div ref="editorContainer" class="cm-container"></div>
             </div>
@@ -168,15 +212,15 @@ import { oneDark } from '@codemirror/theme-one-dark'
 
 const { isAdmin } = useAuth()
 const {
-  templates, prompts, components, docs,
+  templates, prompts, skills, docs,
   loading, fetchAll, save, remove, getDependencies, getUsedBy,
 } = usePromptTemplates()
 
-type Category = 'prompt' | 'component' | 'doc'
+type Category = 'prompt' | 'skill' | 'doc'
 
 const categories = [
   { id: 'prompt' as Category, label: 'Prompts', icon: 'pi pi-comments' },
-  { id: 'component' as Category, label: 'Components', icon: 'pi pi-th-large' },
+  { id: 'skill' as Category, label: 'Skills', icon: 'pi pi-bolt' },
   { id: 'doc' as Category, label: 'Docs', icon: 'pi pi-book' },
 ]
 
@@ -190,6 +234,12 @@ const showInsertMenu = ref(false)
 const editId = ref('')
 const editTitle = ref('')
 const editDescription = ref('')
+const editSummary = ref('')
+const editHidden = ref(false)
+const editPromptRole = ref<string | null>(null)
+const editTags = ref('')
+const editDbFunctions = ref('')
+const editPyFunctions = ref('')
 const editContent = ref('')
 
 const deps = ref<string[]>([])
@@ -201,7 +251,7 @@ const editorView = shallowRef<EditorView | null>(null)
 const filteredTemplates = computed(() => {
   const map: Record<Category, PromptTemplate[]> = {
     prompt: prompts.value,
-    component: components.value,
+    skill: skills.value,
     doc: docs.value,
   }
   return map[activeCategory.value] || []
@@ -215,18 +265,24 @@ const canEdit = computed(() => {
 
 const hasChanges = computed(() => {
   if (!selected.value) return false
-  const currentContent = editContent.value
+  const s = selected.value
   return (
-    editTitle.value !== selected.value.title ||
-    editDescription.value !== (selected.value.description || '') ||
-    currentContent !== selected.value.content ||
-    (isCreating.value && editId.value !== selected.value.id)
+    editTitle.value !== s.title ||
+    editDescription.value !== (s.description || '') ||
+    editSummary.value !== (s.summary || '') ||
+    editHidden.value !== s.hidden ||
+    editPromptRole.value !== s.prompt_role ||
+    editTags.value !== (s.tags || []).join(', ') ||
+    editDbFunctions.value !== (s.db_functions || []).join(', ') ||
+    editPyFunctions.value !== (s.py_functions || []).join(', ') ||
+    editContent.value !== s.content ||
+    (isCreating.value && editId.value !== s.id)
   )
 })
 
 const insertCategories = computed(() => [
   { id: 'prompt', label: 'Prompts', items: prompts.value },
-  { id: 'component', label: 'Components', items: components.value },
+  { id: 'skill', label: 'Skills', items: skills.value },
   { id: 'doc', label: 'Docs', items: docs.value },
 ])
 
@@ -260,6 +316,12 @@ function selectTemplate(t: PromptTemplate) {
   editId.value = t.id
   editTitle.value = t.title
   editDescription.value = t.description || ''
+  editSummary.value = t.summary || ''
+  editHidden.value = t.hidden
+  editPromptRole.value = t.prompt_role
+  editTags.value = (t.tags || []).join(', ')
+  editDbFunctions.value = (t.db_functions || []).join(', ')
+  editPyFunctions.value = (t.py_functions || []).join(', ')
   editContent.value = t.content
 
   getDependencies(t.id).then(d => deps.value = d).catch(() => deps.value = [])
@@ -268,12 +330,18 @@ function selectTemplate(t: PromptTemplate) {
 
 function startCreate() {
   const newTemplate: PromptTemplate = {
-    id: `${activeCategory.value}.new_template`,
+    id: `${activeCategory.value}.new-template`,
     owner_id: null,
     title: 'New Template',
     category: activeCategory.value,
     content: '',
     description: '',
+    summary: null,
+    hidden: false,
+    tags: [],
+    prompt_role: null,
+    db_functions: [],
+    py_functions: [],
     is_system: false,
     db_created_at: new Date().toISOString(),
     db_updated_at: new Date().toISOString(),
@@ -284,6 +352,12 @@ function startCreate() {
   editId.value = newTemplate.id
   editTitle.value = newTemplate.title
   editDescription.value = ''
+  editSummary.value = ''
+  editHidden.value = false
+  editPromptRole.value = null
+  editTags.value = ''
+  editDbFunctions.value = ''
+  editPyFunctions.value = ''
   editContent.value = ''
   deps.value = []
   usedBy.value = []
@@ -297,25 +371,39 @@ function toggleEdit() {
   showInsertMenu.value = false
 }
 
+function parseCommaSeparated(s: string): string[] {
+  return s ? s.split(',').map(x => x.trim()).filter(Boolean) : []
+}
+
 async function handleSave() {
   if (!selected.value) return
   saving.value = true
   try {
+    const cat = selected.value.category
     const content = editContent.value
-    await save({
+    const updates: Partial<PromptTemplate> & { id: string } = {
       id: isCreating.value ? editId.value : selected.value.id,
       title: editTitle.value,
       description: editDescription.value || null,
+      summary: editSummary.value || null,
+      hidden: editHidden.value,
+      tags: parseCommaSeparated(editTags.value),
       content,
-      category: selected.value.category,
-    } as any)
+      category: cat,
+    }
+    if (cat === 'prompt') updates.prompt_role = editPromptRole.value || null
+    if (cat === 'skill') {
+      updates.db_functions = parseCommaSeparated(editDbFunctions.value)
+      updates.py_functions = parseCommaSeparated(editPyFunctions.value)
+    }
+    await save(updates as any)
     if (isCreating.value) {
       await fetchAll()
       const created = templates.value.find(t => t.id === editId.value)
       if (created) selectTemplate(created)
       isCreating.value = false
     } else {
-      selected.value = { ...selected.value, title: editTitle.value, description: editDescription.value, content }
+      selected.value = { ...selected.value, ...updates }
     }
   } catch (e: any) {
     alert('Save failed: ' + e.message)
@@ -589,6 +677,41 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1.25rem;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.meta-bar-summary {
+  flex-basis: 100%;
+  font-style: italic;
+}
+.meta-tag {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+}
+.meta-fn {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+.db-fn {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-primary);
+}
+.py-fn {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-secondary, #10b981);
+}
 
 .toolbar-left {
   display: flex;
@@ -613,14 +736,24 @@ onMounted(() => {
   padding: 0.15rem 0.5rem;
   border-radius: var(--radius-sm);
 }
-.system-badge {
+.system-badge, .role-badge, .hidden-badge {
   font-size: 0.7rem;
-  color: var(--accent-primary);
-  background: var(--accent-primary-transparent, rgba(99, 102, 241, 0.1));
   padding: 0.15rem 0.4rem;
   border-radius: var(--radius-sm);
   font-weight: 600;
   text-transform: uppercase;
+}
+.system-badge {
+  color: var(--accent-primary);
+  background: var(--accent-primary-transparent, rgba(99, 102, 241, 0.1));
+}
+.role-badge {
+  color: var(--accent-secondary, #10b981);
+  background: rgba(16, 185, 129, 0.1);
+}
+.hidden-badge {
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
 }
 
 .toolbar-right {
@@ -807,16 +940,16 @@ onMounted(() => {
 
 .meta-fields {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border-primary);
   flex-shrink: 0;
 }
-.meta-fields label {
+.meta-fields > label {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  flex: 1;
 }
 .meta-fields label span {
   font-size: 0.7rem;
@@ -824,7 +957,29 @@ onMounted(() => {
   color: var(--text-tertiary);
   text-transform: uppercase;
 }
-.meta-input {
+.meta-row {
+  display: flex;
+  gap: 1rem;
+  align-items: end;
+}
+.meta-row > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  flex: 0 !important;
+  white-space: nowrap;
+  padding-bottom: 0.4rem;
+}
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent-primary);
+}
+.meta-input, select.meta-input {
   padding: 0.4rem 0.6rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);

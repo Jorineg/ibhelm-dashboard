@@ -113,6 +113,7 @@
               :msg="streamingMsg"
               :is-streaming="streaming.isStreaming"
               :current-tool-id="streaming.currentToolId"
+              :status-message="streaming.statusMessage"
               :available-models="availableModels"
             />
           </template>
@@ -120,12 +121,10 @@
 
         <ChatInput
           ref="chatInputRef"
-          :model-value="inputText"
           :models="availableModels"
           :selected-model-id="selectedModelId"
           :selected-model="selectedModel"
           :sending="sendingMessage"
-          @update:model-value="inputText = $event"
           @send="handleSend"
           @stop="cancelStream"
           @update:selected-model-id="selectedModelId = $event"
@@ -161,7 +160,6 @@ const editingMessageId = ref<string | null>(null)
 const editText = ref('')
 const sessionSearch = ref('')
 const showUsage = ref(false)
-const inputText = ref('')
 const messagesContainer = ref<HTMLElement>()
 const chatInputRef = ref<InstanceType<typeof ChatInput>>()
 const retryModelMenuIdx = ref<number | null>(null)
@@ -255,11 +253,8 @@ async function handleDelete(id: string) {
   await deleteSession(id)
 }
 
-async function handleSend(files?: File[]) {
-  const text = inputText.value.trim()
+async function handleSend(text: string, files?: File[]) {
   if ((!text && (!files || !files.length)) || sendingMessage.value) return
-  inputText.value = ''
-  chatInputRef.value?.resetHeight()
   if (!(await ensureSession())) return
   scrollToBottom()
   await sendMessage(text || '(files attached)', undefined, files?.length ? files : undefined)

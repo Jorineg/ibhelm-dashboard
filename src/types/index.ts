@@ -240,6 +240,7 @@ export interface DataItem {
 export interface ProjectItem {
   id: number
   name: string
+  company_id?: number | null
   description?: string
   status?: string
   start_date?: string
