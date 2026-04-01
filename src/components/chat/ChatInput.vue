@@ -44,6 +44,9 @@
         <button class="mention-btn" @click="triggerMention" title="Mention a project (@)">
           <i class="pi pi-at"></i>
         </button>
+        <button class="slash-btn" @click="triggerSlash" title="Include a skill or doc (/)">
+          <i class="pi pi-book"></i>
+        </button>
         <button class="attach-btn" @click="openFilePicker" title="Attach files">
           <i class="pi pi-paperclip"></i>
         </button>
@@ -88,15 +91,20 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
 import { Extension } from '@tiptap/core'
 import { createSuggestion } from './mentionSuggestion'
+import { createSlashSuggestion } from './slashSuggestion'
 import type { ChatModel } from '@/composables/useChat'
 
-const MENTION_NAMES = ['projectMention', 'slashProjectMention']
 const MENTION_TEXT_RE = /@\[([^\]]+)\]\((\d+)\)/g
+const SLASH_TEXT_RE = /\/\[([^\]]+)\]\(([^)]+)\)/g
 
 function mentionTextSerializer(node: any): string {
-  if (MENTION_NAMES.includes(node.type.name)) {
+  if (node.type.name === 'projectMention') {
     return `@[${node.attrs.label}](${node.attrs.id})`
   }
+  if (node.type.name === 'templateMention') {
+    return `/[${node.attrs.label}](${node.attrs.id})`
+  }
+  if (node.type.name === 'hardBreak') return '\n'
   return ''
 }
 
@@ -118,7 +126,8 @@ const showMenu = ref(false)
 const dragActive = ref(false)
 const attachedFiles = ref<File[]>([])
 
-const suggestion = createSuggestion()
+const projectSuggestion = createSuggestion()
+const slashSuggestion = createSlashSuggestion()
 
 const SendOnEnter = Extension.create({
   name: 'sendOnEnter',
@@ -146,25 +155,37 @@ const ProjectMention = Mention.extend({
 }).configure({
   HTMLAttributes: { class: 'mention-badge' },
   renderLabel: ({ node }: any) => `@${node.attrs.label}`,
-  suggestion: { ...suggestion, char: '@' },
+  suggestion: { ...projectSuggestion, char: '@' },
 })
 
-const SlashMention = Mention.extend({
-  name: 'slashProjectMention',
+const TemplateMention = Mention.extend({
+  name: 'templateMention',
+  parseHTML() {
+    return [
+      { tag: `span[data-type="${this.name}"]` },
+      {
+        tag: 'span.template-badge[data-id]',
+        getAttrs: (el: HTMLElement) => ({
+          id: el.getAttribute('data-id'),
+          label: el.textContent?.replace(/^\//, '') || '',
+        }),
+      },
+    ]
+  },
 }).configure({
-  HTMLAttributes: { class: 'mention-badge' },
-  renderLabel: ({ node }: any) => `@${node.attrs.label}`,
-  suggestion: { ...suggestion, char: '/' },
+  HTMLAttributes: { class: 'template-badge' },
+  renderLabel: ({ node }: any) => `/${node.attrs.label}`,
+  suggestion: { ...slashSuggestion, char: '/' },
 })
 
 const editor = useEditor({
   extensions: [
     Document, Paragraph, Text, HardBreak, History,
     Placeholder.configure({
-      placeholder: 'Message… type @ to mention a project',
+      placeholder: 'Message… @ for projects, / for skills & docs',
     }),
     ProjectMention,
-    SlashMention,
+    TemplateMention,
     SendOnEnter,
   ],
   editorProps: {
@@ -190,16 +211,21 @@ const editor = useEditor({
       }
 
       const html = event.clipboardData?.getData('text/html')
-      if (html && html.includes('mention-badge')) return false
+      if (html && (html.includes('mention-badge') || html.includes('template-badge'))) return false
 
       const text = event.clipboardData?.getData('text/plain') || ''
-      if (!MENTION_TEXT_RE.test(text)) return false
+      const hasMentions = MENTION_TEXT_RE.test(text)
       MENTION_TEXT_RE.lastIndex = 0
+      const hasTemplates = SLASH_TEXT_RE.test(text)
+      SLASH_TEXT_RE.lastIndex = 0
+      if (!hasMentions && !hasTemplates) return false
 
       const converted = text
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(MENTION_TEXT_RE, (_, label, id) =>
           `<span data-type="projectMention" data-id="${id}" data-label="${label}" class="mention-badge">@${label}</span>`)
+        .replace(SLASH_TEXT_RE, (_, label, id) =>
+          `<span data-type="templateMention" data-id="${id}" data-label="${label}" class="template-badge">/${label}</span>`)
         .replace(/\n/g, '</p><p>')
       editor.value?.commands.insertContent(`<p>${converted}</p>`)
       event.preventDefault()
@@ -227,6 +253,11 @@ function handleSend() {
 function triggerMention() {
   editor.value?.commands.focus()
   editor.value?.commands.insertContent('@')
+}
+
+function triggerSlash() {
+  editor.value?.commands.focus()
+  editor.value?.commands.insertContent('/')
 }
 
 function handleDrop(e: DragEvent) {
@@ -380,6 +411,19 @@ defineExpose({
   letter-spacing: 0.01em;
 }
 
+.chat-input-editor :deep(.template-badge) {
+  background: rgba(168, 85, 247, 0.25);
+  color: #d8b4fe;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
 .input-bottom-row {
   display: flex;
   align-items: center;
@@ -388,6 +432,7 @@ defineExpose({
 .input-bottom-spacer { flex: 1; }
 
 .mention-btn,
+.slash-btn,
 .attach-btn {
   display: flex;
   align-items: center;
@@ -403,6 +448,7 @@ defineExpose({
   transition: all 0.15s;
 }
 .mention-btn:hover,
+.slash-btn:hover,
 .attach-btn:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
 
 .model-picker-wrap { position: relative; }

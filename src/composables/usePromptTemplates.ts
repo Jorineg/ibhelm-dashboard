@@ -7,7 +7,6 @@ export interface PromptTemplate {
   title: string
   category: 'prompt' | 'skill' | 'doc'
   content: string
-  description: string | null
   summary: string | null
   hidden: boolean
   tags: string[]

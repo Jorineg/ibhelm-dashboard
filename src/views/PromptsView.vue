@@ -22,7 +22,7 @@
           <Tooltip
             v-for="t in filteredTemplates"
             :key="t.id"
-            :text="(t.description || '').trim()"
+            :text="(t.summary || '').trim()"
             position="right"
             block
           >
@@ -144,10 +144,6 @@
                   <input v-model="editTitle" class="meta-input" />
                 </label>
                 <label>
-                  <span>Description</span>
-                  <input v-model="editDescription" class="meta-input" />
-                </label>
-                <label>
                   <span>Summary</span>
                   <input v-model="editSummary" class="meta-input" placeholder="Short summary for index listings" />
                 </label>
@@ -233,7 +229,6 @@ const showInsertMenu = ref(false)
 
 const editId = ref('')
 const editTitle = ref('')
-const editDescription = ref('')
 const editSummary = ref('')
 const editHidden = ref(false)
 const editPromptRole = ref<string | null>(null)
@@ -268,7 +263,6 @@ const hasChanges = computed(() => {
   const s = selected.value
   return (
     editTitle.value !== s.title ||
-    editDescription.value !== (s.description || '') ||
     editSummary.value !== (s.summary || '') ||
     editHidden.value !== s.hidden ||
     editPromptRole.value !== s.prompt_role ||
@@ -287,8 +281,8 @@ const insertCategories = computed(() => [
 ])
 
 function insertItemTooltip(t: PromptTemplate): string {
-  const d = (t.description || '').trim()
-  return d ? `${t.id}\n${d}` : t.id
+  const s = (t.summary || '').trim()
+  return s ? `${t.id}\n${s}` : t.id
 }
 
 function highlightDirectives(html: string): string {
@@ -315,7 +309,6 @@ function selectTemplate(t: PromptTemplate) {
   selected.value = t
   editId.value = t.id
   editTitle.value = t.title
-  editDescription.value = t.description || ''
   editSummary.value = t.summary || ''
   editHidden.value = t.hidden
   editPromptRole.value = t.prompt_role
@@ -335,7 +328,6 @@ function startCreate() {
     title: 'New Template',
     category: activeCategory.value,
     content: '',
-    description: '',
     summary: null,
     hidden: false,
     tags: [],
@@ -351,7 +343,6 @@ function startCreate() {
   editing.value = true
   editId.value = newTemplate.id
   editTitle.value = newTemplate.title
-  editDescription.value = ''
   editSummary.value = ''
   editHidden.value = false
   editPromptRole.value = null
@@ -384,7 +375,6 @@ async function handleSave() {
     const updates: Partial<PromptTemplate> & { id: string } = {
       id: isCreating.value ? editId.value : selected.value.id,
       title: editTitle.value,
-      description: editDescription.value || null,
       summary: editSummary.value || null,
       hidden: editHidden.value,
       tags: parseCommaSeparated(editTags.value),

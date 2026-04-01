@@ -38,6 +38,10 @@
                   <button class="section-trigger" @click="toggle(`g-${gi}`)">
                     <i class="pi pi-code tool-icon"></i>
                     <span>{{ workGroupSummary(group.items!, isStreaming && gi === groups.length - 1) }}</span>
+                    <span
+                      v-for="pill in extractGroupResources(group.items!)" :key="`${pill.type}:${pill.label}`"
+                      class="resource-pill" :class="`pill-${pill.type}`"
+                    >{{ pill.label }}</span>
                     <i v-if="isStreaming && gi === groups.length - 1" class="pi pi-spin pi-spinner tool-spinner"></i>
                     <i class="pi pi-chevron-right tool-chevron"></i>
                   </button>
@@ -49,6 +53,10 @@
                             <button class="section-trigger" @click="toggle(`c-${item.id}`)">
                               <i class="pi pi-code tool-icon"></i>
                               <span>Python</span>
+                              <span
+                                v-for="pill in extractResources(item.code)" :key="`${pill.type}:${pill.label}`"
+                                class="resource-pill" :class="`pill-${pill.type}`"
+                              >{{ pill.label }}</span>
                               <span v-if="item.error" class="tool-error-badge">error</span>
                               <i v-if="item.id === currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
                               <i class="pi pi-chevron-right tool-chevron"></i>
@@ -86,6 +94,10 @@
                   <button class="section-trigger" @click="toggle(`c-${group.items![0].id}`)">
                     <i class="pi pi-code tool-icon"></i>
                     <span>Python</span>
+                    <span
+                      v-for="pill in extractResources(group.items![0].code)" :key="`${pill.type}:${pill.label}`"
+                      class="resource-pill" :class="`pill-${pill.type}`"
+                    >{{ pill.label }}</span>
                     <span v-if="group.items![0].error" class="tool-error-badge">error</span>
                     <i class="pi pi-chevron-right tool-chevron"></i>
                   </button>
@@ -183,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   calcMessageLlmCost,
   calcMessageTotalCost,
@@ -278,6 +290,81 @@ function workGroupSummary(items: ContentBlock[], running = false): string {
   return `Thinking (${thinkCount} ${thinkCount === 1 ? 'step' : 'steps'})`
 }
 
+interface ResourcePill { type: 'skill' | 'doc' | 'project'; label: string; projectId?: number }
+
+const _SKILL_RE = /load_skill\(["']([^"']+)["']\)/g
+const _PROJECT_CTX_INLINE_RE = /get_project_context\((\d+)\)/g
+const _PROJECT_CTX_PARAM_RE = /get_project_context\(\$\d+\)["']\s*,\s*(\d+)/g
+
+const _projectNames = reactive(new Map<number, string>())
+const _projectFetchQueue = new Set<number>()
+let _fetchTimer: ReturnType<typeof setTimeout> | null = null
+
+function _flushProjectNames() {
+  _fetchTimer = null
+  const ids = [..._projectFetchQueue]
+  _projectFetchQueue.clear()
+  if (!ids.length) return
+  supabase.rpc('get_projects_by_ids', { p_ids: ids }).then(({ data }) => {
+    for (const r of data || []) _projectNames.set(r.id, r.name)
+  })
+}
+
+function _ensureProjectName(id: number) {
+  if (_projectNames.has(id)) return
+  _projectFetchQueue.add(id)
+  if (!_fetchTimer) _fetchTimer = setTimeout(_flushProjectNames, 10)
+}
+
+function projectLabel(id: number): string {
+  return _projectNames.get(id) || `#${id}`
+}
+
+function extractRawResources(code: string | undefined): ResourcePill[] {
+  if (!code) return []
+  const pills: ResourcePill[] = []
+  const seen = new Set<string>()
+  for (const m of code.matchAll(_SKILL_RE)) {
+    const id = m[1]
+    if (seen.has(id)) continue
+    seen.add(id)
+    const label = id.replace(/^(skill|doc)\./, '')
+    pills.push({ type: id.startsWith('doc.') ? 'doc' : 'skill', label })
+  }
+  for (const re of [_PROJECT_CTX_INLINE_RE, _PROJECT_CTX_PARAM_RE]) {
+    for (const m of code.matchAll(re)) {
+      const pid = parseInt(m[1])
+      const key = `project:${pid}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      _ensureProjectName(pid)
+      pills.push({ type: 'project', label: '', projectId: pid })
+    }
+  }
+  return pills
+}
+
+function extractResources(code: string | undefined): ResourcePill[] {
+  return extractRawResources(code).map(p =>
+    p.type === 'project' ? { ...p, label: projectLabel(p.projectId!) } : p
+  )
+}
+
+function extractGroupResources(items: ContentBlock[]): ResourcePill[] {
+  const seen = new Set<string>()
+  const pills: ResourcePill[] = []
+  for (const item of items) {
+    if (item.type !== 'tool_call') continue
+    for (const p of extractResources(item.code)) {
+      const key = `${p.type}:${p.label}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      pills.push(p)
+    }
+  }
+  return pills
+}
+
 function renderUserContent(content: string | null | undefined): string {
   if (!content) return ''
   const escaped = content
@@ -285,10 +372,15 @@ function renderUserContent(content: string | null | undefined): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-  return escaped.replace(
-    /@\[([^\]]+)\]\((\d+)\)/g,
-    (_, label, id) => `<span class="mention-badge" data-id="${id}">@${label}</span>`
-  )
+  return escaped
+    .replace(
+      /@\[([^\]]+)\]\((\d+)\)/g,
+      (_, label, id) => `<span class="mention-badge" data-id="${id}">@${label}</span>`
+    )
+    .replace(
+      /\/\[([^\]]+)\]\(([^)]+)\)/g,
+      (_, label, id) => `<span class="template-badge" data-id="${id}">/${label}</span>`
+    )
 }
 
 function handleBubbleCopy(event: ClipboardEvent) {
@@ -307,6 +399,11 @@ function handleBubbleCopy(event: ClipboardEvent) {
     const id = badge.getAttribute('data-id')
     const label = badge.textContent?.replace(/^@/, '') || ''
     badge.replaceWith(`@[${label}](${id})`)
+  }
+  for (const badge of textWrap.querySelectorAll('.template-badge[data-id]')) {
+    const id = badge.getAttribute('data-id')
+    const label = badge.textContent?.replace(/^\//, '') || ''
+    badge.replaceWith(`/[${label}](${id})`)
   }
 
   event.clipboardData?.setData('text/html', htmlWrap.innerHTML)
@@ -350,7 +447,7 @@ const hasStats = computed(() =>
   totalInputTokens.value > 0 || outputTokens.value > 0 || toolCost.value > 0 || llmCost.value > 0
 )
 
-import { supabaseUrl } from '@/lib/supabase'
+import { supabase, supabaseUrl } from '@/lib/supabase'
 
 function formatFileSize(bytes: number): string {
   if (!bytes) return ''
@@ -414,6 +511,16 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 .user-bubble :deep(.mention-badge) {
   background: rgba(0, 0, 0, 0.5);
   color: #c7d2fe;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.92em;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.user-bubble :deep(.template-badge) {
+  background: rgba(168, 85, 247, 0.35);
+  color: #d8b4fe;
   padding: 0.15em 0.6em;
   border-radius: 999px;
   font-weight: 600;
@@ -505,6 +612,29 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 .tool-error-badge {
   font-size: 0.75rem; color: var(--error-text); background: var(--error-bg);
   padding: 0.1rem 0.4rem; border-radius: 3px;
+}
+
+.resource-pill {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.6rem;
+  margin: -0.35rem 0;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.pill-skill {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+.pill-doc {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+.pill-project {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
 }
 
 .tool-chevron {
