@@ -38,10 +38,13 @@
                   <button class="section-trigger" @click="toggle(`g-${gi}`)">
                     <i class="pi pi-code tool-icon"></i>
                     <span>{{ workGroupSummary(group.items!, isStreaming && gi === groups.length - 1) }}</span>
-                    <span
-                      v-for="pill in extractGroupResources(group.items!)" :key="`${pill.type}:${pill.label}`"
-                      class="resource-pill" :class="`pill-${pill.type}`"
-                    >{{ pill.label }}</span>
+                    <span class="pill-wrap">
+                      <span
+                        v-for="pill in extractGroupResources(group.items!)" :key="`${pill.type}:${pill.label}`"
+                        class="resource-pill" :class="`pill-${pill.type}`"
+                      >{{ pill.label }}</span>
+                    </span>
+                    <span v-if="lastToolSummary(group.items!)" class="tool-summary">{{ lastToolSummary(group.items!) }}</span>
                     <i v-if="isStreaming && gi === groups.length - 1" class="pi pi-spin pi-spinner tool-spinner"></i>
                     <i class="pi pi-chevron-right tool-chevron"></i>
                   </button>
@@ -53,10 +56,13 @@
                             <button class="section-trigger" @click="toggle(`c-${item.id}`)">
                               <i class="pi pi-code tool-icon"></i>
                               <span>Python</span>
-                              <span
-                                v-for="pill in extractResources(item.code)" :key="`${pill.type}:${pill.label}`"
-                                class="resource-pill" :class="`pill-${pill.type}`"
-                              >{{ pill.label }}</span>
+                              <span class="pill-wrap">
+                                <span
+                                  v-for="pill in extractResources(item.code)" :key="`${pill.type}:${pill.label}`"
+                                  class="resource-pill" :class="`pill-${pill.type}`"
+                                >{{ pill.label }}</span>
+                              </span>
+                              <span v-if="extractSummary(item.code)" class="tool-summary">{{ extractSummary(item.code) }}</span>
                               <span v-if="item.error" class="tool-error-badge">error</span>
                               <i v-if="item.id === currentToolId" class="pi pi-spin pi-spinner tool-spinner"></i>
                               <i class="pi pi-chevron-right tool-chevron"></i>
@@ -94,10 +100,13 @@
                   <button class="section-trigger" @click="toggle(`c-${group.items![0].id}`)">
                     <i class="pi pi-code tool-icon"></i>
                     <span>Python</span>
-                    <span
-                      v-for="pill in extractResources(group.items![0].code)" :key="`${pill.type}:${pill.label}`"
-                      class="resource-pill" :class="`pill-${pill.type}`"
-                    >{{ pill.label }}</span>
+                    <span class="pill-wrap">
+                      <span
+                        v-for="pill in extractResources(group.items![0].code)" :key="`${pill.type}:${pill.label}`"
+                        class="resource-pill" :class="`pill-${pill.type}`"
+                      >{{ pill.label }}</span>
+                    </span>
+                    <span v-if="extractSummary(group.items![0].code)" class="tool-summary">{{ extractSummary(group.items![0].code) }}</span>
                     <span v-if="group.items![0].error" class="tool-error-badge">error</span>
                     <i class="pi pi-chevron-right tool-chevron"></i>
                   </button>
@@ -365,6 +374,23 @@ function extractGroupResources(items: ContentBlock[]): ResourcePill[] {
   return pills
 }
 
+function extractSummary(code: string | undefined): string {
+  if (!code) return ''
+  const first = code.trimStart().split('\n', 1)[0]
+  if (!first.startsWith('#')) return ''
+  return first.replace(/^#+\s*/, '').trim()
+}
+
+function lastToolSummary(items: ContentBlock[]): string {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].type === 'tool_call') {
+      const s = extractSummary(items[i].code)
+      if (s) return s
+    }
+  }
+  return ''
+}
+
 function renderUserContent(content: string | null | undefined): string {
   if (!content) return ''
   const escaped = content
@@ -614,6 +640,16 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   padding: 0.1rem 0.4rem; border-radius: 3px;
 }
 
+.pill-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  max-width: min(60%, 400px);
+  flex-shrink: 1;
+  min-width: 0;
+}
+
 .resource-pill {
   font-size: 0.85rem;
   padding: 0.35rem 0.6rem;
@@ -623,6 +659,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1;
+  flex-shrink: 0;
 }
 .pill-skill {
   background: rgba(168, 85, 247, 0.2);
@@ -635,6 +672,17 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 .pill-project {
   background: rgba(99, 102, 241, 0.2);
   color: #a5b4fc;
+}
+
+.tool-summary {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .tool-chevron {
